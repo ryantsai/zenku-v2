@@ -85,7 +85,7 @@ export function KanbanView({ view }: Props) {
   ];
 
   const handleDragStart = (event: DragStartEvent) => {
-    const row = rows.find(r => r.id === event.active.id);
+    const row = rows.find(r => String(r.id) === String(event.active.id));
     setActiveRow(row ?? null);
   };
 
@@ -94,16 +94,16 @@ export function KanbanView({ view }: Props) {
     const { active, over } = event;
     if (!over) return;
 
-    const draggedId = active.id;
+    const draggedIdStr = String(active.id);
     const targetGroup = String(over.id);
-    const draggedRow = rows.find(r => r.id === draggedId);
-    if (!draggedRow || draggedRow[groupField] === targetGroup) return;
+    const draggedRow = rows.find(r => String(r.id) === draggedIdStr);
+    if (!draggedRow || String(draggedRow[groupField]) === targetGroup) return;
 
     // Optimistic update
-    setRows(prev => prev.map(r => r.id === draggedId ? { ...r, [groupField]: targetGroup } : r));
+    setRows(prev => prev.map(r => String(r.id) === draggedIdStr ? { ...r, [groupField]: targetGroup } : r));
 
     try {
-      await updateRow(view.table_name, String(draggedId), { [groupField]: targetGroup });
+      await updateRow(view.table_name, draggedIdStr, { [groupField]: targetGroup });
     } catch (err) {
       toast.error('更新失敗', { description: String(err) });
       void fetchRows(); // revert
