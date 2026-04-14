@@ -71,9 +71,18 @@ export function KanbanView({ view }: Props) {
   for (const g of groups) grouped[g] = [];
   for (const row of rows) {
     const key = String(row[groupField] ?? '');
-    if (key in grouped) grouped[key].push(row);
-    else grouped[key] = [row]; // unknown group
+    if (!key) continue; // skip rows with empty group field
+    if (key in grouped) {
+      grouped[key].push(row);
+    } else {
+      grouped[key] = [row]; // value exists in data but not in options → create column
+    }
   }
+  // Ensure all groups with data are shown (even if not in options)
+  const allGroups = [
+    ...groups,
+    ...Object.keys(grouped).filter(k => !groups.includes(k)),
+  ];
 
   const handleDragStart = (event: DragStartEvent) => {
     const row = rows.find(r => r.id === event.active.id);
@@ -108,7 +117,7 @@ export function KanbanView({ view }: Props) {
   return (
     <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
       <div className="flex h-full gap-3 overflow-x-auto p-4">
-        {groups.map(group => (
+        {allGroups.map(group => (
           <KanbanColumn
             key={group}
             group={group}
