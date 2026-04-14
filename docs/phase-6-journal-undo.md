@@ -297,8 +297,34 @@ Orchestrator → undo_action({ target: 'by_time', since: '2026-04-13T00:00:00' }
 
 ## 驗收標準
 
-- [ ] 每次 agent 操作都寫入 journal
-- [ ] 「復原剛才的操作」→ 正確回滾最近一筆
-- [ ] 「回到昨天的版本」→ 批次回滾
-- [ ] 新 session 開始時，AI 知道之前做了什麼
+- [x] 每次 agent 操作都寫入 journal
+- [x] 「復原剛才的操作」→ 正確回滾最近一筆
+- [x] 「回到昨天的版本」→ 批次回滾
+- [x] 新 session 開始時，AI 知道之前做了什麼（journal 注入 system prompt）
 - [ ] 不可逆操作（如已匯入大量資料後改結構）給出警告
+
+---
+
+## 實作紀錄（2026-04-14）
+
+### 已完成
+
+- `_zenku_journal` 表建立（db.ts）：`id`, `session_id`, `agent`, `type`, `description`, `diff`, `user_request`, `reversible`, `reverse_operations`, `reversed`, `reversed_by`, `timestamp`
+- `getSessionId()`：每個 server 程序一個 UUID session
+- `writeJournal()` / `getRecentJournal()` / `JournalRow` / `ReverseOp` 介面
+- journal 寫入點：
+  - `db-tools.ts`：create_table（DROP TABLE 回滾）、add_column（DROP COLUMN 回滾）
+  - `view-tools.ts`：create_view（DELETE 回滾）、update_view（UPDATE 還原舊定義）
+  - `logic-agent.ts`：create_rule（DELETE 回滾）、delete_rule（INSERT 還原）
+- `journal-tools.ts`：`undoLast()`, `undoById()`, `undoSince()`, `buildJournalContext()`
+  - `ReverseOp` 支援 `sql`（直接 exec）和 `drop_column`（ALTER TABLE DROP COLUMN）
+- `orchestrator.ts`：
+  - import journal-tools
+  - 新增 `undo_action` 工具（last / by_id / by_time）
+  - `chat()` dispatch undo_action
+  - `buildSystemPrompt()` 末尾注入 `buildJournalContext()` 輸出
+
+### 待完成
+
+- [ ] 不可逆操作警告（大量資料匯入後的結構變更）
+- [ ] Journal 壓縮（超過 50 筆時用 Haiku 做摘要）
