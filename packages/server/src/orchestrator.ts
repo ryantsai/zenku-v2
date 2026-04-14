@@ -548,9 +548,24 @@ ${(() => {
 ${buildJournalContext()}`;
 }
 
+type UserRole = 'admin' | 'builder' | 'user';
+
+function getToolsForRole(role: UserRole): Anthropic.Tool[] {
+  if (role === 'user') {
+    // user 只能查詢，不能修改結構、介面、規則
+    return TOOLS.filter(t => t.name === 'query_data');
+  }
+  if (role === 'builder') {
+    // builder 不能 undo
+    return TOOLS.filter(t => t.name !== 'undo_action');
+  }
+  return TOOLS; // admin 全部
+}
+
 export async function* chat(
   userMessage: string,
-  history: { role: 'user' | 'assistant'; content: string }[]
+  history: { role: 'user' | 'assistant'; content: string }[],
+  userRole: UserRole = 'admin'
 ): AsyncGenerator<string> {
   const messages: Anthropic.MessageParam[] = [
     ...history.map(h => ({ role: h.role as 'user' | 'assistant', content: h.content })),
@@ -565,7 +580,7 @@ export async function* chat(
       model: 'claude-sonnet-4-6',
       max_tokens: 4096,
       system: buildSystemPrompt(),
-      tools: TOOLS,
+      tools: getToolsForRole(userRole),
       messages: currentMessages,
     });
 

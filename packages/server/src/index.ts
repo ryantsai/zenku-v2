@@ -15,6 +15,11 @@ function isSafeFieldName(name: string): boolean {
   return /^[a-zA-Z_][a-zA-Z0-9_]*$/.test(name);
 }
 
+// Express 5's ParamsDictionary allows string | string[]; normalize to string
+function p(v: string | string[]): string {
+  return Array.isArray(v) ? v[0] ?? '' : v;
+}
+
 // 從 view definition 取出 relation columns（供 JOIN 使用）
 interface RelationColumnDef {
   key: string;
@@ -35,6 +40,10 @@ function getRelationColumns(tableName: string): RelationColumnDef[] {
   }
 }
 import { chat } from './orchestrator';
+import {
+  requireAuth, requireAdmin,
+  registerHandler, loginHandler, meHandler, logoutHandler, statusHandler,
+} from './middleware/auth';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -43,9 +52,39 @@ app.use(cors());
 app.use(express.json());
 
 // ──────────────────────────────────────────────
+// Auth endpoints
+// ──────────────────────────────────────────────
+app.get('/api/auth/status', statusHandler);
+app.post('/api/auth/register', (req, res) => { void registerHandler(req, res); });
+app.post('/api/auth/login', (req, res) => { void loginHandler(req, res); });
+app.get('/api/auth/me', requireAuth, meHandler);
+app.post('/api/auth/logout', requireAuth, logoutHandler);
+
+// ──────────────────────────────────────────────
+// Admin endpoints
+// ──────────────────────────────────────────────
+app.get('/api/admin/users', requireAdmin, (_req, res) => {
+  const db = getDb();
+  const users = db.prepare(
+    'SELECT id, email, name, role, created_at, last_login_at FROM _zenku_users ORDER BY created_at'
+  ).all();
+  res.json(users);
+});
+
+app.put('/api/admin/users/:id/role', requireAdmin, (req, res) => {
+  const { role } = req.body as { role?: string };
+  if (!['admin', 'builder', 'user'].includes(role ?? '')) {
+    res.status(400).json({ error: '無效的角色' });
+    return;
+  }
+  getDb().prepare('UPDATE _zenku_users SET role = ? WHERE id = ?').run(role!, String(req.params.id));
+  res.json({ success: true });
+});
+
+// ──────────────────────────────────────────────
 // Chat endpoint (SSE)
 // ──────────────────────────────────────────────
-app.post('/api/chat', async (req, res) => {
+app.post('/api/chat', requireAuth, async (req, res) => {
   const { message, history = [] } = req.body as {
     message: string;
     history: { role: 'user' | 'assistant'; content: string }[];
@@ -61,7 +100,8 @@ app.post('/api/chat', async (req, res) => {
   res.setHeader('Connection', 'keep-alive');
 
   try {
-    for await (const chunk of chat(message, history)) {
+    const role = req.user!.role;
+    for await (const chunk of chat(message, history, role)) {
       res.write(`data: ${chunk}\n`);
     }
   } catch (err) {
@@ -75,7 +115,7 @@ app.post('/api/chat', async (req, res) => {
 // ──────────────────────────────────────────────
 // Views
 // ──────────────────────────────────────────────
-app.get('/api/views', (_req, res) => {
+app.get('/api/views', requireAuth, (_req, res) => {
   const views = getAllViews();
   res.json(views.map(v => ({ ...v, definition: JSON.parse(v.definition) })));
 });
@@ -86,8 +126,8 @@ app.get('/api/views', (_req, res) => {
 // ──────────────────────────────────────────────
 // 關聯欄位選項端點
 // ──────────────────────────────────────────────
-app.get('/api/data/:table/options', (req, res) => {
-  const { table } = req.params;
+app.get('/api/data/:table/options', requireAuth, (req, res) => {
+  const table = p(req.params.table);
   if (table.startsWith('_zenku_')) {
     res.status(403).json({ error: '不允許存取系統表' });
     return;
@@ -134,8 +174,8 @@ app.get('/api/data/:table/options', (req, res) => {
 });
 
 // GET single record by id (with relation JOIN)
-app.get('/api/data/:table/:id', (req, res) => {
-  const { table, id } = req.params;
+app.get('/api/data/:table/:id', requireAuth, (req, res) => {
+  const table = p(req.params.table), id = p(req.params.id);
   if (table.startsWith('_zenku_')) {
     res.status(403).json({ error: '不允許存取系統表' });
     return;
@@ -167,8 +207,8 @@ app.get('/api/data/:table/:id', (req, res) => {
   }
 });
 
-app.get('/api/data/:table', (req, res) => {
-  const { table } = req.params;
+app.get('/api/data/:table', requireAuth, (req, res) => {
+  const table = p(req.params.table);
   if (table.startsWith('_zenku_')) {
     res.status(403).json({ error: '不允許存取系統表' });
     return;
@@ -260,8 +300,8 @@ app.get('/api/data/:table', (req, res) => {
   }
 });
 
-app.post('/api/data/:table', async (req, res) => {
-  const { table } = req.params;
+app.post('/api/data/:table', requireAuth, async (req, res) => {
+  const table = p(req.params.table);
   if (table.startsWith('_zenku_')) {
     res.status(403).json({ error: '不允許存取系統表' });
     return;
@@ -301,8 +341,8 @@ app.post('/api/data/:table', async (req, res) => {
   }
 });
 
-app.put('/api/data/:table/:id', async (req, res) => {
-  const { table, id } = req.params;
+app.put('/api/data/:table/:id', requireAuth, async (req, res) => {
+  const table = p(req.params.table), id = p(req.params.id);
   if (table.startsWith('_zenku_')) {
     res.status(403).json({ error: '不允許存取系統表' });
     return;
@@ -344,8 +384,8 @@ app.put('/api/data/:table/:id', async (req, res) => {
   }
 });
 
-app.delete('/api/data/:table/:id', async (req, res) => {
-  const { table, id } = req.params;
+app.delete('/api/data/:table/:id', requireAuth, async (req, res) => {
+  const table = p(req.params.table), id = p(req.params.id);
   if (table.startsWith('_zenku_')) {
     res.status(403).json({ error: '不允許存取系統表' });
     return;
@@ -440,7 +480,7 @@ app.post('/api/reset', (_req, res) => {
 // ──────────────────────────────────────────────
 // Dashboard query endpoint (SELECT only)
 // ──────────────────────────────────────────────
-app.post('/api/query', (req, res) => {
+app.post('/api/query', requireAuth, (req, res) => {
   const { sql } = req.body as { sql?: string };
   if (!sql || typeof sql !== 'string') {
     res.status(400).json({ error: '缺少 sql 參數' });

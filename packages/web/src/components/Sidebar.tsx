@@ -3,6 +3,7 @@ import { Database, BarChart3, Columns3, Calendar, FileText } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react';
 import { cn } from '../lib/cn';
 import { useViews } from '../contexts/ViewsContext';
+import { UserMenu } from './auth/UserMenu';
 import type { ViewType } from '../types';
 
 interface Props {
@@ -51,6 +52,7 @@ export function Sidebar({ collapsed = false }: Props) {
           })
         )}
       </nav>
+      {!collapsed && <UserMenu />}
     </aside>
   );
 }

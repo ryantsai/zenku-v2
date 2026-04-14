@@ -2,6 +2,11 @@ import type { ViewDefinition, SSEChunk } from './types';
 
 const BASE = '/api';
 
+function authHeaders(): Record<string, string> {
+  const token = localStorage.getItem('zenku-token');
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
 export interface TableQuery {
   page: number;
   limit: number;
@@ -28,7 +33,7 @@ async function parseJsonOrThrow<T>(res: Response): Promise<T> {
 }
 
 export async function getViews(): Promise<{ definition: ViewDefinition }[]> {
-  const res = await fetch(`${BASE}/views`);
+  const res = await fetch(`${BASE}/views`, { headers: authHeaders() });
   return parseJsonOrThrow<{ definition: ViewDefinition }[]>(res);
 }
 
@@ -45,19 +50,19 @@ export async function getTableData(table: string, query: TableQuery): Promise<Ta
     }
   }
 
-  const res = await fetch(`${BASE}/data/${table}?${params.toString()}`);
+  const res = await fetch(`${BASE}/data/${table}?${params.toString()}`, { headers: authHeaders() });
   return parseJsonOrThrow<TableQueryResult>(res);
 }
 
 export async function getRecord(table: string, id: string | number): Promise<Record<string, unknown>> {
-  const res = await fetch(`${BASE}/data/${table}/${id}`);
+  const res = await fetch(`${BASE}/data/${table}/${id}`, { headers: authHeaders() });
   return parseJsonOrThrow<Record<string, unknown>>(res);
 }
 
 export async function createRow(table: string, data: Record<string, unknown>): Promise<Record<string, unknown>> {
   const res = await fetch(`${BASE}/data/${table}`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
     body: JSON.stringify(data),
   });
   return parseJsonOrThrow<Record<string, unknown>>(res);
@@ -66,21 +71,21 @@ export async function createRow(table: string, data: Record<string, unknown>): P
 export async function updateRow(table: string, id: unknown, data: Record<string, unknown>): Promise<Record<string, unknown>> {
   const res = await fetch(`${BASE}/data/${table}/${id}`, {
     method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
     body: JSON.stringify(data),
   });
   return parseJsonOrThrow<Record<string, unknown>>(res);
 }
 
 export async function deleteRow(table: string, id: unknown): Promise<void> {
-  const res = await fetch(`${BASE}/data/${table}/${id}`, { method: 'DELETE' });
+  const res = await fetch(`${BASE}/data/${table}/${id}`, { method: 'DELETE', headers: authHeaders() });
   await parseJsonOrThrow<{ success: boolean }>(res);
 }
 
 export async function runQuery(sql: string): Promise<Record<string, unknown>[]> {
   const res = await fetch(`${BASE}/query`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
     body: JSON.stringify({ sql }),
   });
   return parseJsonOrThrow<Record<string, unknown>[]>(res);
@@ -92,7 +97,7 @@ export async function* sendChat(
 ): AsyncGenerator<SSEChunk> {
   const res = await fetch(`${BASE}/chat`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
     body: JSON.stringify({ message, history }),
   });
 

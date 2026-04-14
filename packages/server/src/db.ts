@@ -17,6 +17,24 @@ export function getDb(): DatabaseSync {
 
 function initSystemTables(db: DatabaseSync): void {
   db.exec(`
+    CREATE TABLE IF NOT EXISTS _zenku_users (
+      id TEXT PRIMARY KEY,
+      email TEXT UNIQUE NOT NULL,
+      name TEXT NOT NULL,
+      password_hash TEXT NOT NULL,
+      role TEXT NOT NULL DEFAULT 'user',
+      created_at TEXT DEFAULT (datetime('now')),
+      last_login_at TEXT
+    );
+
+    CREATE TABLE IF NOT EXISTS _zenku_sessions (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL REFERENCES _zenku_users(id),
+      token TEXT UNIQUE NOT NULL,
+      expires_at TEXT NOT NULL,
+      created_at TEXT DEFAULT (datetime('now'))
+    );
+
     CREATE TABLE IF NOT EXISTS _zenku_views (
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL,
@@ -213,6 +231,24 @@ export function getRecentJournal(limit = 20): JournalRow[] {
   return db.prepare(
     'SELECT * FROM _zenku_journal WHERE reversed = 0 ORDER BY id DESC LIMIT ?'
   ).all(limit) as unknown as JournalRow[];
+}
+
+// ===== Auth helpers =====
+
+export interface UserRow {
+  id: string;
+  email: string;
+  name: string;
+  password_hash: string;
+  role: 'admin' | 'builder' | 'user';
+  created_at: string;
+  last_login_at: string | null;
+}
+
+export function getUserCount(): number {
+  const db = getDb();
+  const row = db.prepare('SELECT COUNT(*) as count FROM _zenku_users').get() as { count: number };
+  return row.count;
 }
 
 // ===== Legacy (kept for compatibility) =====
