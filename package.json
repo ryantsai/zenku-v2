@@ -1,0 +1,17 @@
+{
+  "name": "zenku",
+  "version": "0.1.0",
+  "private": true,
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "predev": "npx kill-port 3001 5173 --silent 2>nul || true",
+    "dev": "concurrently --kill-others-on-fail \"npm run dev -w packages/server\" \"npm run dev -w packages/web\"",
+    "build": "npm run build -w packages/server && npm run build -w packages/web"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2",
+    "kill-port": "^2.0.1"
+  }
+}
