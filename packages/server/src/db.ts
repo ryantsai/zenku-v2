@@ -48,8 +48,38 @@ function initSystemTables(db: DatabaseSync): void {
       created_at TEXT DEFAULT (datetime('now')),
       updated_at TEXT DEFAULT (datetime('now'))
     );
+
+    CREATE TABLE IF NOT EXISTS _zenku_journal (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      timestamp TEXT DEFAULT (datetime('now')),
+      session_id TEXT NOT NULL,
+      agent TEXT NOT NULL,
+      type TEXT NOT NULL,
+      description TEXT NOT NULL,
+      diff TEXT NOT NULL,
+      reason TEXT,
+      user_request TEXT,
+      reversible INTEGER DEFAULT 1,
+      reverse_operations TEXT,
+      reversed INTEGER DEFAULT 0,
+      reversed_by INTEGER
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_journal_session ON _zenku_journal(session_id);
+    CREATE INDEX IF NOT EXISTS idx_journal_timestamp ON _zenku_journal(timestamp);
   `);
 }
+
+// ===== Session =====
+
+let _sessionId: string | null = null;
+
+export function getSessionId(): string {
+  if (!_sessionId) _sessionId = crypto.randomUUID();
+  return _sessionId;
+}
+
+// ===== User tables =====
 
 export function getUserTables(): string[] {
   const db = getDb();
@@ -121,6 +151,71 @@ export function getAllRules(): RuleRow[] {
   const db = getDb();
   return db.prepare('SELECT * FROM _zenku_rules ORDER BY table_name, priority ASC').all() as unknown as RuleRow[];
 }
+
+// ===== Journal =====
+
+export interface ReverseOp {
+  type: 'sql' | 'drop_column';
+  sql?: string;
+  table?: string;
+  column?: string;
+}
+
+export interface JournalWriteInput {
+  agent: string;
+  type: string;
+  description: string;
+  diff: { before: unknown; after: unknown };
+  reason?: string;
+  user_request?: string;
+  reversible?: boolean;
+  reverse_operations?: ReverseOp[];
+}
+
+export function writeJournal(entry: JournalWriteInput): number {
+  const db = getDb();
+  const result = db.prepare(`
+    INSERT INTO _zenku_journal
+    (session_id, agent, type, description, diff, reason, user_request, reversible, reverse_operations)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(
+    getSessionId(),
+    entry.agent,
+    entry.type,
+    entry.description,
+    JSON.stringify(entry.diff),
+    entry.reason ?? '',
+    entry.user_request ?? '',
+    entry.reversible !== false ? 1 : 0,
+    entry.reverse_operations ? JSON.stringify(entry.reverse_operations) : null,
+  );
+  return Number(result.lastInsertRowid);
+}
+
+export interface JournalRow {
+  id: number;
+  timestamp: string;
+  session_id: string;
+  agent: string;
+  type: string;
+  description: string;
+  diff: string;
+  reason: string | null;
+  user_request: string | null;
+  reversible: number;
+  reverse_operations: string | null;
+  reversed: number;
+  reversed_by: number | null;
+}
+
+export function getRecentJournal(limit = 20): JournalRow[] {
+  const db = getDb();
+  return db.prepare(
+    'SELECT * FROM _zenku_journal WHERE reversed = 0 ORDER BY id DESC LIMIT ?'
+  ).all(limit) as unknown as JournalRow[];
+}
+
+// ===== Legacy (kept for compatibility) =====
 
 export function logChange(agent: string, action: string, detail: unknown, userRequest: string): void {
   const db = getDb();

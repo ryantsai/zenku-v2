@@ -1,4 +1,4 @@
-import { getDb, getTableSchema, getAllSchemas, logChange } from '../db';
+import { getDb, getTableSchema, getAllSchemas, logChange, writeJournal } from '../db';
 import type { AgentResult } from '../types';
 
 const ALLOWED_TYPES = new Set(['TEXT', 'INTEGER', 'REAL', 'BLOB', 'BOOLEAN', 'DATE', 'DATETIME']);
@@ -67,6 +67,15 @@ export function createTable(
 
   db.exec(sql);
   logChange('schema-agent', 'create_table', { tableName, columns }, userRequest);
+  writeJournal({
+    agent: 'schema',
+    type: 'schema_change',
+    description: `建立表 ${tableName}（欄位：${columns.map(c => c.name).join(', ')}）`,
+    diff: { before: null, after: { table: tableName, columns } },
+    user_request: userRequest,
+    reversible: true,
+    reverse_operations: [{ type: 'sql', sql: `DROP TABLE IF EXISTS "${tableName}"` }],
+  });
 
   return {
     success: true,
@@ -112,6 +121,16 @@ export function alterTable(
 
       db.exec(`ALTER TABLE "${tableName}" ADD COLUMN ${colDef}`);
       results.push(`新增欄位 ${col.name}`);
+
+      writeJournal({
+        agent: 'schema',
+        type: 'schema_change',
+        description: `在表 ${tableName} 新增欄位 ${col.name}（${col.type}）`,
+        diff: { before: null, after: { table: tableName, column: col } },
+        user_request: userRequest,
+        reversible: true,
+        reverse_operations: [{ type: 'drop_column', table: tableName, column: col.name }],
+      });
     }
   }
 

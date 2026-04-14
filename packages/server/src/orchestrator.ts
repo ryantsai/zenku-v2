@@ -5,6 +5,7 @@ import { runUiAgent } from './agents/ui-agent';
 import { runQueryAgent } from './agents/query-agent';
 import { runLogicAgent } from './agents/logic-agent';
 import { runTestAgent } from './agents/test-agent';
+import { undoLast, undoById, undoSince, buildJournalContext } from './tools/journal-tools';
 import type { ViewDefinition } from './types';
 
 let _client: Anthropic | null = null;
@@ -424,6 +425,25 @@ Condition field 支援 FK 路徑（跨表條件）：
       required: ['table_name', 'change_type'],
     },
   },
+  {
+    name: 'undo_action',
+    description: `復原先前的操作。使用者說「復原」「取消剛才」「回到之前的版本」時呼叫。
+- target=last：復原最近一筆可逆操作
+- target=by_id：復原指定 journal id 的操作
+- target=by_time：復原指定時間之後的所有操作（批次回滾）`,
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        target: {
+          type: 'string',
+          enum: ['last', 'by_id', 'by_time'],
+        },
+        journal_id: { type: 'number', description: 'target=by_id 時的 journal 記錄 ID' },
+        since: { type: 'string', description: 'target=by_time 時的 ISO timestamp（如 "2026-04-14 09:00:00"）' },
+      },
+      required: ['target'],
+    },
+  },
 ];
 
 function buildSystemPrompt(): string {
@@ -522,7 +542,10 @@ ${(() => {
   return rules.length > 0
     ? rules.map(r => `- ${r.name}（${r.trigger_type} on ${r.table_name}）${r.enabled ? '' : '（停用）'}`).join('\n')
     : '（目前沒有任何規則）';
-})()}`;
+})()}
+
+最近操作紀錄（供復原參考）：
+${buildJournalContext()}`;
 }
 
 export async function* chat(
@@ -583,6 +606,17 @@ export async function* chat(
             result = runTestAgent(
               toolInput as unknown as Parameters<typeof runTestAgent>[0]
             );
+          } else if (toolName === 'undo_action') {
+            const { target, journal_id, since } = toolInput as { target: string; journal_id?: number; since?: string };
+            if (target === 'last') {
+              result = undoLast(userMessage);
+            } else if (target === 'by_id' && journal_id != null) {
+              result = undoById(journal_id, userMessage);
+            } else if (target === 'by_time' && since) {
+              result = undoSince(since, userMessage);
+            } else {
+              result = { success: false, message: '無效的 undo 參數' };
+            }
           } else {
             result = { success: false, message: `未知工具：${toolName}` };
           }

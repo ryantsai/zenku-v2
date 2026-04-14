@@ -1,4 +1,4 @@
-import { getDb, getAllRules, logChange } from '../db';
+import { getDb, getAllRules, logChange, writeJournal } from '../db';
 import type { AgentResult } from '../types';
 
 interface RuleDef {
@@ -71,6 +71,15 @@ function createRule(rule: RuleDef, userRequest: string): AgentResult {
   );
 
   logChange('logic-agent', 'create_rule', { id, rule }, userRequest);
+  writeJournal({
+    agent: 'logic',
+    type: 'rule_change',
+    description: `建立規則「${rule.name}」（${rule.trigger_type} on ${rule.table_name}）`,
+    diff: { before: null, after: { id, ...rule } },
+    user_request: userRequest,
+    reversible: true,
+    reverse_operations: [{ type: 'sql', sql: `DELETE FROM _zenku_rules WHERE id = ${JSON.stringify(id)}` }],
+  });
 
   return {
     success: true,
@@ -115,6 +124,18 @@ function updateRule(ruleId: string, rule: RuleDef, userRequest: string): AgentRe
 
 function deleteRule(ruleId: string, userRequest: string): AgentResult {
   const db = getDb();
+  const existing = db.prepare('SELECT * FROM _zenku_rules WHERE id = ?').get(ruleId) as Record<string, unknown> | undefined;
+
+  if (!existing) {
+    return { success: false, message: `找不到規則：${ruleId}` };
+  }
+
+  const restoreSQL = `INSERT OR IGNORE INTO _zenku_rules (id, name, description, table_name, trigger_type, condition, actions, priority, enabled, created_at, updated_at) VALUES (${
+    [existing.id, existing.name, existing.description, existing.table_name, existing.trigger_type,
+     existing.condition, existing.actions, existing.priority, existing.enabled, existing.created_at, existing.updated_at]
+      .map(v => v === null ? 'NULL' : JSON.stringify(v)).join(', ')
+  })`;
+
   const result = db.prepare('DELETE FROM _zenku_rules WHERE id = ?').run(ruleId);
 
   if (result.changes === 0) {
@@ -122,6 +143,15 @@ function deleteRule(ruleId: string, userRequest: string): AgentResult {
   }
 
   logChange('logic-agent', 'delete_rule', { ruleId }, userRequest);
+  writeJournal({
+    agent: 'logic',
+    type: 'rule_change',
+    description: `刪除規則「${String(existing.name)}」`,
+    diff: { before: existing, after: null },
+    user_request: userRequest,
+    reversible: true,
+    reverse_operations: [{ type: 'sql', sql: restoreSQL }],
+  });
   return { success: true, message: `已刪除規則 ${ruleId}` };
 }
 
