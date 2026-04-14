@@ -676,12 +676,56 @@ docker-compose.yml
 
 ## 驗收標準
 
-- [ ] 可在 ChatPanel 切換 Claude / OpenAI / Gemini
-- [ ] 三個 provider 都能正確執行 tool_use 迴圈
+- [x] 可在 ChatPanel 切換 Claude / OpenAI / Gemini
+- [x] 三個 provider 都能正確執行 tool_use 迴圈
 - [ ] 每次對話記錄 token 用量和延遲
 - [ ] Admin 可以查看所有使用者的對話歷程（含思考鏈、工具使用）
 - [ ] Admin 可以看到 token 花費統計（按 provider、使用者、時間）
 - [ ] Webhook rule 觸發後正確呼叫外部 URL
 - [ ] n8n 可以透過回呼 API 更新 Zenku 資料
 - [ ] Docker build + run 正常
-- [ ] 環境變數正確注入
+- [x] 環境變數正確注入
+
+---
+
+## 實作紀錄（2026-04-15）
+
+### 8.1 AI Provider 抽象層 — 已完成
+
+**架構設計（Opus）：**
+
+```
+server/src/ai/
+├── types.ts            — ToolDefinition + AIProvider 介面
+├── claude-provider.ts  — Anthropic SDK 實作
+├── openai-provider.ts  — OpenAI SDK 實作
+├── gemini-provider.ts  — Google Generative AI SDK 實作
+└── index.ts            — Factory + 可用 provider 偵測
+```
+
+**核心設計：**
+- `AIProvider.chat(ChatParams) → LLMResponse`：統一的 provider 介面
+- `LLMMessage`（來自 @zenku/shared）作為 provider-agnostic 訊息格式
+  - `role: 'assistant'` + `tool_calls` → 各 provider 轉為原生格式
+  - `role: 'user'` + `tool_results` → 各 provider 轉為原生 tool result
+- 每個 provider 實作 message 雙向轉換（to/from native format）
+- Singleton cache：每個 provider name 只建一次實例
+- `getAvailableProviders()` 偵測 env 中有哪些 API key 已設定
+
+**Orchestrator 重構：**
+- 移除 Anthropic SDK 直接依賴，改用 `AIProvider.chat()`
+- `TOOLS` 改型別為 `ToolDefinition[]`（provider-agnostic，結構不變）
+- 新增 `executeTool()` 抽取工具分發邏輯
+- `chat()` 接受 `ChatOptions { provider?, model? }`
+
+**前端：**
+- `GET /api/ai/providers` → 可用 provider 清單
+- ChatPanel：provider/model 雙下拉選擇器（>1 provider 時顯示）
+- `sendChat()` 傳送 provider/model 到後端
+
+### 待完成
+
+- [ ] 8.2 對話歷程管理（_zenku_chat_sessions, _zenku_chat_messages, _zenku_tool_events）
+- [ ] 8.3 管理者 — 對話歷程 UI（ChatHistory, SessionDetail, UsageStats）
+- [ ] 8.4 Webhook / n8n 整合
+- [ ] 8.5 部署（Dockerfile, docker-compose.yml）
