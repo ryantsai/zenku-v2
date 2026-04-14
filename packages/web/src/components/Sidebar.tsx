@@ -1,11 +1,21 @@
 import { NavLink } from 'react-router-dom';
-import { Database } from 'lucide-react';
+import { Database, BarChart3, Columns3, Calendar, FileText } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import { cn } from '../lib/cn';
 import { useViews } from '../contexts/ViewsContext';
+import type { ViewType } from '../types';
 
 interface Props {
   collapsed?: boolean;
 }
+
+const VIEW_ICONS: Record<ViewType, LucideIcon> = {
+  'table':         Database,
+  'master-detail': FileText,
+  'dashboard':     BarChart3,
+  'kanban':        Columns3,
+  'calendar':      Calendar,
+};
 
 export function Sidebar({ collapsed = false }: Props) {
   const { views } = useViews();
@@ -18,24 +28,27 @@ export function Sidebar({ collapsed = false }: Props) {
             {collapsed ? '無' : '尚無頁面'}
           </div>
         ) : (
-          views.map(view => (
-            <NavLink
-              key={view.id}
-              to={`/view/${view.id}`}
-              className={({ isActive }) =>
-                cn(
-                  'flex w-full items-center gap-2.5 rounded-md px-3 py-1.5 text-sm font-medium transition-colors',
-                  collapsed && 'justify-center px-2',
-                  isActive
-                    ? 'bg-primary/10 text-primary'
-                    : 'text-muted-foreground hover:bg-accent hover:text-foreground',
-                )
-              }
-            >
-              <Database size={14} className="shrink-0" />
-              {!collapsed && <span className="truncate">{view.name}</span>}
-            </NavLink>
-          ))
+          views.map(view => {
+            const Icon = VIEW_ICONS[view.type] ?? Database;
+            return (
+              <NavLink
+                key={view.id}
+                to={`/view/${view.id}`}
+                className={({ isActive }) =>
+                  cn(
+                    'flex w-full items-center gap-2.5 rounded-md px-3 py-1.5 text-sm font-medium transition-colors',
+                    collapsed && 'justify-center px-2',
+                    isActive
+                      ? 'bg-primary/10 text-primary'
+                      : 'text-muted-foreground hover:bg-accent hover:text-foreground',
+                  )
+                }
+              >
+                <Icon size={14} className="shrink-0" />
+                {!collapsed && <span className="truncate">{view.name}</span>}
+              </NavLink>
+            );
+          })
         )}
       </nav>
     </aside>

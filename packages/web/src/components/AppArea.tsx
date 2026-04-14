@@ -3,6 +3,9 @@ import { useViews } from '../contexts/ViewsContext';
 import { TableView } from './blocks/TableView';
 import { MasterDetailView } from './blocks/MasterDetailView';
 import { MasterDetailCreateView } from './blocks/MasterDetailCreateView';
+import { DashboardView } from './blocks/DashboardView';
+import { KanbanView } from './blocks/KanbanView';
+import { CalendarView } from './blocks/CalendarView';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 
 export function AppArea() {
@@ -16,18 +19,28 @@ export function AppArea() {
   const view = views.find(v => v.id === viewId);
 
   if (!view) {
-    // Views might still be loading
     if (views.length === 0) return null;
     return <EmptyState />;
   }
 
-  if (view.type === 'master-detail') {
-    if (recordId === 'new') return <MasterDetailCreateView view={view} />;
-    if (recordId) return <MasterDetailView view={view} recordId={recordId} />;
-    return <TableView view={view} />;
-  }
+  switch (view.type) {
+    case 'master-detail':
+      if (recordId === 'new') return <MasterDetailCreateView view={view} />;
+      if (recordId) return <MasterDetailView view={view} recordId={recordId} />;
+      return <TableView view={view} />;
 
-  return <TableView view={view} />;
+    case 'dashboard':
+      return <DashboardView view={view} />;
+
+    case 'kanban':
+      return <KanbanView view={view} />;
+
+    case 'calendar':
+      return <CalendarView view={view} />;
+
+    default:
+      return <TableView view={view} />;
+  }
 }
 
 function EmptyState() {

@@ -438,6 +438,31 @@ app.post('/api/reset', (_req, res) => {
 });
 
 // ──────────────────────────────────────────────
+// Dashboard query endpoint (SELECT only)
+// ──────────────────────────────────────────────
+app.post('/api/query', (req, res) => {
+  const { sql } = req.body as { sql?: string };
+  if (!sql || typeof sql !== 'string') {
+    res.status(400).json({ error: '缺少 sql 參數' });
+    return;
+  }
+  const normalized = sql.trim().toUpperCase();
+  if (!normalized.startsWith('SELECT')) {
+    res.status(400).json({ error: '只允許 SELECT 查詢' });
+    return;
+  }
+  try {
+    const db = getDb();
+    // Append LIMIT if not present, capped at 1000 rows
+    const safeSQL = /\bLIMIT\b/i.test(sql) ? sql : `${sql} LIMIT 1000`;
+    const rows = db.prepare(safeSQL).all();
+    res.json(rows);
+  } catch (err) {
+    res.status(400).json({ error: String(err) });
+  }
+});
+
+// ──────────────────────────────────────────────
 // Health check
 // ──────────────────────────────────────────────
 app.get('/api/health', (_req, res) => {

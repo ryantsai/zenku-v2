@@ -155,16 +155,23 @@ const TOOLS: Anthropic.Tool[] = [
   },
   {
     name: 'manage_ui',
-    description: `建立或更新使用者介面（列表 + 表單）。在 manage_schema 後呼叫，保持介面與資料結構同步。
+    description: `建立或更新使用者介面。type 決定佈局：
 
-欄位 type 決定前端渲染方式：
+type 選擇指南：
+- table：一般列表管理（預設）
+- master-detail：主檔 + 明細（如訂單 + 訂單明細），需設 detail_views
+- dashboard：統計面板，需設 widgets（不需 columns/form）
+- kanban：看板拖曳，需設 kanban（group_field, title_field）
+- calendar：行事曆，需設 calendar（date_field, title_field）
+
+欄位 type 決定前端渲染方式（table/master-detail 適用）：
 - text/number/date/boolean/textarea：基本輸入
 - select + options：靜態下拉
-- select + source：動態下拉（從指定表載入）
 - relation + relation：關聯欄位（搜尋式下拉，存 id）
 - currency：金額（千分位格式）
-- phone/email/url：特殊文字（可點擊）
-- computed：只需在 form.fields 設定，columns 用 number 型別即可`,
+- computed：只需在 form.fields 設定，columns 用 number 型別即可
+
+使用者說「統計/看板/行事曆」時，直接建對應 type 的 view，不需要 table 作為前提。`,
     input_schema: {
       type: 'object' as const,
       properties: {
@@ -179,7 +186,7 @@ const TOOLS: Anthropic.Tool[] = [
             id: { type: 'string', description: '唯一 ID，通常等於 table_name' },
             name: { type: 'string', description: '顯示名稱（繁體中文）' },
             table_name: { type: 'string' },
-            type: { type: 'string', enum: ['table', 'master-detail'] },
+            type: { type: 'string', enum: ['table', 'master-detail', 'dashboard', 'kanban', 'calendar'] },
             columns: {
               type: 'array',
               description: '列表欄位定義',
@@ -252,7 +259,51 @@ const TOOLS: Anthropic.Tool[] = [
                 required: ['table_name', 'foreign_key', 'tab_label', 'view'],
               },
             },
-          required: ['id', 'name', 'table_name', 'type', 'columns', 'form', 'actions'],
+          widgets: {
+            type: 'array',
+            description: 'dashboard 型別的 widget 列表',
+            items: {
+              type: 'object',
+              properties: {
+                id: { type: 'string' },
+                type: { type: 'string', enum: ['stat_card', 'bar_chart', 'line_chart', 'pie_chart', 'mini_table'] },
+                title: { type: 'string', description: 'Widget 標題（繁體中文）' },
+                query: { type: 'string', description: 'SELECT SQL（必須是 SELECT）' },
+                size: { type: 'string', enum: ['sm', 'md', 'lg', 'full'] },
+                position: {
+                  type: 'object',
+                  properties: { row: { type: 'number' }, col: { type: 'number' } },
+                  required: ['row', 'col'],
+                },
+                config: {
+                  type: 'object',
+                  description: '圖表設定：x_key, y_key, label_key, value_key, color',
+                },
+              },
+              required: ['id', 'type', 'title', 'query', 'size', 'position'],
+            },
+          },
+          kanban: {
+            type: 'object',
+            description: 'kanban 型別的設定',
+            properties: {
+              group_field: { type: 'string' },
+              title_field: { type: 'string' },
+              description_field: { type: 'string' },
+            },
+            required: ['group_field', 'title_field'],
+          },
+          calendar: {
+            type: 'object',
+            description: 'calendar 型別的設定',
+            properties: {
+              date_field: { type: 'string' },
+              title_field: { type: 'string' },
+              color_field: { type: 'string' },
+            },
+            required: ['date_field', 'title_field'],
+          },
+          required: ['id', 'name', 'table_name', 'type'],
         },
       },
       required: ['action', 'view'],
@@ -428,10 +479,22 @@ function buildSystemPrompt(): string {
 2. manage_ui form.fields：加 computed: { formula: 'quantity * unit_price', dependencies: ['quantity', 'unit_price'], format: 'currency' }
 3. manage_ui columns：type 用 currency 或 number
 
+建立視覺化介面：
+- 統計面板（「我想看 XXX 統計」）→ manage_ui，type: 'dashboard'，widgets 陣列，每個 widget 有 SELECT SQL
+  - stat_card：單一數字，query 回傳 { value: N }
+  - bar_chart / line_chart：query 回傳 [{ label, value }]，設 config.x_key / y_key
+  - pie_chart：query 回傳 [{ label, value }]，設 config.label_key / value_key
+  - dashboard 不需要 columns / form / actions
+- 看板（「用看板管理」）→ manage_ui，type: 'kanban'，設 kanban: { group_field, title_field }
+  - group_field 應是 select 型別且有 options（如 status）
+  - 仍需定義 columns 和 form（切回列表模式時使用）
+- 行事曆（「行事曆/排程」）→ manage_ui，type: 'calendar'，設 calendar: { date_field, title_field }
+  - 仍需定義 columns 和 form
+
 建立業務規則時（如「VIP 客戶打 9 折」）：
 1. manage_rules → create_rule
 2. trigger_type 決定時機：before_insert（寫入前修改/驗證）、after_insert（寫入後觸發副作用）
-3. condition 決定觸發條件：{ field: 'customer_tier', operator: 'eq', value: 'vip' }
+3. condition.field 支援 FK 點路徑跨表：如 order_items 要檢查客戶等級，寫 "order_id.customer_id.tier"
 4. actions 決定動作：set_field 修改值、validate 拒絕、create_record 建記錄、webhook 呼叫 URL
 
 破壞性 schema 變更（drop_column, rename_column, change_type, drop_table）：

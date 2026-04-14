@@ -77,6 +77,15 @@ export async function deleteRow(table: string, id: unknown): Promise<void> {
   await parseJsonOrThrow<{ success: boolean }>(res);
 }
 
+export async function runQuery(sql: string): Promise<Record<string, unknown>[]> {
+  const res = await fetch(`${BASE}/query`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ sql }),
+  });
+  return parseJsonOrThrow<Record<string, unknown>[]>(res);
+}
+
 export async function* sendChat(
   message: string,
   history: { role: 'user' | 'assistant'; content: string }[]
