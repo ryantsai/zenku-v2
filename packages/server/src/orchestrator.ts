@@ -171,6 +171,10 @@ type 選擇指南：
 - currency：金額（千分位格式）
 - computed：只需在 form.fields 設定，columns 用 number 型別即可
 
+form.columns 控制表單欄數：
+- 一般 table view 預設 1（不設或 1 均可）
+- master-detail 主表欄位較多，建議設 2；欄位超過 8 個時用 3
+
 使用者說「統計/看板/行事曆」時，直接建對應 type 的 view，不需要 table 作為前提。`,
     input_schema: {
       type: 'object' as const,
@@ -219,6 +223,11 @@ type 選擇指南：
             form: {
               type: 'object',
               properties: {
+                columns: {
+                  type: 'number',
+                  enum: [1, 2, 3],
+                  description: '表單欄位欄數（預設 1；master-detail 主表建議 2，欄位多時用 3）',
+                },
                 fields: {
                   type: 'array',
                   description: '表單欄位定義',

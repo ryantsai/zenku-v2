@@ -6,6 +6,7 @@ import { Button } from '../ui/button';
 import { FormItem, FormMessage } from '../ui/form';
 import { Label } from '../ui/label';
 import { FieldInput } from '../fields';
+import { cn } from '../../lib/cn';
 
 export type FormMode = 'create' | 'edit' | 'view';
 
@@ -13,13 +14,20 @@ interface Props {
   fields: FieldDef[];
   initialValues?: Record<string, unknown>;
   mode?: FormMode;
+  /** 表單欄數（預設 1）。textarea / computed 欄位永遠佔滿整行 */
+  columns?: 1 | 2 | 3;
   onSubmit?: (data: Record<string, unknown>) => Promise<void>;
   onCancel?: () => void;
 }
 
+/** 哪些欄位需要佔滿全行 */
+function isFullWidth(field: FieldDef): boolean {
+  return field.type === 'textarea' || field.type === 'richtext' || !!field.computed;
+}
+
 type ErrorMap = Record<string, string | null>;
 
-export function FormView({ fields, initialValues = {}, mode = 'create', onSubmit, onCancel }: Props) {
+export function FormView({ fields, initialValues = {}, mode = 'create', columns = 1, onSubmit, onCancel }: Props) {
   const visibleFields = fields.filter(field => !field.hidden_in_form);
 
   const [values, setValues] = useState<Record<string, unknown>>(() => {
@@ -103,6 +111,13 @@ export function FormView({ fields, initialValues = {}, mode = 'create', onSubmit
     }
   };
 
+  const gridClass = cn(
+    'grid gap-x-6 gap-y-4',
+    columns === 2 && 'grid-cols-2',
+    columns === 3 && 'grid-cols-3',
+    columns === 1 && 'grid-cols-1',
+  );
+
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       {/* View mode header */}
@@ -121,26 +136,31 @@ export function FormView({ fields, initialValues = {}, mode = 'create', onSubmit
         </div>
       )}
 
-      {visibleFields.map(field => (
-        <FormItem key={field.key}>
-          <Label htmlFor={field.key}>
-            {field.label}
-            {field.required && !field.computed && !isViewMode ? ' *' : ''}
-            {field.computed ? <span className="ml-1 text-xs text-muted-foreground">（自動計算）</span> : null}
-          </Label>
-          {isViewMode ? (
-            <ReadonlyValue field={field} value={values[field.key]} allValues={values} />
-          ) : (
-            <FieldInput
-              field={field}
-              value={values[field.key]}
-              formValues={values}
-              onChange={value => updateValue(field, value)}
-            />
-          )}
-          {!isViewMode && errors[field.key] ? <FormMessage>{errors[field.key]}</FormMessage> : null}
-        </FormItem>
-      ))}
+      <div className={gridClass}>
+        {visibleFields.map(field => (
+          <FormItem
+            key={field.key}
+            className={cn(isFullWidth(field) && columns > 1 && 'col-span-full')}
+          >
+            <Label htmlFor={field.key}>
+              {field.label}
+              {field.required && !field.computed && !isViewMode ? ' *' : ''}
+              {field.computed ? <span className="ml-1 text-xs text-muted-foreground">（自動計算）</span> : null}
+            </Label>
+            {isViewMode ? (
+              <ReadonlyValue field={field} value={values[field.key]} allValues={values} />
+            ) : (
+              <FieldInput
+                field={field}
+                value={values[field.key]}
+                formValues={values}
+                onChange={value => updateValue(field, value)}
+              />
+            )}
+            {!isViewMode && errors[field.key] ? <FormMessage>{errors[field.key]}</FormMessage> : null}
+          </FormItem>
+        ))}
+      </div>
 
       {!isViewMode && onSubmit && (
         <div className="flex justify-end gap-2 pt-2">

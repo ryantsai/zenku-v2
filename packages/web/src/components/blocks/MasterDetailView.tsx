@@ -3,9 +3,10 @@ import { useNavigate } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
 import { toast } from 'sonner';
 import { getRecord, updateRow } from '../../api';
-import type { ViewDefinition } from '../../types';
+import type { DetailViewDef, ViewDefinition } from '../../types';
 import { Button } from '../ui/button';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
+import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
+import { Skeleton } from '../ui/skeleton';
 import { FormView } from './FormView';
 import { TableView } from './TableView';
 
@@ -15,6 +16,13 @@ interface Props {
 }
 
 type RowData = Record<string, unknown>;
+
+function formatDateTime(val: unknown): string {
+  if (!val) return '-';
+  const d = new Date(String(val));
+  if (isNaN(d.getTime())) return String(val);
+  return d.toLocaleString('zh-TW', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
+}
 
 export function MasterDetailView({ view, recordId }: Props) {
   const navigate = useNavigate();
@@ -47,10 +55,12 @@ export function MasterDetailView({ view, recordId }: Props) {
     }
   };
 
+  const formColumns = view.form.columns ?? 2;
+
   return (
     <div className="flex h-full flex-col">
       {/* Header */}
-      <div className="flex items-center gap-3 border-b px-6 py-3">
+      <div className="flex shrink-0 items-center gap-3 border-b px-6 py-3">
         <Button
           variant="ghost"
           size="sm"
@@ -60,54 +70,99 @@ export function MasterDetailView({ view, recordId }: Props) {
           <ArrowLeft className="h-4 w-4" />
           返回列表
         </Button>
-        <span className="text-sm font-medium text-muted-foreground">
-          {view.name} #{recordId}
-        </span>
+        <span className="text-muted-foreground">/</span>
+        <span className="text-sm font-medium">{view.name}</span>
+        <span className="text-sm text-muted-foreground">#{recordId}</span>
       </div>
 
-      {/* Master form - with max height and scroll */}
-      <div className="max-h-96 flex-shrink-0 overflow-y-auto border-b px-6 py-4">
-        {loading ? (
-          <p className="text-sm text-muted-foreground">載入中...</p>
-        ) : record ? (
-          <FormView
-            key={JSON.stringify(record)}
-            fields={view.form.fields}
-            initialValues={record}
-            mode="view"
-            onSubmit={handleUpdate}
-          />
-        ) : (
-          <p className="text-sm text-muted-foreground">找不到資料</p>
-        )}
-      </div>
+      {/* Scrollable body */}
+      <div className="flex-1 overflow-y-auto">
+        <div className="space-y-6 p-6">
 
-      {/* Detail tabs - fill remaining space */}
-      {view.detail_views && view.detail_views.length > 0 && (
-        <Tabs defaultValue={view.detail_views[0].table_name} className="flex min-h-0 flex-1 flex-col">
-          <TabsList className="w-full justify-start border-b rounded-none px-6">
-            {view.detail_views.map(dv => (
-              <TabsTrigger key={dv.table_name} value={dv.table_name}>
-                {dv.tab_label}
-              </TabsTrigger>
-            ))}
-          </TabsList>
+          {/* Master section: form (2/3) + metadata card (1/3) */}
+          <div className="grid grid-cols-3 gap-6 items-start">
+            {/* Form */}
+            <div className="col-span-2">
+              {loading ? (
+                <div className="space-y-3">
+                  {[...Array(4)].map((_, i) => (
+                    <div key={i} className="space-y-1.5">
+                      <Skeleton className="h-4 w-24" />
+                      <Skeleton className="h-9 w-full" />
+                    </div>
+                  ))}
+                </div>
+              ) : record ? (
+                <FormView
+                  key={JSON.stringify(record)}
+                  fields={view.form.fields}
+                  initialValues={record}
+                  mode="view"
+                  columns={formColumns}
+                  onSubmit={handleUpdate}
+                />
+              ) : (
+                <p className="text-sm text-muted-foreground">找不到資料</p>
+              )}
+            </div>
 
-          {view.detail_views.map(dv => (
-            <TabsContent
-              key={dv.table_name}
-              value={dv.table_name}
-              className="m-0 flex min-h-0 flex-1 flex-col p-0"
-            >
-              <TableView
-                view={dv.view}
-                filters={{ [dv.foreign_key]: recordId }}
-                onCreateData={data => ({ ...data, [dv.foreign_key]: recordId })}
-              />
-            </TabsContent>
+            {/* Metadata card */}
+            <div className="col-span-1">
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm font-medium">資訊摘要</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {loading ? (
+                    <div className="space-y-3">
+                      {[...Array(3)].map((_, i) => <Skeleton key={i} className="h-4 w-full" />)}
+                    </div>
+                  ) : (
+                    <dl className="space-y-3 text-sm">
+                      <div>
+                        <dt className="text-xs font-medium text-muted-foreground">ID</dt>
+                        <dd className="mt-0.5 font-mono text-xs">{recordId}</dd>
+                      </div>
+                      <div>
+                        <dt className="text-xs font-medium text-muted-foreground">建立時間</dt>
+                        <dd className="mt-0.5">{formatDateTime(record?.created_at)}</dd>
+                      </div>
+                      <div>
+                        <dt className="text-xs font-medium text-muted-foreground">最後更新</dt>
+                        <dd className="mt-0.5">{formatDateTime(record?.updated_at)}</dd>
+                      </div>
+                    </dl>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+
+          {/* Detail view cards */}
+          {(view.detail_views ?? []).map(dv => (
+            <DetailCard key={dv.table_name} detailView={dv} masterId={recordId} />
           ))}
-        </Tabs>
-      )}
+
+        </div>
+      </div>
     </div>
+  );
+}
+
+function DetailCard({ detailView, masterId }: { detailView: DetailViewDef; masterId: string }) {
+  return (
+    <Card>
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
+        <CardTitle className="text-sm font-medium">{detailView.tab_label}</CardTitle>
+        {/* TableView 內建新增按鈕，這裡不重複加 */}
+      </CardHeader>
+      <CardContent className="p-0">
+        <TableView
+          view={detailView.view}
+          filters={{ [detailView.foreign_key]: masterId }}
+          onCreateData={data => ({ ...data, [detailView.foreign_key]: masterId })}
+        />
+      </CardContent>
+    </Card>
   );
 }

@@ -15,7 +15,7 @@ export interface ViewDefinition {
   /** Sidebar 圖示（lucide icon name） */
   icon?: string;
   columns: ColumnDef[];
-  form: { fields: FieldDef[] };
+  form: { fields: FieldDef[]; columns?: 1 | 2 | 3 };
   actions: ViewAction[];
 
   /** master-detail 的明細定義 */

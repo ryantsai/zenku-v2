@@ -5,6 +5,7 @@ import { toast } from 'sonner';
 import { createRow } from '../../api';
 import type { DetailViewDef, FieldDef, ViewDefinition } from '../../types';
 import { Button } from '../ui/button';
+import { cn } from '../../lib/cn';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '../ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../ui/table';
 import { FormItem, FormMessage } from '../ui/form';
@@ -115,24 +116,37 @@ export function MasterDetailCreateView({ view }: Props) {
         {/* Master form */}
         <div className="px-6 py-5">
           <h3 className="mb-4 text-sm font-semibold text-muted-foreground">主檔資料</h3>
-          <div className="space-y-4">
-            {masterFields.map(field => (
-              <FormItem key={field.key}>
-                <Label htmlFor={field.key}>
-                  {field.label}
-                  {field.required && !field.computed ? ' *' : ''}
-                  {field.computed ? <span className="ml-1 text-xs text-muted-foreground">（自動計算）</span> : null}
-                </Label>
-                <FieldInput
-                  field={field}
-                  value={masterValues[field.key]}
-                  formValues={masterValues}
-                  onChange={value => updateMaster(field, value)}
-                />
-                {masterErrors[field.key] ? <FormMessage>{masterErrors[field.key]}</FormMessage> : null}
-              </FormItem>
-            ))}
-          </div>
+          {(() => {
+            const cols = view.form.columns ?? 2;
+            return (
+              <div className={cn(
+                'grid gap-x-6 gap-y-4',
+                cols === 2 && 'grid-cols-2',
+                cols === 3 && 'grid-cols-3',
+                cols === 1 && 'grid-cols-1',
+              )}>
+                {masterFields.map(field => {
+                  const fullWidth = field.type === 'textarea' || field.type === 'richtext' || !!field.computed;
+                  return (
+                    <FormItem key={field.key} className={cn(fullWidth && cols > 1 && 'col-span-full')}>
+                      <Label htmlFor={field.key}>
+                        {field.label}
+                        {field.required && !field.computed ? ' *' : ''}
+                        {field.computed ? <span className="ml-1 text-xs text-muted-foreground">（自動計算）</span> : null}
+                      </Label>
+                      <FieldInput
+                        field={field}
+                        value={masterValues[field.key]}
+                        formValues={masterValues}
+                        onChange={value => updateMaster(field, value)}
+                      />
+                      {masterErrors[field.key] ? <FormMessage>{masterErrors[field.key]}</FormMessage> : null}
+                    </FormItem>
+                  );
+                })}
+              </div>
+            );
+          })()}
         </div>
 
         {/* Detail draft sections */}
