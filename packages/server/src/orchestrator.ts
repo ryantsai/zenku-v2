@@ -4,6 +4,7 @@ import { runUiAgent } from './agents/ui-agent';
 import { runQueryAgent } from './agents/query-agent';
 import { runLogicAgent } from './agents/logic-agent';
 import { runTestAgent } from './agents/test-agent';
+import { writeData } from './tools/db-tools';
 import { undoLast, undoById, undoSince, buildJournalContext } from './tools/journal-tools';
 import { createProvider, getDefaultProviderName, getDefaultModel } from './ai';
 import {
@@ -331,6 +332,40 @@ form.columns 控制表單欄數：
     },
   },
   {
+    name: 'write_data',
+    description: `對使用者資料表執行新增、更新或刪除。不可操作系統表（_zenku_ 前綴）。
+
+操作說明：
+- insert：新增一筆記錄，data 填入欄位值
+- update：更新符合 where 條件的記錄，data 填更新值，where 為篩選條件（必填，防止全表誤改）
+- delete：刪除符合 where 條件的記錄，where 為篩選條件（必填，防止全表誤刪）
+
+注意：update/delete 的 where 是必填的安全保護，不可省略。`,
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        operation: {
+          type: 'string',
+          enum: ['insert', 'update', 'delete'],
+          description: '操作類型',
+        },
+        table: {
+          type: 'string',
+          description: '目標表名（英文小寫底線，不可為系統表）',
+        },
+        data: {
+          type: 'object',
+          description: 'insert / update 的欄位值（key 為欄位名，value 為要寫入的值）',
+        },
+        where: {
+          type: 'object',
+          description: 'update / delete 的篩選條件（key 為欄位名，value 為比對值）。update/delete 時必填',
+        },
+      },
+      required: ['operation', 'table'],
+    },
+  },
+  {
     name: 'manage_rules',
     description: `建立或修改業務規則（自動化流程、驗證）。
 
@@ -480,7 +515,8 @@ function buildSystemPrompt(): string {
 你有以下工具：
 - manage_schema：建立或修改資料表結構
 - manage_ui：建立或更新使用者介面（列表＋表單）
-- query_data：查詢資料、回答統計問題
+- query_data：查詢資料、回答統計問題（SELECT only）
+- write_data：新增、更新或刪除使用者資料表的記錄（insert / update / delete，不可操作系統表）
 - manage_rules：建立或修改業務規則（自動化流程、驗證、觸發器）
 - assess_impact：評估破壞性 schema 變更的影響（變更前必須先呼叫）
 
@@ -583,7 +619,7 @@ type UserRole = 'admin' | 'builder' | 'user';
 
 function getToolsForRole(role: UserRole): ToolDefinition[] {
   if (role === 'user') {
-    return TOOLS.filter(t => t.name === 'query_data');
+    return TOOLS.filter(t => t.name === 'query_data' || t.name === 'write_data');
   }
   if (role === 'builder') {
     return TOOLS.filter(t => t.name !== 'undo_action');
@@ -605,6 +641,11 @@ function executeTool(
     );
   } else if (toolName === 'query_data') {
     return runQueryAgent(toolInput as { sql: string; explanation: string });
+  } else if (toolName === 'write_data') {
+    return writeData(
+      toolInput as { operation: 'insert' | 'update' | 'delete'; table: string; data?: Record<string, string | number | boolean | null>; where?: Record<string, string | number | boolean | null> },
+      userMessage,
+    );
   } else if (toolName === 'manage_rules') {
     return runLogicAgent(
       toolInput as unknown as Parameters<typeof runLogicAgent>[0],

@@ -246,3 +246,7 @@ interface ChatSession {
 | 5 | 模組五（個人設定） | 依賴模組四的 auth 基礎穩定後做 |
 | 6 | 模組六（封存歷程） | 需先加 `archived` DB 欄位 |
 | 7 | 模組七（多對話歷程） | 最複雜，依賴 session API 完整後做 |
+
+
+[ ] 將 agent 提示詞和 tool descriptions 改寫為英文
+[ ] AI Chat 的對話內容要支援顯示 Markdown, table, 流程圖及 emoji，chat 的對話框要能適當的長高，適應多行的內容

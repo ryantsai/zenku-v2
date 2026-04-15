@@ -10,6 +10,10 @@ function isSafeTableName(name: string): boolean {
   return true;
 }
 
+function isSafeFieldName(name: string): boolean {
+  return /^[a-zA-Z_][a-zA-Z0-9_]*$/.test(name);
+}
+
 interface ReferenceDef {
   table: string;
   column?: string;
@@ -165,4 +169,143 @@ export function queryData(sql: string): AgentResult {
     message: `查詢完成，共 ${rows.length} 筆`,
     data: rows,
   };
+}
+
+// ===== Write data =====
+
+type WriteOperation = 'insert' | 'update' | 'delete';
+type ScalarValue = string | number | boolean | null;
+
+/** node:sqlite 不接受 boolean，轉成 0/1 */
+function toSQLValue(v: ScalarValue): string | number | null | bigint {
+  if (typeof v === 'boolean') return v ? 1 : 0;
+  return v;
+}
+
+interface WriteDataInput {
+  operation: WriteOperation;
+  table: string;
+  data?: Record<string, ScalarValue>;
+  where?: Record<string, ScalarValue>;
+}
+
+export function writeData(input: WriteDataInput, userRequest: string): AgentResult {
+  const { operation, table, data = {}, where } = input;
+
+  if (!isSafeTableName(table)) {
+    return { success: false, message: `無效或不允許操作的表名：${table}` };
+  }
+
+  const db = getDb();
+  const tableExists = db.prepare(
+    `SELECT name FROM sqlite_master WHERE type='table' AND name=?`
+  ).get(table);
+  if (!tableExists) {
+    return { success: false, message: `表 ${table} 不存在` };
+  }
+
+  // Validate all field names
+  const allKeys = [...Object.keys(data), ...Object.keys(where ?? {})];
+  for (const k of allKeys) {
+    if (!isSafeFieldName(k)) {
+      return { success: false, message: `無效的欄位名：${k}` };
+    }
+  }
+
+  if (operation === 'insert') {
+    const keys = Object.keys(data);
+    if (keys.length === 0) return { success: false, message: '新增資料不能為空' };
+
+    const cols = keys.map(k => `"${k}"`).join(', ');
+    const placeholders = keys.map(() => '?').join(', ');
+    const values = keys.map(k => data[k]);
+
+    const result = db.prepare(
+      `INSERT INTO "${table}" (${cols}) VALUES (${placeholders})`
+    ).run(...values.map(toSQLValue));
+
+    const insertedId = result.lastInsertRowid;
+
+    writeJournal({
+      agent: 'user',
+      type: 'data_write',
+      description: `AI 新增一筆資料到 ${table}（id: ${insertedId}）`,
+      diff: { before: null, after: { table, data } },
+      user_request: userRequest,
+      reversible: true,
+      reverse_operations: [{ type: 'sql', sql: `DELETE FROM "${table}" WHERE id = ${insertedId}` }],
+    });
+
+    return {
+      success: true,
+      message: `已新增一筆資料到 ${table}，id = ${insertedId}`,
+      data: { id: Number(insertedId) },
+    };
+  }
+
+  if (operation === 'update') {
+    const whereKeys = Object.keys(where ?? {});
+    if (whereKeys.length === 0) {
+      return { success: false, message: 'update 必須提供 where 條件，不可全表更新' };
+    }
+    const dataKeys = Object.keys(data);
+    if (dataKeys.length === 0) return { success: false, message: '更新欄位不能為空' };
+
+    const sets = dataKeys.map(k => `"${k}" = ?`).join(', ');
+    const wheres = whereKeys.map(k => `"${k}" = ?`).join(' AND ');
+    const values = [
+      ...dataKeys.map(k => data[k]),
+      ...whereKeys.map(k => (where as Record<string, ScalarValue>)[k]),
+    ];
+
+    const result = db.prepare(
+      `UPDATE "${table}" SET ${sets} WHERE ${wheres}`
+    ).run(...values.map(toSQLValue));
+
+    writeJournal({
+      agent: 'user',
+      type: 'data_write',
+      description: `AI 更新 ${table} 中 ${result.changes} 筆資料`,
+      diff: { before: where ?? null, after: { ...where, ...data } },
+      user_request: userRequest,
+      reversible: false,
+    });
+
+    return {
+      success: true,
+      message: `已更新 ${result.changes} 筆資料`,
+      data: { changes: result.changes },
+    };
+  }
+
+  if (operation === 'delete') {
+    const whereKeys = Object.keys(where ?? {});
+    if (whereKeys.length === 0) {
+      return { success: false, message: 'delete 必須提供 where 條件，不可全表刪除' };
+    }
+
+    const wheres = whereKeys.map(k => `"${k}" = ?`).join(' AND ');
+    const values = whereKeys.map(k => (where as Record<string, ScalarValue>)[k]);
+
+    const result = db.prepare(
+      `DELETE FROM "${table}" WHERE ${wheres}`
+    ).run(...values.map(toSQLValue));
+
+    writeJournal({
+      agent: 'user',
+      type: 'data_write',
+      description: `AI 刪除 ${table} 中 ${result.changes} 筆資料`,
+      diff: { before: where ?? null, after: null },
+      user_request: userRequest,
+      reversible: false,
+    });
+
+    return {
+      success: true,
+      message: `已刪除 ${result.changes} 筆資料`,
+      data: { changes: result.changes },
+    };
+  }
+
+  return { success: false, message: `不支援的操作類型：${String(operation)}` };
 }

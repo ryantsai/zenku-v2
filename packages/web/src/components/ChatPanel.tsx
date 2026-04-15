@@ -280,6 +280,7 @@ const TOOL_LABELS: Record<string, string> = {
   manage_schema: '資料結構',
   manage_ui: '介面',
   query_data: '資料查詢',
+  write_data: '資料寫入',
 };
 
 function ToolEventBadge({ event }: { event: ToolEvent }) {
