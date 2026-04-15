@@ -1,7 +1,9 @@
 import { useState } from 'react';
-import { LogOut, Users, ChevronUp } from 'lucide-react';
+import { LogOut, Users, ChevronUp, MessageSquare, BarChart2 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { UserManagement } from '../admin/UserManagement';
+import { ChatHistory } from '../admin/ChatHistory';
+import { UsageStats } from '../admin/UsageStats';
 
 const ROLE_LABEL: Record<string, string> = {
   admin: '管理員',
@@ -13,6 +15,8 @@ export function UserMenu() {
   const { user, logout } = useAuth();
   const [open, setOpen] = useState(false);
   const [showUserMgmt, setShowUserMgmt] = useState(false);
+  const [showChatHistory, setShowChatHistory] = useState(false);
+  const [showUsageStats, setShowUsageStats] = useState(false);
 
   return (
     <>
@@ -45,13 +49,29 @@ export function UserMenu() {
                 {user.email}
               </div>
               {user.role === 'admin' && (
-                <button
-                  onClick={() => { setShowUserMgmt(true); setOpen(false); }}
-                  className="flex w-full items-center gap-2 px-3 py-2 text-sm hover:bg-accent"
-                >
-                  <Users size={14} />
-                  使用者管理
-                </button>
+                <>
+                  <button
+                    onClick={() => { setShowUserMgmt(true); setOpen(false); }}
+                    className="flex w-full items-center gap-2 px-3 py-2 text-sm hover:bg-accent"
+                  >
+                    <Users size={14} />
+                    使用者管理
+                  </button>
+                  <button
+                    onClick={() => { setShowChatHistory(true); setOpen(false); }}
+                    className="flex w-full items-center gap-2 px-3 py-2 text-sm hover:bg-accent"
+                  >
+                    <MessageSquare size={14} />
+                    對話歷程
+                  </button>
+                  <button
+                    onClick={() => { setShowUsageStats(true); setOpen(false); }}
+                    className="flex w-full items-center gap-2 px-3 py-2 text-sm hover:bg-accent"
+                  >
+                    <BarChart2 size={14} />
+                    用量統計
+                  </button>
+                </>
               )}
               <button
                 onClick={() => { logout(); setOpen(false); }}
@@ -66,6 +86,8 @@ export function UserMenu() {
       </div>
 
       {showUserMgmt && <UserManagement onClose={() => setShowUserMgmt(false)} />}
+      {showChatHistory && <ChatHistory onClose={() => setShowChatHistory(false)} />}
+      {showUsageStats && <UsageStats onClose={() => setShowUsageStats(false)} />}
     </>
   );
 }

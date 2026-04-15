@@ -1,5 +1,6 @@
 import dotenv from 'dotenv';
 import path from 'path';
+import crypto from 'crypto';
 // CWD = packages/server（npm workspace 執行時），往上兩層到 monorepo root
 const envResult = dotenv.config({ path: path.resolve(process.cwd(), '../../.env') });
 console.log('[dotenv] path:', path.resolve(process.cwd(), '../../.env'));
@@ -7,7 +8,7 @@ console.log('[dotenv] loaded:', !envResult.error, '| ANTHROPIC_API_KEY set:', !!
 
 import express from 'express';
 import cors from 'cors';
-import { getDb, getAllViews, getTableSchema } from './db';
+import { getDb, getAllViews, getTableSchema, writeJournal } from './db';
 import { executeBefore, executeAfter } from './engine/rule-engine';
 
 // 安全欄位名驗證
@@ -111,9 +112,11 @@ app.post('/api/chat', requireAuth, async (req, res) => {
 
   try {
     const role = req.user!.role;
-    const aiOptions = provider || model
-      ? { provider: provider as 'claude' | 'openai' | 'gemini' | undefined, model }
-      : undefined;
+    const aiOptions = {
+      provider: provider as 'claude' | 'openai' | 'gemini' | undefined,
+      model,
+      userId: req.user!.id,
+    };
     for await (const chunk of chat(message, history, role, aiOptions)) {
       res.write(`data: ${chunk}\n`);
     }
@@ -514,6 +517,220 @@ app.post('/api/query', requireAuth, (req, res) => {
     res.status(400).json({ error: String(err) });
   }
 });
+
+// ──────────────────────────────────────────────
+// Admin — chat history
+// ──────────────────────────────────────────────
+app.get('/api/admin/sessions', requireAdmin, (req, res) => {
+  const db = getDb();
+  const page = Math.max(1, Number(req.query.page ?? 1));
+  const limit = Math.min(100, Math.max(1, Number(req.query.limit ?? 20)));
+  const offset = (page - 1) * limit;
+  const userId = req.query.user_id ? String(req.query.user_id) : null;
+  const provider = req.query.provider ? String(req.query.provider) : null;
+
+  const conditions: string[] = [];
+  const params: (string | number | null)[] = [];
+  if (userId) { conditions.push('s.user_id = ?'); params.push(userId); }
+  if (provider) { conditions.push('s.provider = ?'); params.push(provider); }
+
+  const where = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+
+  const sessions = db.prepare(`
+    SELECT s.*, u.name as user_name, u.email as user_email
+    FROM _zenku_chat_sessions s
+    LEFT JOIN _zenku_users u ON s.user_id = u.id
+    ${where}
+    ORDER BY s.updated_at DESC
+    LIMIT ? OFFSET ?
+  `).all(...params, limit, offset);
+
+  const total = (db.prepare(`SELECT COUNT(*) as count FROM _zenku_chat_sessions s ${where}`).get(...params) as { count: number }).count;
+
+  res.json({ sessions, total, page, limit });
+});
+
+app.get('/api/admin/sessions/:id', requireAdmin, (req, res) => {
+  const db = getDb();
+  const sessionId = p(req.params.id);
+
+  const session = db.prepare(`
+    SELECT s.*, u.name as user_name
+    FROM _zenku_chat_sessions s
+    LEFT JOIN _zenku_users u ON s.user_id = u.id
+    WHERE s.id = ?
+  `).get(sessionId);
+
+  if (!session) { res.status(404).json({ error: '找不到 session' }); return; }
+
+  const messages = db.prepare(
+    'SELECT * FROM _zenku_chat_messages WHERE session_id = ? ORDER BY created_at'
+  ).all(sessionId) as { id: string }[];
+
+  const toolEvents = db.prepare(
+    'SELECT * FROM _zenku_tool_events WHERE session_id = ? ORDER BY started_at'
+  ).all(sessionId) as { message_id: string; tool_input: string; tool_output: string }[];
+
+  // Attach tool events to their parent messages
+  const toolsByMsg: Record<string, unknown[]> = {};
+  for (const te of toolEvents) {
+    const mid = te.message_id;
+    if (!toolsByMsg[mid]) toolsByMsg[mid] = [];
+    toolsByMsg[mid].push({
+      ...te,
+      tool_input: JSON.parse(te.tool_input || '{}'),
+      tool_output: JSON.parse(te.tool_output || '{}'),
+    });
+  }
+
+  const timeline = messages.map(m => ({
+    ...m,
+    tool_events: toolsByMsg[m.id] ?? [],
+  }));
+
+  res.json({ session, messages: timeline });
+});
+
+app.get('/api/admin/usage', requireAdmin, (req, res) => {
+  const db = getDb();
+  const from = req.query.from ? String(req.query.from) : null;
+  const to = req.query.to ? String(req.query.to) : null;
+
+  const dateFilter = from && to
+    ? `WHERE created_at BETWEEN '${from}' AND '${to}'`
+    : from
+    ? `WHERE created_at >= '${from}'`
+    : '';
+
+  const totals = db.prepare(`
+    SELECT
+      COUNT(*) as total_sessions,
+      SUM(message_count) as total_messages,
+      SUM(total_input_tokens) as total_input_tokens,
+      SUM(total_output_tokens) as total_output_tokens,
+      SUM(total_cost_usd) as total_cost_usd
+    FROM _zenku_chat_sessions ${dateFilter}
+  `).get() as Record<string, number>;
+
+  const byProvider = db.prepare(`
+    SELECT provider,
+      COUNT(*) as sessions,
+      SUM(message_count) as messages,
+      SUM(total_input_tokens + total_output_tokens) as tokens,
+      SUM(total_cost_usd) as cost_usd
+    FROM _zenku_chat_sessions ${dateFilter}
+    GROUP BY provider
+  `).all() as { provider: string; sessions: number; messages: number; tokens: number; cost_usd: number }[];
+
+  const byUser = db.prepare(`
+    SELECT u.name as user_name, s.user_id,
+      COUNT(*) as sessions,
+      SUM(s.message_count) as messages,
+      SUM(s.total_input_tokens + s.total_output_tokens) as tokens,
+      SUM(s.total_cost_usd) as cost_usd
+    FROM _zenku_chat_sessions s
+    LEFT JOIN _zenku_users u ON s.user_id = u.id
+    ${dateFilter}
+    GROUP BY s.user_id
+    ORDER BY cost_usd DESC
+  `).all();
+
+  const byAgent = db.prepare(`
+    SELECT agent,
+      COUNT(*) as calls,
+      AVG(latency_ms) as avg_latency_ms,
+      SUM(CASE WHEN success = 0 THEN 1 ELSE 0 END) as error_count
+    FROM _zenku_tool_events
+    GROUP BY agent
+    ORDER BY calls DESC
+  `).all();
+
+  const daily = db.prepare(`
+    SELECT
+      strftime('%Y-%m-%d', created_at) as date,
+      SUM(total_input_tokens) as input_tokens,
+      SUM(total_output_tokens) as output_tokens,
+      SUM(total_cost_usd) as cost_usd,
+      COUNT(*) as sessions
+    FROM _zenku_chat_sessions
+    GROUP BY date
+    ORDER BY date DESC
+    LIMIT 30
+  `).all();
+
+  res.json({ totals, byProvider, byUser, byAgent, daily });
+});
+
+// ──────────────────────────────────────────────
+// Webhook callback
+// ──────────────────────────────────────────────
+function authenticateWebhook(req: import('express').Request, res: import('express').Response, next: import('express').NextFunction): void {
+  const secret = process.env.WEBHOOK_SECRET;
+  if (!secret) { next(); return; }  // if no secret configured, allow all
+
+  const signature = req.headers['x-zenku-signature'];
+  const expected = crypto
+    .createHmac('sha256', secret)
+    .update(JSON.stringify(req.body))
+    .digest('hex');
+
+  if (signature !== expected) {
+    res.status(401).json({ error: 'Invalid signature' });
+    return;
+  }
+  next();
+}
+
+app.post('/api/webhook/callback', authenticateWebhook, (req, res) => {
+  const { table, record_id, updates } = req.body as {
+    table?: string;
+    record_id?: unknown;
+    updates?: Record<string, unknown>;
+  };
+
+  if (!table || !record_id || !updates || typeof updates !== 'object') {
+    res.status(400).json({ error: '缺少必要欄位：table, record_id, updates' });
+    return;
+  }
+  if (String(table).startsWith('_zenku_')) {
+    res.status(403).json({ error: '不允許修改系統表' });
+    return;
+  }
+
+  try {
+    const db = getDb();
+    const keys = Object.keys(updates);
+    if (keys.length === 0) { res.json({ success: true }); return; }
+
+    const setClause = keys.map(k => `"${k}" = ?`).join(', ');
+    db.prepare(`UPDATE "${table}" SET ${setClause} WHERE id = ?`)
+      .run(...(Object.values(updates) as (string | number | null)[]), record_id as string | number);
+
+    writeJournal({
+      agent: 'logic',
+      type: 'rule_change',
+      description: `Webhook 回呼更新 ${table} #${String(record_id)}`,
+      diff: { before: null, after: updates },
+      user_request: 'webhook callback',
+      reversible: false,
+    });
+
+    res.json({ success: true });
+  } catch (err) {
+    res.status(400).json({ error: String(err) });
+  }
+});
+
+// ──────────────────────────────────────────────
+// Production static file serving
+// ──────────────────────────────────────────────
+if (process.env.NODE_ENV === 'production') {
+  const publicDir = path.join(__dirname, '../public');
+  app.use(express.static(publicDir));
+  app.get('*', (_req, res) => {
+    res.sendFile(path.join(publicDir, 'index.html'));
+  });
+}
 
 // ──────────────────────────────────────────────
 // Health check

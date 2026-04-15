@@ -1,0 +1,25 @@
+services:
+  zenku:
+    build: .
+    ports:
+      - "3001:3001"
+    volumes:
+      - zenku-data:/app/data
+    environment:
+      - NODE_ENV=production
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+      - DEFAULT_AI_PROVIDER=${DEFAULT_AI_PROVIDER:-claude}
+      - DEFAULT_AI_MODEL=${DEFAULT_AI_MODEL:-claude-sonnet-4-6}
+      - WEBHOOK_SECRET=${WEBHOOK_SECRET:-}
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3001/api/health').then(r=>process.exit(r.ok?0:1))"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+volumes:
+  zenku-data:

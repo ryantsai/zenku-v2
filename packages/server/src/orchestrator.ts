@@ -6,6 +6,10 @@ import { runLogicAgent } from './agents/logic-agent';
 import { runTestAgent } from './agents/test-agent';
 import { undoLast, undoById, undoSince, buildJournalContext } from './tools/journal-tools';
 import { createProvider, getDefaultProviderName, getDefaultModel } from './ai';
+import {
+  createChatSession, updateSessionTitle, updateSessionStats,
+  recordMessage, recordToolEvent, toolToAgent,
+} from './tools/chat-logger';
 import type { ToolDefinition } from './ai';
 import type { ViewDefinition, LLMMessage, ToolResult, AIProvider as AIProviderName } from './types';
 
@@ -596,6 +600,7 @@ function executeTool(
 export interface ChatOptions {
   provider?: AIProviderName;
   model?: string;
+  userId?: string;
 }
 
 export async function* chat(
@@ -606,8 +611,18 @@ export async function* chat(
 ): AsyncGenerator<string> {
   const providerName = options?.provider ?? getDefaultProviderName();
   const model = options?.model ?? getDefaultModel(providerName);
+  const userId = options?.userId;
   const provider = createProvider(providerName);
   const tools = getToolsForRole(userRole);
+
+  // Create chat session for logging (only when we have a userId)
+  const sessionId = userId
+    ? createChatSession(userId, providerName, model, userMessage.slice(0, 80))
+    : null;
+
+  if (sessionId && userId) {
+    recordMessage({ session_id: sessionId, user_id: userId, role: 'user', content: userMessage });
+  }
 
   // Build initial messages from history
   const currentMessages: LLMMessage[] = [
@@ -631,20 +646,59 @@ export async function* chat(
       yield JSON.stringify({ type: 'text', content: response.content }) + '\n';
     }
 
+    // Yield usage info after each LLM call
+    yield JSON.stringify({ type: 'usage', usage: response.usage, latency_ms: response.latency_ms }) + '\n';
+
     if (response.stop_reason === 'tool_use' && response.tool_calls.length > 0) {
+      // Log the assistant turn before processing tools
+      const assistantMsgId = sessionId && userId
+        ? recordMessage({
+            session_id: sessionId,
+            user_id: userId,
+            role: 'assistant',
+            content: response.content,
+            provider: providerName,
+            model,
+            input_tokens: response.usage.input_tokens,
+            output_tokens: response.usage.output_tokens,
+            thinking_tokens: response.usage.thinking_tokens ?? 0,
+            latency_ms: response.latency_ms,
+          })
+        : null;
+
+      if (sessionId) updateSessionStats(sessionId, response.usage, model);
+
       const toolResults: ToolResult[] = [];
 
       for (const tc of response.tool_calls) {
-        yield JSON.stringify({ type: 'tool_start', tool: tc.name }) + '\n';
+        const agent = toolToAgent(tc.name);
+        yield JSON.stringify({ type: 'tool_start', tool: tc.name, agent }) + '\n';
 
+        const toolStart = Date.now();
+        const startedAt = new Date().toISOString();
         let result;
         try {
           result = executeTool(tc.name, tc.input, userMessage);
         } catch (err) {
           result = { success: false, message: String(err) };
         }
+        const finishedAt = new Date().toISOString();
+        const toolLatency = Date.now() - toolStart;
 
-        yield JSON.stringify({ type: 'tool_result', tool: tc.name, result }) + '\n';
+        yield JSON.stringify({ type: 'tool_result', tool: tc.name, agent, result }) + '\n';
+
+        if (assistantMsgId && sessionId) {
+          recordToolEvent({
+            message_id: assistantMsgId,
+            session_id: sessionId,
+            tool_name: tc.name,
+            tool_input: tc.input,
+            tool_output: result,
+            started_at: startedAt,
+            finished_at: finishedAt,
+            latency_ms: toolLatency,
+          });
+        }
 
         toolResults.push({
           tool_use_id: tc.id,
@@ -664,10 +718,27 @@ export async function* chat(
         tool_results: toolResults,
       });
     } else {
+      // Final assistant turn — log it
+      if (sessionId && userId) {
+        recordMessage({
+          session_id: sessionId,
+          user_id: userId,
+          role: 'assistant',
+          content: response.content,
+          provider: providerName,
+          model,
+          input_tokens: response.usage.input_tokens,
+          output_tokens: response.usage.output_tokens,
+          thinking_tokens: response.usage.thinking_tokens ?? 0,
+          latency_ms: response.latency_ms,
+        });
+        updateSessionStats(sessionId, response.usage, model);
+        updateSessionTitle(sessionId, userMessage.slice(0, 80));
+      }
       continueLoop = false;
     }
   }
 
-  // Yield usage info so the frontend can display it
-  yield JSON.stringify({ type: 'done', provider: providerName, model }) + '\n';
+  // Yield done with session info
+  yield JSON.stringify({ type: 'done', provider: providerName, model, session_id: sessionId }) + '\n';
 }

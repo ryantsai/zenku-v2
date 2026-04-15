@@ -85,6 +85,56 @@ function initSystemTables(db: DatabaseSync): void {
 
     CREATE INDEX IF NOT EXISTS idx_journal_session ON _zenku_journal(session_id);
     CREATE INDEX IF NOT EXISTS idx_journal_timestamp ON _zenku_journal(timestamp);
+
+    CREATE TABLE IF NOT EXISTS _zenku_chat_sessions (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL REFERENCES _zenku_users(id),
+      title TEXT,
+      provider TEXT NOT NULL,
+      model TEXT NOT NULL,
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now')),
+      total_input_tokens INTEGER DEFAULT 0,
+      total_output_tokens INTEGER DEFAULT 0,
+      total_thinking_tokens INTEGER DEFAULT 0,
+      total_cost_usd REAL DEFAULT 0,
+      message_count INTEGER DEFAULT 0
+    );
+
+    CREATE TABLE IF NOT EXISTS _zenku_chat_messages (
+      id TEXT PRIMARY KEY,
+      session_id TEXT NOT NULL REFERENCES _zenku_chat_sessions(id),
+      user_id TEXT NOT NULL,
+      role TEXT NOT NULL,
+      content TEXT NOT NULL,
+      provider TEXT,
+      model TEXT,
+      input_tokens INTEGER DEFAULT 0,
+      output_tokens INTEGER DEFAULT 0,
+      thinking_tokens INTEGER DEFAULT 0,
+      thinking_content TEXT,
+      latency_ms INTEGER DEFAULT 0,
+      created_at TEXT DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS _zenku_tool_events (
+      id TEXT PRIMARY KEY,
+      message_id TEXT NOT NULL REFERENCES _zenku_chat_messages(id),
+      session_id TEXT NOT NULL,
+      agent TEXT NOT NULL,
+      tool_name TEXT NOT NULL,
+      tool_input TEXT,
+      tool_output TEXT,
+      success INTEGER,
+      started_at TEXT,
+      finished_at TEXT,
+      latency_ms INTEGER DEFAULT 0
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_chat_sessions_user ON _zenku_chat_sessions(user_id);
+    CREATE INDEX IF NOT EXISTS idx_chat_messages_session ON _zenku_chat_messages(session_id);
+    CREATE INDEX IF NOT EXISTS idx_tool_events_session ON _zenku_tool_events(session_id);
+    CREATE INDEX IF NOT EXISTS idx_tool_events_message ON _zenku_tool_events(message_id);
   `);
 }
 
