@@ -63,7 +63,7 @@ const components: Components = {
   // Tables
   table({ children }) {
     return (
-      <div className="my-3 overflow-x-auto rounded-md border border-muted-foreground/25">
+      <div className="my-3 overflow-hidden rounded-md border border-muted-foreground/25">
         <table className="w-full border-collapse text-sm">{children}</table>
       </div>
     );
@@ -72,10 +72,10 @@ const components: Components = {
     return <thead className="bg-muted-foreground/10">{children}</thead>;
   },
   th({ children }) {
-    return <th className="border-b border-muted-foreground/25 px-3 py-2 text-left font-medium">{children}</th>;
+    return <th className="border-b border-r border-muted-foreground/25 px-3 py-2 text-left font-medium last:border-r-0">{children}</th>;
   },
   td({ children }) {
-    return <td className="border-b border-muted-foreground/25 px-3 py-2 last:border-b-0">{children}</td>;
+    return <td className="border-b border-r border-muted-foreground/25 px-3 py-2 last:border-r-0">{children}</td>;
   },
 
   // Headings
