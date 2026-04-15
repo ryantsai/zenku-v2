@@ -25,27 +25,27 @@
 > **不涉及後端邏輯變更，純前端。**
 
 ### 1.1 導入 shadcn/ui
-- [ ] 安裝 shadcn/ui + 設定主題
-- [ ] 替換現有手寫元件：Button、Input、Select、Table、Dialog、Checkbox、Label
-- [ ] 統一設計語言（色票、間距、圓角）
+- [x] 安裝 shadcn/ui + 設定主題
+- [x] 替換現有手寫元件：Button、Input、Select、Table、Dialog、Checkbox、Label
+- [x] 統一設計語言（色票、間距、圓角）
 
 ### 1.2 佈局優化
-- [ ] Chat Panel 可拖曳調整寬度（resizable panel）
-- [ ] 明暗模式切換（Dark / Light）
-- [ ] Sidebar 可折疊
-- [ ] 響應式佈局（手機可用）
+- [x] Chat Panel 可拖曳調整寬度（resizable panel）
+- [x] 明暗模式切換（Dark / Light）
+- [x] Sidebar 可折疊
+- [x] 響應式佈局（手機可用）
 
 ### 1.3 表格增強
-- [ ] 分頁（前端 or 後端分頁）
-- [ ] 欄位排序
-- [ ] 搜尋篩選
-- [ ] 欄寬可調整
-- [ ] 空狀態優化
+- [x] 分頁（前端 or 後端分頁）
+- [x] 欄位排序
+- [x] 搜尋篩選
+- [x] 欄寬可調整
+- [x] 空狀態優化
 
 ### 1.4 表單增強
-- [ ] 表單驗證回饋（必填提示、格式驗證）
-- [ ] 欄位分組 / 分段顯示
-- [ ] 儲存成功 toast 提示
+- [x] 表單驗證回饋（必填提示、格式驗證）
+- [x] 欄位分組 / 分段顯示
+- [x] 儲存成功 toast 提示
 
 ---
 
@@ -55,8 +55,8 @@
 > **這是 Zenku 能否承載「進銷存」等場景的關鍵。**
 
 ### 2.1 關聯欄位（Foreign Key）
-- [ ] Schema Agent 支援 `REFERENCES` 語法建立外鍵
-- [ ] View 定義新增 `relation` 欄位型別
+- [x] Schema Agent 支援 `REFERENCES` 語法建立外鍵
+- [x] View 定義新增 `relation` 欄位型別
 
 ```typescript
 interface FieldDef {
@@ -70,8 +70,8 @@ interface FieldDef {
 }
 ```
 
-- [ ] 前端 RelationField 元件：搜尋式下拉，從關聯表取選項
-- [ ] 對話範例：「訂單要關聯到客戶」→ 自動建外鍵 + relation 欄位
+- [x] 前端 RelationField 元件：搜尋式下拉，從關聯表取選項
+- [x] 對話範例：「訂單要關聯到客戶」→ 自動建外鍵 + relation 欄位
 
 ### 2.2 動態下拉選項
 - [ ] FieldDef 新增 `source_table` 屬性
@@ -88,8 +88,8 @@ interface FieldDef {
 }
 ```
 
-- [ ] 前端 DynamicSelect 元件：即時從 API 取選項
-- [ ] 新增大類後，下拉選單自動包含新項目
+- [x] 前端 DynamicSelect 元件：即時從 API 取選項
+- [x] 新增大類後，下拉選單自動包含新項目
 
 ### 2.3 計算欄位（Computed Fields）
 - [ ] FieldDef 新增 `computed` 屬性
@@ -104,9 +104,9 @@ interface FieldDef {
 }
 ```
 
-- [ ] 前端即時計算（輸入數量和單價 → 自動算小計）
-- [ ] 後端儲存時也做一次計算（防繞過）
-- [ ] 對話範例：「小計 = 數量 × 單價」→ 自動設定公式
+- [x] 前端即時計算（輸入數量和單價 → 自動算小計）
+- [x] 後端儲存時也做一次計算（防繞過）
+- [x] 對話範例：「小計 = 數量 × 單價」→ 自動設定公式
 
 ### 2.4 欄位型別擴充
 
@@ -143,15 +143,15 @@ interface ViewDefinition {
 ```
 
 ### 3.2 前端 MasterDetailView 元件
-- [ ] 上半部：主檔表單（如訂單基本資訊）
-- [ ] 下半部：Tab 頁籤，每個 Tab 一個明細表格
-- [ ] 主檔切換時，明細自動篩選
-- [ ] 明細新增時，自動帶入主檔 ID
+- [x] 上半部：主檔表單（如訂單基本資訊）
+- [x] 下半部：Tab 頁籤，每個 Tab 一個明細表格
+- [x] 主檔切換時，明細自動篩選
+- [x] 明細新增時，自動帶入主檔 ID
 
 ### 3.3 Schema Agent 升級
-- [ ] 理解「訂單明細屬於訂單」的概念
-- [ ] 自動建外鍵、設定 CASCADE 刪除
-- [ ] 對話範例：「訂單有明細，每筆明細有產品、數量、單價、小計」
+- [x] 理解「訂單明細屬於訂單」的概念
+- [x] 自動建外鍵、設定 CASCADE 刪除
+- [x] 對話範例：「訂單有明細，每筆明細有產品、數量、單價、小計」
 
 ---
 
@@ -185,7 +185,7 @@ interface ViewDefinition {
 - [ ] 檔案與記錄關聯（`_zenku_files` 表）
 
 ### 4.3 Logic Agent
-- [ ] 規則引擎：`_zenku_rules` 表
+- [x] 規則引擎：`_zenku_rules` 表
 
 ```sql
 CREATE TABLE _zenku_rules (
@@ -199,22 +199,22 @@ CREATE TABLE _zenku_rules (
 );
 ```
 
-- [ ] 規則類型：
+- [x] 規則類型：
   - 驗證規則：「金額不能為負」
   - 自動填值：「VIP 客戶訂單自動打 9 折」
   - 狀態流轉：「付款完成 → 訂單狀態改為已付款」
   - Webhook 觸發：「新訂單 → 呼叫 n8n webhook」
-- [ ] 對話範例：「VIP 客戶下單自動打 9 折」→ Logic Agent 建規則
+- [x] 對話範例：「VIP 客戶下單自動打 9 折」→ Logic Agent 建規則
 
 ### 4.4 Test Agent
-- [ ] Schema 變更前的影響評估
-- [ ] 檢查項目：
+- [x] Schema 變更前的影響評估
+- [x] 檢查項目：
   - 受影響的 views 數量
   - 受影響的資料筆數
   - 受影響的 rules 數量
   - 是否有破壞性變更（刪欄位、改型別）
-- [ ] 回報格式：「這次變更會影響 3 個介面和 120 筆資料，要繼續嗎？」
-- [ ] Orchestrator 流程調整：Schema 變更 → Test Agent 評估 → 使用者確認 → 執行
+- [x] 回報格式：「這次變更會影響 3 個介面和 120 筆資料，要繼續嗎？」
+- [x] Orchestrator 流程調整：Schema 變更 → Test Agent 評估 → 使用者確認 → 執行
 
 ---
 
@@ -233,7 +233,7 @@ CREATE TABLE _zenku_rules (
 | `calendar` | 行事曆（排程場景） | CalendarView |
 
 ### 5.2 Dashboard 元件
-- [ ] DashboardView：由多個 widget 組成的面板
+- [x] DashboardView：由多個 widget 組成的面板
 
 ```typescript
 interface DashboardWidget {
@@ -245,13 +245,13 @@ interface DashboardWidget {
 }
 ```
 
-- [ ] 圖表庫：Recharts（React 生態，API 簡單）
-- [ ] 對話範例：「我想看每月新增客戶趨勢」→ 生成折線圖
+- [x] 圖表庫：Recharts（React 生態，API 簡單）
+- [x] 對話範例：「我想看每月新增客戶趨勢」→ 生成折線圖
 
 ### 5.3 Kanban 元件
-- [ ] 以某個 enum/status 欄位為分組
-- [ ] 拖曳移動卡片 = 更新狀態
-- [ ] 對話範例：「用看板方式管理任務」
+- [x] 以某個 enum/status 欄位為分組
+- [x] 拖曳移動卡片 = 更新狀態
+- [x] 對話範例：「用看板方式管理任務」
 
 ---
 
@@ -278,16 +278,16 @@ CREATE TABLE _zenku_journal (
 ```
 
 ### 6.2 Undo 機制
-- [ ] Orchestrator 新增 `undo` tool
-- [ ] 基於 journal diff chain 反向執行
-- [ ] 支援粒度：
+- [x] Orchestrator 新增 `undo` tool
+- [x] 基於 journal diff chain 反向執行
+- [x] 支援粒度：
   - 「復原剛才的操作」→ 最近一筆
   - 「把訂單表回到昨天的版本」→ 找到時間點，批次回滾
 - [ ] 不可逆的操作標記 warning
 
 ### 6.3 Session 記憶
-- [ ] 新 session 開始時，Orchestrator 讀 journal 摘要灌進 system prompt
-- [ ] 摘要包含：目前有哪些表、各表欄位、views、rules
+- [x] 新 session 開始時，Orchestrator 讀 journal 摘要灌進 system prompt
+- [x] 摘要包含：目前有哪些表、各表欄位、views、rules
 - [ ] 摘要自動壓縮（超過一定長度時用 Claude 精簡）
 
 ---
@@ -295,9 +295,9 @@ CREATE TABLE _zenku_journal (
 ## Phase 7：權限與多租戶
 
 ### 7.1 使用者認證
-- [ ] 登入 / 註冊（Email + 密碼 or OAuth）
-- [ ] Session / JWT 管理
-- [ ] 技術選型：NextAuth.js or Lucia
+- [x] 登入 / 註冊（Email + 密碼 or OAuth）
+- [x] Session / JWT 管理
+- [x] 技術選型：NextAuth.js or Lucia
 
 ### 7.2 角色權限
 - [ ] 角色定義：admin / builder / user（對應 4.1 Agent 存取控制）
@@ -313,30 +313,34 @@ CREATE TABLE _zenku_journal (
 
 ## Phase 8：外部整合與部署
 
-### 8.1 Webhook / n8n 整合
+### 8.1 多 AI Provider 支援
+- [x] Claude / OpenAI / Gemini provider 抽象層（`server/src/ai/`）
+- [x] Orchestrator 改用 provider-agnostic `AIProvider.chat()` 介面
+- [x] ChatPanel provider/model 選擇器（>1 provider 時顯示）
+- [x] `GET /api/ai/providers` 偵測已設定的 API key
 
-```
-觸發流程：
-Zenku Rule 觸發 → POST webhook → n8n 處理 → 回呼 Zenku API → 更新資料
+### 8.2 對話歷程管理
+- [x] `_zenku_chat_sessions` / `_zenku_chat_messages` / `_zenku_tool_events` 三表
+- [x] `tools/chat-logger.ts`：session 建立、訊息記錄、tool event 記錄、token 統計
+- [x] Orchestrator 每次 chat 完整記錄；SSE 新增 `usage` chunk
 
-回呼 API：
-POST /api/webhook/callback/:rule_id
-```
+### 8.3 管理者對話歷程 UI
+- [x] `GET /api/admin/sessions`、`/sessions/:id`、`/usage` 端點
+- [x] `ChatHistory.tsx`、`SessionDetail.tsx`、`UsageStats.tsx` 元件
+- [x] UserMenu 新增管理員專屬入口
 
-- [ ] Logic Agent 支援 `webhook` action type
-- [ ] Webhook 回呼 API（讓 n8n 回寫資料到 Zenku）
-- [ ] 對話範例：「新訂單時通知 Slack」→ 建 webhook rule
+### 8.4 Webhook / n8n 整合
+- [x] Logic Agent 支援 `webhook` action type（規則引擎已實作）
+- [x] `POST /api/webhook/callback`（HMAC-SHA256 驗證 + 記錄 journal）
+- [x] `.env.example` 新增 `WEBHOOK_SECRET`
 
-### 8.2 API 開放
-- [ ] RESTful API（讓外部系統讀寫 Zenku 資料）
-- [ ] API Key 認證
+### 8.5 部署
+- [x] `Dockerfile`（multi-stage，node:24-slim）
+- [x] `docker-compose.yml`（volume 持久化 SQLite、healthcheck）
+- [x] Production 靜態服務（Express serve 前端 + SPA fallback）
+- [ ] API Key 認證（對外 RESTful API）
 - [ ] Rate limiting
-
-### 8.3 部署
-- [ ] Dockerfile（前後端打包）
-- [ ] docker-compose（含 volume 持久化 SQLite）
-- [ ] 環境變數管理
-- [ ] 考慮遷移到 PostgreSQL 的路徑（生產環境）
+- [ ] PostgreSQL 遷移路徑
 
 ---
 

@@ -29,7 +29,28 @@ interface RelationColumnDef {
 
 function getRelationColumns(tableName: string): RelationColumnDef[] {
   const views = getAllViews();
-  const view = views.find(v => v.table_name === tableName);
+  
+  // 先查找直接對應的 view
+  let view = views.find(v => v.table_name === tableName);
+  
+  // 如果找不到，查找該表是否在某個 master-detail view 的 detail_views 中
+  if (!view) {
+    for (const v of views) {
+      try {
+        const def = JSON.parse(v.definition) as { detail_views?: { table_name: string; view: { columns?: unknown[] } }[] };
+        if (def.detail_views) {
+          const detailView = def.detail_views.find(dv => dv.table_name === tableName);
+          if (detailView) {
+            view = { definition: JSON.stringify(detailView.view) } as any;
+            break;
+          }
+        }
+      } catch {
+        continue;
+      }
+    }
+  }
+  
   if (!view) return [];
   try {
     const def = JSON.parse(view.definition) as { columns?: { key: string; type: string; relation?: { table: string; display_field: string } }[] };

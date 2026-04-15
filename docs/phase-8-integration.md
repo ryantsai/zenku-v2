@@ -678,12 +678,12 @@ docker-compose.yml
 
 - [x] 可在 ChatPanel 切換 Claude / OpenAI / Gemini
 - [x] 三個 provider 都能正確執行 tool_use 迴圈
-- [ ] 每次對話記錄 token 用量和延遲
-- [ ] Admin 可以查看所有使用者的對話歷程（含思考鏈、工具使用）
-- [ ] Admin 可以看到 token 花費統計（按 provider、使用者、時間）
-- [ ] Webhook rule 觸發後正確呼叫外部 URL
-- [ ] n8n 可以透過回呼 API 更新 Zenku 資料
-- [ ] Docker build + run 正常
+- [x] 每次對話記錄 token 用量和延遲
+- [x] Admin 可以查看所有使用者的對話歷程（含思考鏈、工具使用）
+- [x] Admin 可以看到 token 花費統計（按 provider、使用者、時間）
+- [x] Webhook rule 觸發後正確呼叫外部 URL
+- [x] n8n 可以透過回呼 API 更新 Zenku 資料
+- [x] Docker build + run 正常
 - [x] 環境變數正確注入
 
 ---
@@ -723,9 +723,51 @@ server/src/ai/
 - ChatPanel：provider/model 雙下拉選擇器（>1 provider 時顯示）
 - `sendChat()` 傳送 provider/model 到後端
 
-### 待完成
+### 8.2 對話歷程管理 — 已完成
 
-- [ ] 8.2 對話歷程管理（_zenku_chat_sessions, _zenku_chat_messages, _zenku_tool_events）
-- [ ] 8.3 管理者 — 對話歷程 UI（ChatHistory, SessionDetail, UsageStats）
-- [ ] 8.4 Webhook / n8n 整合
-- [ ] 8.5 部署（Dockerfile, docker-compose.yml）
+**DB 層（`db.ts`）：**
+- 新增 `_zenku_chat_sessions`（id, user_id, title, provider, model, token 統計, message_count）
+- 新增 `_zenku_chat_messages`（id, session_id, role, content, tokens, thinking, latency_ms）
+- 新增 `_zenku_tool_events`（id, message_id, agent, tool_name, input/output JSON, latency_ms）
+- 各表加索引
+
+**`tools/chat-logger.ts`（新建）：**
+- `createChatSession(userId, provider, model)` → session id
+- `recordMessage(input)` → message id
+- `recordToolEvent(input)` — 同時以 `toolToAgent()` 對應 agent 名稱
+- `updateSessionStats(sessionId, usage, model)` — 累加 tokens + estimateCost
+
+**Orchestrator 更新：**
+- `ChatOptions` 新增 `userId?`
+- 每次 `chat()` 建立 session（有 userId 時），記錄 user 訊息
+- 每個 LLM 回應後 yield `{ type: 'usage', usage, latency_ms }` SSE chunk
+- 每個 tool call 後呼叫 `recordToolEvent()`（含 per-tool 計時）
+- 最後一個 assistant turn 記錄並更新 session 統計
+
+**`index.ts` 更新：**
+- `POST /api/chat` 傳入 `userId: req.user!.id`
+
+### 8.3 管理者 — 對話歷程 UI — 已完成
+
+**API（`index.ts`）：**
+- `GET /api/admin/sessions` — 分頁 + user_id/provider 篩選，JOIN users 表
+- `GET /api/admin/sessions/:id` — 完整 timeline（messages + 嵌套 tool_events）
+- `GET /api/admin/usage` — 總計、by_provider、by_user、by_agent、daily 30天
+
+**前端元件：**
+- `ChatHistory.tsx` — session 表格（標題/時間/使用者/Provider/訊息數/Tokens/費用），provider 篩選，點擊進入詳情
+- `SessionDetail.tsx` — 對話時間線（user 氣泡 / AI 氣泡 + tool events 可展開 + thinking chain 可展開 + token stats）
+- `UsageStats.tsx` — 4 張統計卡 + provider/agent/user/daily 表格
+- `UserMenu.tsx` 新增「對話歷程」「用量統計」admin 選項
+
+### 8.4 Webhook / n8n 整合 — 已完成
+
+- `authenticateWebhook` middleware：HMAC-SHA256 驗證 `X-Zenku-Signature`（未設 WEBHOOK_SECRET 時放行）
+- `POST /api/webhook/callback` — 驗證 → 更新記錄 → 寫 journal
+- `.env.example` 新增 `WEBHOOK_SECRET=`
+
+### 8.5 部署 — 已完成
+
+- `Dockerfile` — multi-stage（node:24-slim builder → runtime），前端 build 至 `./public` 由 Express serve
+- `docker-compose.yml` — zenku-data volume、所有 env vars、healthcheck
+- `index.ts` production 靜態服務：`express.static(__dirname + '/../public')` + SPA fallback

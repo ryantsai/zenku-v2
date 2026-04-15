@@ -16,6 +16,11 @@ interface Props {
   onChange: (value: unknown) => void;
 }
 
+function getAuthHeaders(): Record<string, string> {
+  const token = localStorage.getItem('zenku-token');
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
 export function RelationField({ field, value, onChange }: Props) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
@@ -31,9 +36,11 @@ export function RelationField({ field, value, onChange }: Props) {
   useEffect(() => {
     if (!value) { setDisplayValue(''); return; }
     const params = new URLSearchParams({ value_field, display_field, id: String(value) });
-    fetch(`/api/data/${table}/options?${params}`)
-      .then(r => r.json())
-      .then((data: Option[]) => { if (data[0]) setDisplayValue(data[0].label); })
+    fetch(`/api/data/${table}/options?${params}`, { headers: getAuthHeaders() })
+      .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
+      .then((data: unknown) => {
+        if (Array.isArray(data) && data[0]) setDisplayValue((data[0] as Option).label);
+      })
       .catch(() => {});
   }, [value, table, value_field, display_field]);
 
@@ -43,9 +50,9 @@ export function RelationField({ field, value, onChange }: Props) {
     setLoading(true);
     const params = new URLSearchParams({ value_field, display_field });
     if (search) params.set('search', search);
-    fetch(`/api/data/${table}/options?${params}`)
-      .then(r => r.json())
-      .then((data: Option[]) => setOptions(data))
+    fetch(`/api/data/${table}/options?${params}`, { headers: getAuthHeaders() })
+      .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
+      .then((data: unknown) => setOptions(Array.isArray(data) ? (data as Option[]) : []))
       .catch(() => setOptions([]))
       .finally(() => setLoading(false));
   }, [open, search, table, value_field, display_field]);

@@ -65,8 +65,8 @@ export function MasterDetailView({ view, recordId }: Props) {
         </span>
       </div>
 
-      {/* Master form */}
-      <div className="border-b px-6 py-4">
+      {/* Master form - with max height and scroll */}
+      <div className="max-h-96 flex-shrink-0 overflow-y-auto border-b px-6 py-4">
         {loading ? (
           <p className="text-sm text-muted-foreground">載入中...</p>
         ) : record ? (
@@ -82,10 +82,10 @@ export function MasterDetailView({ view, recordId }: Props) {
         )}
       </div>
 
-      {/* Detail tabs */}
+      {/* Detail tabs - fill remaining space */}
       {view.detail_views && view.detail_views.length > 0 && (
-        <Tabs defaultValue={view.detail_views[0].table_name} className="flex flex-1 flex-col overflow-hidden">
-          <TabsList>
+        <Tabs defaultValue={view.detail_views[0].table_name} className="flex min-h-0 flex-1 flex-col">
+          <TabsList className="w-full justify-start border-b rounded-none px-6">
             {view.detail_views.map(dv => (
               <TabsTrigger key={dv.table_name} value={dv.table_name}>
                 {dv.tab_label}
@@ -94,7 +94,11 @@ export function MasterDetailView({ view, recordId }: Props) {
           </TabsList>
 
           {view.detail_views.map(dv => (
-            <TabsContent key={dv.table_name} value={dv.table_name}>
+            <TabsContent
+              key={dv.table_name}
+              value={dv.table_name}
+              className="m-0 flex min-h-0 flex-1 flex-col p-0"
+            >
               <TableView
                 view={dv.view}
                 filters={{ [dv.foreign_key]: recordId }}
