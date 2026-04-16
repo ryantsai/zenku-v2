@@ -203,7 +203,8 @@ export function TableView({ view, filters, onCreateData }: Props) {
     }
   };
 
-  const formColumns = view.form.columns ?? 1;
+  const visibleFieldCount = view.form.fields.filter(f => !f.hidden_in_form).length;
+  const formColumns = view.form.columns ?? (visibleFieldCount >= 5 ? 2 : 1);
   const dialogWidthClass =
     formColumns === 3 ? 'max-w-4xl' : formColumns === 2 ? 'max-w-2xl' : 'max-w-lg';
 
