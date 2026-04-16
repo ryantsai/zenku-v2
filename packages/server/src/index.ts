@@ -409,6 +409,10 @@ app.get('/api/data/:table/options', requireAuth, (req, res) => {
 // GET single record by id (with relation JOIN)
 app.get('/api/data/:table/:id', requireAuth, (req, res) => {
   const table = p(req.params.table), id = p(req.params.id);
+  if (!isSafeFieldName(table)) {
+    res.status(400).json({ error: '無效的資料表名稱' });
+    return;
+  }
   if (table.startsWith('_zenku_')) {
     res.status(403).json({ error: '不允許存取系統表' });
     return;
@@ -442,6 +446,10 @@ app.get('/api/data/:table/:id', requireAuth, (req, res) => {
 
 app.get('/api/data/:table', requireAuth, (req, res) => {
   const table = p(req.params.table);
+  if (!isSafeFieldName(table)) {
+    res.status(400).json({ error: '無效的資料表名稱' });
+    return;
+  }
   if (table.startsWith('_zenku_')) {
     res.status(403).json({ error: '不允許存取系統表' });
     return;
@@ -535,6 +543,10 @@ app.get('/api/data/:table', requireAuth, (req, res) => {
 
 app.post('/api/data/:table', requireAuth, async (req, res) => {
   const table = p(req.params.table);
+  if (!isSafeFieldName(table)) {
+    res.status(400).json({ error: '無效的資料表名稱' });
+    return;
+  }
   if (table.startsWith('_zenku_')) {
     res.status(403).json({ error: '不允許存取系統表' });
     return;
@@ -576,6 +588,10 @@ app.post('/api/data/:table', requireAuth, async (req, res) => {
 
 app.put('/api/data/:table/:id', requireAuth, async (req, res) => {
   const table = p(req.params.table), id = p(req.params.id);
+  if (!isSafeFieldName(table)) {
+    res.status(400).json({ error: '無效的資料表名稱' });
+    return;
+  }
   if (table.startsWith('_zenku_')) {
     res.status(403).json({ error: '不允許存取系統表' });
     return;
@@ -619,6 +635,10 @@ app.put('/api/data/:table/:id', requireAuth, async (req, res) => {
 
 app.delete('/api/data/:table/:id', requireAuth, async (req, res) => {
   const table = p(req.params.table), id = p(req.params.id);
+  if (!isSafeFieldName(table)) {
+    res.status(400).json({ error: '無效的資料表名稱' });
+    return;
+  }
   if (table.startsWith('_zenku_')) {
     res.status(403).json({ error: '不允許存取系統表' });
     return;
