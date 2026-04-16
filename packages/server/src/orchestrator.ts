@@ -769,7 +769,7 @@ Important constraints:
 - For cross-table conditions (e.g., check customer tier), use Business Rules (manage_rules) instead — appearance only accesses current form values.
 - To remove a conditional appearance rule, call manage_ui (update_view) and omit the appearance property from that field.
 
-Custom ViewActions (自訂動作按鈕):
+Custom ViewActions:
 To add a custom action to an existing view, always follow this sequence:
 1. manage_ui({ action: 'get_view', view_id: '...' }) — get current full definition
 2. Add the new action object into definition.actions[]
