@@ -2,21 +2,23 @@ import { useEffect, useRef, useState } from 'react';
 import {
   Loader2, RefreshCw, X, ChevronDown, ChevronRight,
   Eye, EyeOff, Lock, Unlock, AlertCircle, Palette, Type,
-  Trash2, Table2, FileText, Zap, Info,
+  Trash2, Table2, FileText, Zap, Info, Plus, Pencil,
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
 import { Switch } from '../ui/switch';
 import { Input } from '../ui/input';
+import { Textarea } from '../ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../ui/dialog';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '../ui/alert-dialog';
 import { toast } from 'sonner';
-import type { ViewDefinition, FieldDef, ColumnDef } from '../../types';
-import type { AppearanceRule, AppearanceEffect } from '../../types';
+import type { ViewDefinition, FieldDef, ColumnDef, CustomViewAction, ActionBehavior, BuiltinAction } from '../../types';
+import type { AppearanceRule, AppearanceEffect, AppearanceCondition } from '../../types';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -388,6 +390,512 @@ function ColumnRow({
           />
         </div>
       )}
+    </div>
+  );
+}
+
+// ─── Action constants ─────────────────────────────────────────────────────────
+
+const BUILTIN_ACTIONS: BuiltinAction[] = ['create', 'edit', 'delete', 'export'];
+const BEHAVIOR_TYPES = [
+  { value: 'set_field',     label: '設定欄位值' },
+  { value: 'trigger_rule',  label: '觸發業務規則' },
+  { value: 'webhook',       label: '呼叫 Webhook' },
+  { value: 'navigate',      label: '跳轉介面' },
+  { value: 'create_related',label: '建立關聯記錄' },
+] as const;
+const VARIANT_OPTIONS = [
+  { value: 'default',     label: '主要（藍）' },
+  { value: 'outline',     label: '輪廓（灰）' },
+  { value: 'secondary',   label: '次要' },
+  { value: 'destructive', label: '危險（紅）' },
+  { value: 'warning',     label: '警告（橘）' },
+];
+const CONTEXT_OPTIONS = [
+  { value: 'record', label: '詳情頁（record）' },
+  { value: 'list',   label: '列表列（list）' },
+  { value: 'both',   label: '兩者皆有（both）' },
+];
+const OPERATOR_OPTIONS = [
+  { value: 'eq',       label: '等於' },
+  { value: 'neq',      label: '不等於' },
+  { value: 'gt',       label: '大於' },
+  { value: 'lt',       label: '小於' },
+  { value: 'gte',      label: '大於等於' },
+  { value: 'lte',      label: '小於等於' },
+  { value: 'contains', label: '包含' },
+];
+
+// ─── Blank custom action template ─────────────────────────────────────────────
+
+function blankAction(): CustomViewAction {
+  return {
+    id: '',
+    label: '',
+    variant: 'outline',
+    context: 'record',
+    behavior: { type: 'set_field', field: '', value: '' },
+  };
+}
+
+// ─── Simple condition editor (leaf only) ──────────────────────────────────────
+
+function LeafConditionEditor({
+  label, value, onChange,
+}: {
+  label: string;
+  value: AppearanceCondition | undefined;
+  onChange: (v: AppearanceCondition | undefined) => void;
+}) {
+  const leaf = (value && !('logic' in value)) ? value : { field: '', operator: 'eq' as const, value: '' };
+  const enabled = Boolean(value);
+
+  return (
+    <div className="space-y-1.5">
+      <div className="flex items-center gap-2">
+        <Switch checked={enabled} onCheckedChange={on => onChange(on ? leaf : undefined)} />
+        <span className="text-xs font-medium">{label}</span>
+      </div>
+      {enabled && (
+        <div className="ml-6 flex flex-wrap gap-2">
+          <Input
+            className="h-7 text-xs w-32"
+            placeholder="欄位名"
+            value={('field' in leaf) ? String(leaf.field) : ''}
+            onChange={e => onChange({ ...leaf, field: e.target.value })}
+          />
+          <select
+            className="h-7 rounded-md border bg-background px-2 text-xs"
+            value={('operator' in leaf) ? String(leaf.operator) : 'eq'}
+            onChange={e => onChange({ ...leaf, operator: e.target.value as AppearanceCondition extends { operator: infer O } ? O : never })}
+          >
+            {OPERATOR_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+          </select>
+          <Input
+            className="h-7 text-xs w-28"
+            placeholder="值"
+            value={('value' in leaf) ? String(leaf.value ?? '') : ''}
+            onChange={e => onChange({ ...leaf, value: e.target.value })}
+          />
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Action form dialog ───────────────────────────────────────────────────────
+
+function ActionFormDialog({
+  open, initial, onClose, onSave,
+}: {
+  open: boolean;
+  initial: CustomViewAction | null;
+  onClose: () => void;
+  onSave: (action: CustomViewAction) => Promise<void>;
+}) {
+  const [form, setForm] = useState<CustomViewAction>(initial ?? blankAction());
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => { setForm(initial ?? blankAction()); }, [initial, open]);
+
+  const set = (patch: Partial<CustomViewAction>) => setForm(f => ({ ...f, ...patch }));
+  const setBehavior = (patch: Partial<ActionBehavior>) =>
+    setForm(f => ({ ...f, behavior: { ...f.behavior, ...patch } as ActionBehavior }));
+
+  const behaviorType = form.behavior.type;
+
+  const handleSave = async () => {
+    if (!form.id.trim()) { toast.error('請填入動作 ID'); return; }
+    if (!form.label.trim()) { toast.error('請填入按鈕名稱'); return; }
+    setSaving(true);
+    try { await onSave({ ...form, id: form.id.trim(), label: form.label.trim() }); }
+    finally { setSaving(false); }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={o => { if (!o) onClose(); }}>
+      <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>{initial ? '編輯自訂動作' : '新增自訂動作'}</DialogTitle>
+        </DialogHeader>
+
+        <div className="space-y-4 py-1">
+          {/* Basic info */}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <label className="text-xs font-medium">動作 ID <span className="text-destructive">*</span></label>
+              <Input
+                className="h-8 text-sm font-mono"
+                placeholder="approve_order"
+                value={form.id}
+                onChange={e => set({ id: e.target.value.replace(/\s/g, '_') })}
+                disabled={Boolean(initial)}
+              />
+              <p className="text-xs text-muted-foreground">英文小寫底線，建立後不可修改</p>
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs font-medium">按鈕名稱 <span className="text-destructive">*</span></label>
+              <Input className="h-8 text-sm" placeholder="核准" value={form.label} onChange={e => set({ label: e.target.value })} />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-3 gap-3">
+            <div className="space-y-1">
+              <label className="text-xs font-medium">樣式</label>
+              <select className="w-full h-8 rounded-md border bg-background px-2 text-sm"
+                value={form.variant ?? 'outline'} onChange={e => set({ variant: e.target.value as CustomViewAction['variant'] })}>
+                {VARIANT_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+              </select>
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs font-medium">顯示位置</label>
+              <select className="w-full h-8 rounded-md border bg-background px-2 text-sm"
+                value={form.context ?? 'record'} onChange={e => set({ context: e.target.value as CustomViewAction['context'] })}>
+                {CONTEXT_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+              </select>
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs font-medium">圖示（Lucide）</label>
+              <Input className="h-8 text-sm" placeholder="check-circle" value={form.icon ?? ''} onChange={e => set({ icon: e.target.value || undefined })} />
+            </div>
+          </div>
+
+          {/* Behavior */}
+          <div className="rounded-md border p-3 space-y-3">
+            <div className="flex items-center gap-3">
+              <label className="text-xs font-medium w-16 shrink-0">行為類型</label>
+              <select className="flex-1 h-8 rounded-md border bg-background px-2 text-sm"
+                value={behaviorType}
+                onChange={e => set({ behavior: { type: e.target.value as ActionBehavior['type'] } as ActionBehavior })}>
+                {BEHAVIOR_TYPES.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+              </select>
+            </div>
+
+            {behaviorType === 'set_field' && (
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="text-xs text-muted-foreground">欄位名</label>
+                  <Input className="h-7 text-xs" placeholder="status"
+                    value={(form.behavior as { field?: string }).field ?? ''}
+                    onChange={e => setBehavior({ field: e.target.value } as Partial<ActionBehavior>)} />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs text-muted-foreground">設定值</label>
+                  <Input className="h-7 text-xs" placeholder="approved"
+                    value={(form.behavior as { value?: string }).value ?? ''}
+                    onChange={e => setBehavior({ value: e.target.value } as Partial<ActionBehavior>)} />
+                </div>
+              </div>
+            )}
+
+            {behaviorType === 'trigger_rule' && (
+              <div className="space-y-1">
+                <label className="text-xs text-muted-foreground">規則 ID（trigger_type = manual）</label>
+                <Input className="h-7 text-xs font-mono" placeholder="rule_id"
+                  value={(form.behavior as { rule_id?: string }).rule_id ?? ''}
+                  onChange={e => setBehavior({ rule_id: e.target.value } as Partial<ActionBehavior>)} />
+              </div>
+            )}
+
+            {behaviorType === 'webhook' && (
+              <div className="space-y-2">
+                <div className="grid grid-cols-3 gap-2">
+                  <div className="col-span-2 space-y-1">
+                    <label className="text-xs text-muted-foreground">URL</label>
+                    <Input className="h-7 text-xs" placeholder="https://..."
+                      value={(form.behavior as { url?: string }).url ?? ''}
+                      onChange={e => setBehavior({ url: e.target.value } as Partial<ActionBehavior>)} />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs text-muted-foreground">Method</label>
+                    <select className="w-full h-7 rounded-md border bg-background px-2 text-xs"
+                      value={(form.behavior as { method?: string }).method ?? 'POST'}
+                      onChange={e => setBehavior({ method: e.target.value as 'GET' | 'POST' } as Partial<ActionBehavior>)}>
+                      <option value="POST">POST</option>
+                      <option value="GET">GET</option>
+                    </select>
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs text-muted-foreground">Payload 樣板（用 {'{{field}}'} 插值）</label>
+                  <Textarea className="text-xs font-mono min-h-[60px] resize-none"
+                    placeholder={'{"id":"{{id}}","status":"{{status}}"}'}
+                    value={(form.behavior as { payload?: string }).payload ?? ''}
+                    onChange={e => setBehavior({ payload: e.target.value || undefined } as Partial<ActionBehavior>)} />
+                </div>
+              </div>
+            )}
+
+            {behaviorType === 'navigate' && (
+              <div className="grid grid-cols-3 gap-2">
+                <div className="space-y-1">
+                  <label className="text-xs text-muted-foreground">目標 View ID</label>
+                  <Input className="h-7 text-xs" placeholder="orders"
+                    value={(form.behavior as { view_id?: string }).view_id ?? ''}
+                    onChange={e => setBehavior({ view_id: e.target.value } as Partial<ActionBehavior>)} />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs text-muted-foreground">篩選欄位（目標）</label>
+                  <Input className="h-7 text-xs" placeholder="customer_id"
+                    value={(form.behavior as { filter_field?: string }).filter_field ?? ''}
+                    onChange={e => setBehavior({ filter_field: e.target.value || undefined } as Partial<ActionBehavior>)} />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs text-muted-foreground">來源欄位（當前）</label>
+                  <Input className="h-7 text-xs" placeholder="id"
+                    value={(form.behavior as { filter_value_from?: string }).filter_value_from ?? ''}
+                    onChange={e => setBehavior({ filter_value_from: e.target.value || undefined } as Partial<ActionBehavior>)} />
+                </div>
+              </div>
+            )}
+
+            {behaviorType === 'create_related' && (
+              <div className="space-y-2">
+                <div className="space-y-1">
+                  <label className="text-xs text-muted-foreground">目標資料表</label>
+                  <Input className="h-7 text-xs" placeholder="shipments"
+                    value={(form.behavior as { table?: string }).table ?? ''}
+                    onChange={e => setBehavior({ table: e.target.value } as Partial<ActionBehavior>)} />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs text-muted-foreground">欄位對應（JSON：目標欄位 → 來源欄位或字面值）</label>
+                  <Textarea className="text-xs font-mono min-h-[60px] resize-none"
+                    placeholder={'{"order_id":"id","status":"pending"}'}
+                    value={JSON.stringify((form.behavior as { field_mapping?: Record<string, string> }).field_mapping ?? {}, null, 2)}
+                    onChange={e => {
+                      try {
+                        const parsed = JSON.parse(e.target.value) as Record<string, string>;
+                        setBehavior({ field_mapping: parsed } as Partial<ActionBehavior>);
+                      } catch { /* ignore parse error while typing */ }
+                    }} />
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Conditions */}
+          <div className="space-y-2">
+            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">顯示與啟用條件</p>
+            <LeafConditionEditor
+              label="顯示條件（visible_when）"
+              value={form.visible_when}
+              onChange={v => set({ visible_when: v })}
+            />
+            <LeafConditionEditor
+              label="啟用條件（enabled_when）"
+              value={form.enabled_when}
+              onChange={v => set({ enabled_when: v })}
+            />
+          </div>
+
+          {/* Confirm dialog */}
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <Switch
+                checked={Boolean(form.confirm)}
+                onCheckedChange={on => set({ confirm: on ? { title: '', description: '' } : undefined })}
+              />
+              <span className="text-xs font-medium">執行前彈出確認框</span>
+            </div>
+            {form.confirm && (
+              <div className="ml-6 grid grid-cols-2 gap-2">
+                <div className="space-y-1">
+                  <label className="text-xs text-muted-foreground">標題</label>
+                  <Input className="h-7 text-xs" placeholder="確認核准？"
+                    value={form.confirm.title}
+                    onChange={e => set({ confirm: { ...form.confirm!, title: e.target.value } })} />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs text-muted-foreground">說明</label>
+                  <Input className="h-7 text-xs" placeholder="此操作無法復原"
+                    value={form.confirm.description}
+                    onChange={e => set({ confirm: { ...form.confirm!, description: e.target.value } })} />
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>取消</Button>
+          <Button onClick={() => void handleSave()} disabled={saving}>
+            {saving ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null}
+            儲存
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ─── Actions panel ────────────────────────────────────────────────────────────
+
+function ActionsPanel({
+  view, headers, onUpdate,
+}: {
+  view: AdminView;
+  headers: Record<string, string>;
+  onUpdate: (updated: AdminView) => void;
+}) {
+  const [editingAction, setEditingAction] = useState<CustomViewAction | null>(null);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [deletingActionId, setDeletingActionId] = useState<string | null>(null);
+
+  const builtins = (view.definition.actions ?? []).filter((a): a is BuiltinAction => typeof a === 'string');
+  const customs  = (view.definition.actions ?? []).filter((a): a is CustomViewAction => typeof a === 'object');
+
+  const patchLocal = (newActions: (BuiltinAction | CustomViewAction)[]) => {
+    onUpdate({ ...view, definition: { ...view.definition, actions: newActions } });
+  };
+
+  const toggleBuiltin = async (action: BuiltinAction, enabled: boolean) => {
+    const res = await fetch(`/api/admin/views/${view.id}/builtin-action`, {
+      method: 'PATCH', headers,
+      body: JSON.stringify({ action, enabled }),
+    });
+    if (!res.ok) { toast.error('切換失敗'); return; }
+    const next = enabled
+      ? [...(view.definition.actions ?? []), action] as (BuiltinAction | CustomViewAction)[]
+      : (view.definition.actions ?? []).filter(a => a !== action) as (BuiltinAction | CustomViewAction)[];
+    patchLocal(next);
+  };
+
+  const saveCustomAction = async (action: CustomViewAction) => {
+    const res = await fetch(`/api/admin/views/${view.id}/custom-action`, {
+      method: 'PUT', headers,
+      body: JSON.stringify(action),
+    });
+    if (!res.ok) { toast.error('儲存失敗'); return; }
+    const existing = customs.findIndex(c => c.id === action.id);
+    const nextCustom = existing !== -1
+      ? customs.map(c => c.id === action.id ? action : c)
+      : [...customs, action];
+    patchLocal([...builtins, ...nextCustom]);
+    setDialogOpen(false);
+    toast.success('自訂動作已儲存');
+  };
+
+  const deleteCustomAction = async (actionId: string) => {
+    const res = await fetch(`/api/admin/views/${view.id}/custom-action/${actionId}`, {
+      method: 'DELETE', headers,
+    });
+    if (!res.ok) { toast.error('刪除失敗'); return; }
+    patchLocal([...builtins, ...customs.filter(c => c.id !== actionId)]);
+    toast.success('自訂動作已刪除');
+  };
+
+  const BEHAVIOR_LABEL: Record<string, string> = {
+    set_field: '設定欄位', trigger_rule: '觸發規則', webhook: 'Webhook',
+    navigate: '跳轉', create_related: '建立關聯',
+  };
+
+  return (
+    <div className="space-y-5">
+      {/* Built-in actions */}
+      <div>
+        <p className="mb-2 text-xs font-semibold text-muted-foreground uppercase tracking-wide">內建動作</p>
+        <div className="rounded-md border divide-y">
+          {BUILTIN_ACTIONS.map(a => (
+            <div key={a} className="flex items-center justify-between px-4 py-2.5">
+              <div>
+                <span className="text-sm font-medium">{ACTION_LABEL[a]}</span>
+                <span className="ml-2 text-xs text-muted-foreground font-mono">{a}</span>
+              </div>
+              <Switch
+                checked={builtins.includes(a)}
+                onCheckedChange={v => void toggleBuiltin(a, v)}
+              />
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Custom actions */}
+      <div>
+        <div className="flex items-center justify-between mb-2">
+          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">自訂動作</p>
+          <Button size="sm" variant="outline" className="h-7 gap-1 text-xs"
+            onClick={() => { setEditingAction(null); setDialogOpen(true); }}>
+            <Plus className="h-3.5 w-3.5" />新增
+          </Button>
+        </div>
+        <div className="rounded-md border overflow-hidden">
+          {customs.length === 0 ? (
+            <p className="px-4 py-8 text-sm text-center text-muted-foreground">尚無自訂動作</p>
+          ) : (
+            <div className="divide-y">
+              {customs.map(action => (
+                <div key={action.id} className="flex items-center gap-3 px-4 py-2.5">
+                  {/* ID + label */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium">{action.label}</span>
+                      <span className="font-mono text-xs text-muted-foreground">{action.id}</span>
+                    </div>
+                    <div className="flex gap-2 mt-0.5 flex-wrap">
+                      <Badge variant="secondary" className="text-xs px-1.5 py-0">
+                        {BEHAVIOR_LABEL[action.behavior.type] ?? action.behavior.type}
+                      </Badge>
+                      {action.context && action.context !== 'record' && (
+                        <Badge variant="outline" className="text-xs px-1.5 py-0">{action.context}</Badge>
+                      )}
+                      {action.visible_when && (
+                        <Badge variant="outline" className="text-xs px-1.5 py-0">有顯示條件</Badge>
+                      )}
+                      {action.confirm && (
+                        <Badge variant="outline" className="text-xs px-1.5 py-0">需確認</Badge>
+                      )}
+                    </div>
+                  </div>
+                  {/* Variant badge */}
+                  <span className={`shrink-0 rounded px-2 py-0.5 text-xs font-medium border ${
+                    action.variant === 'destructive' ? 'border-destructive text-destructive' :
+                    action.variant === 'default' ? 'bg-primary text-primary-foreground border-primary' :
+                    'border-border text-muted-foreground'
+                  }`}>{action.variant ?? 'outline'}</span>
+                  {/* Actions */}
+                  <div className="flex gap-1 shrink-0">
+                    <Button variant="ghost" size="icon" className="h-7 w-7"
+                      onClick={() => { setEditingAction(action); setDialogOpen(true); }}>
+                      <Pencil className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button variant="ghost" size="icon" className="h-7 w-7"
+                      onClick={() => setDeletingActionId(action.id)}>
+                      <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Add/edit dialog */}
+      <ActionFormDialog
+        open={dialogOpen}
+        initial={editingAction}
+        onClose={() => setDialogOpen(false)}
+        onSave={saveCustomAction}
+      />
+
+      {/* Delete confirm */}
+      <AlertDialog open={Boolean(deletingActionId)} onOpenChange={o => { if (!o) setDeletingActionId(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>確認刪除自訂動作？</AlertDialogTitle>
+            <AlertDialogDescription>刪除後將從介面中移除，此操作無法復原。</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>取消</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => { if (deletingActionId) { void deleteCustomAction(deletingActionId); setDeletingActionId(null); } }}>
+              刪除
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
@@ -825,42 +1333,11 @@ export function ViewManagement({ onClose }: Props) {
 
                 {/* Actions tab */}
                 <TabsContent value="action" className="flex-1 overflow-y-auto mt-0 mx-6 mb-3">
-                  <div className="rounded-md border p-4 space-y-4">
-                    <div>
-                      <p className="text-sm font-medium mb-2">目前動作</p>
-                      <div className="flex flex-wrap gap-2">
-                        {(selected.definition.actions ?? []).length === 0 ? (
-                          <span className="text-sm text-muted-foreground italic">無動作</span>
-                        ) : (
-                          (selected.definition.actions ?? []).map((action, idx) => {
-                            if (typeof action === 'string') {
-                              return (
-                                <Badge key={action} variant="secondary" className="text-sm px-3 py-1">
-                                  {ACTION_LABEL[action] ?? action}
-                                </Badge>
-                              );
-                            }
-                            return (
-                              <Badge key={action.id ?? idx} variant="outline" className="text-sm px-3 py-1">
-                                {action.label}
-                                <span className="ml-1 text-xs text-muted-foreground">({action.behavior.type})</span>
-                              </Badge>
-                            );
-                          })
-                        )}
-                      </div>
-                    </div>
-                    <div className="rounded-md bg-muted/40 p-3 text-xs text-muted-foreground space-y-1">
-                      <p className="font-medium text-foreground">自定義動作（Phase 4）</p>
-                      <p>未來將支援自訂按鈕，設定條件顯示 / 停用，並綁定以下行為：</p>
-                      <ul className="ml-3 list-disc space-y-0.5">
-                        <li>設定欄位值（如：將狀態改為「核准」）</li>
-                        <li>觸發手動業務規則</li>
-                        <li>呼叫外部 Webhook</li>
-                        <li>跳轉到其他介面</li>
-                      </ul>
-                    </div>
-                  </div>
+                  <ActionsPanel
+                    view={selected}
+                    headers={headers}
+                    onUpdate={updated => setViews(prev => prev.map(v => v.id === updated.id ? updated : v))}
+                  />
                 </TabsContent>
               </Tabs>
             </>

@@ -10,7 +10,7 @@ console.log('[dotenv] loaded:', !envResult.error, '| ANTHROPIC_API_KEY set:', !!
 import express from 'express';
 import cors from 'cors';
 import { getDb, getAllViews, getTableSchema, writeJournal } from './db';
-import { executeBefore, executeAfter } from './engine/rule-engine';
+import { executeBefore, executeAfter, executeManual } from './engine/rule-engine';
 
 // 安全欄位名驗證
 function isSafeFieldName(name: string): boolean {
@@ -1249,10 +1249,18 @@ app.post('/api/views/:viewId/actions/:actionId/execute', requireAuth, async (req
         res.json({ success: true });
         break;
 
-      case 'trigger_rule':
-        // Phase 4.2 — not yet implemented
-        res.status(501).json({ error: 'trigger_rule 尚未實作（Phase 4.2）' });
+      case 'trigger_rule': {
+        const { rule_id } = behavior as { type: string; rule_id: string };
+        if (!rule_id) { res.status(400).json({ error: '缺少 rule_id' }); return; }
+        const result = await executeManual(rule_id, { ...record }, tableName);
+        if (!result.success) {
+          res.status(422).json({ error: result.errors.join('; ') }); return;
+        }
+        // Reload updated record
+        const refreshed = db.prepare(`SELECT * FROM "${tableName}" WHERE id = ?`).get(record_id) as Record<string, unknown>;
+        res.json({ success: true, updated: refreshed });
         break;
+      }
 
       default:
         res.status(400).json({ error: `未知的 behavior type: ${String(behavior.type)}` });
@@ -1260,6 +1268,85 @@ app.post('/api/views/:viewId/actions/:actionId/execute', requireAuth, async (req
   } catch (err) {
     res.status(500).json({ error: String(err) });
   }
+});
+
+// ──────────────────────────────────────────────
+// Admin — View action management
+// ──────────────────────────────────────────────
+
+/** 切換內建動作（add/remove string from actions array） */
+app.patch('/api/admin/views/:id/builtin-action', requireAdmin, (req, res) => {
+  const db = getDb();
+  const viewId = p(req.params['id']);
+  const { action, enabled } = req.body as { action?: string; enabled?: boolean };
+  if (!action || enabled === undefined) { res.status(400).json({ error: '缺少 action 或 enabled' }); return; }
+
+  const row = db.prepare('SELECT definition FROM _zenku_views WHERE id = ?').get(viewId) as { definition: string } | undefined;
+  if (!row) { res.status(404).json({ error: 'View 不存在' }); return; }
+
+  const def = JSON.parse(row.definition) as { actions?: unknown[] };
+  const actions: unknown[] = def.actions ?? [];
+
+  if (enabled) {
+    if (!actions.includes(action)) actions.push(action);
+  } else {
+    const idx = actions.indexOf(action);
+    if (idx !== -1) actions.splice(idx, 1);
+  }
+  def.actions = actions;
+
+  db.prepare(`UPDATE _zenku_views SET definition = ?, updated_at = datetime('now') WHERE id = ?`)
+    .run(JSON.stringify(def), viewId);
+  res.json({ success: true });
+});
+
+/** 新增或更新自訂動作（by action.id） */
+app.put('/api/admin/views/:id/custom-action', requireAdmin, (req, res) => {
+  const db = getDb();
+  const viewId = p(req.params['id']);
+  const actionDef = req.body as { id?: string };
+  if (!actionDef.id) { res.status(400).json({ error: '缺少 action.id' }); return; }
+
+  const row = db.prepare('SELECT definition FROM _zenku_views WHERE id = ?').get(viewId) as { definition: string } | undefined;
+  if (!row) { res.status(404).json({ error: 'View 不存在' }); return; }
+
+  const def = JSON.parse(row.definition) as { actions?: unknown[] };
+  const actions: unknown[] = def.actions ?? [];
+
+  const idx = actions.findIndex(
+    a => typeof a === 'object' && a !== null && (a as Record<string, unknown>)['id'] === actionDef.id
+  );
+  if (idx !== -1) {
+    actions[idx] = actionDef;
+  } else {
+    actions.push(actionDef);
+  }
+  def.actions = actions;
+
+  db.prepare(`UPDATE _zenku_views SET definition = ?, updated_at = datetime('now') WHERE id = ?`)
+    .run(JSON.stringify(def), viewId);
+  res.json({ success: true });
+});
+
+/** 刪除自訂動作 */
+app.delete('/api/admin/views/:id/custom-action/:actionId', requireAdmin, (req, res) => {
+  const db = getDb();
+  const viewId = p(req.params['id']);
+  const actionId = p(req.params['actionId']);
+
+  const row = db.prepare('SELECT definition FROM _zenku_views WHERE id = ?').get(viewId) as { definition: string } | undefined;
+  if (!row) { res.status(404).json({ error: 'View 不存在' }); return; }
+
+  const def = JSON.parse(row.definition) as { actions?: unknown[] };
+  const before = (def.actions ?? []).length;
+  def.actions = (def.actions ?? []).filter(
+    a => !(typeof a === 'object' && a !== null && (a as Record<string, unknown>)['id'] === actionId)
+  );
+  if (def.actions.length === before) { res.status(404).json({ error: '自訂動作不存在' }); return; }
+
+  db.prepare(`UPDATE _zenku_views SET definition = ?, updated_at = datetime('now') WHERE id = ?`)
+    .run(JSON.stringify(def), viewId);
+  res.json({ success: true });
 });
 
 // ──────────────────────────────────────────────

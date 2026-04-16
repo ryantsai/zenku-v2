@@ -212,6 +212,112 @@ export function executeBefore(
   return { allowed: errors.length === 0, data: currentData, errors };
 }
 
+// ===== Manual trigger (for custom ViewAction trigger_rule behavior) =====
+
+export interface ManualResult {
+  success: boolean;
+  errors: string[];
+}
+
+export async function executeManual(
+  ruleId: string,
+  data: Record<string, unknown>,
+  table: string,
+): Promise<ManualResult> {
+  const db = getDb();
+  const rule = db.prepare(
+    'SELECT * FROM _zenku_rules WHERE id = ? AND trigger_type = ? AND enabled = 1'
+  ).get(ruleId, 'manual') as {
+    id: string; name: string; table_name: string; trigger_type: string;
+    condition: string | null; actions: string; enabled: number;
+  } | undefined;
+
+  if (!rule) return { success: false, errors: ['規則不存在或未啟用（須為 manual 類型）'] };
+
+  const condition = rule.condition ? JSON.parse(rule.condition) as RuleCondition : null;
+  if (!evaluateCondition(condition, table, data)) {
+    return { success: false, errors: ['條件不符，規則未執行'] };
+  }
+
+  const actions = JSON.parse(rule.actions) as RuleAction[];
+  const errors: string[] = [];
+
+  for (const act of actions) {
+    try {
+      switch (act.type) {
+        case 'validate':
+          // In manual context, validate means reject if condition matched
+          errors.push(act.message ?? `規則「${rule.name}」驗證失敗`);
+          break;
+
+        case 'set_field':
+          if (act.field && act.value !== undefined && data.id !== undefined) {
+            const newVal = evaluateExpression(act.value, data);
+            db.prepare(`UPDATE "${table}" SET "${act.field}" = ?, updated_at = datetime('now') WHERE id = ?`)
+              .run(newVal as string | number | bigint | null, data.id as string | number | bigint);
+            data[act.field] = newVal; // update local copy for subsequent actions
+          }
+          break;
+
+        case 'create_record':
+          if (act.target_table && act.record_data) {
+            const record: Record<string, unknown> = {};
+            for (const [key, expr] of Object.entries(act.record_data)) {
+              record[key] = evaluateExpression(expr, data);
+            }
+            const keys = Object.keys(record);
+            db.prepare(
+              `INSERT INTO "${act.target_table}" (${keys.map(k => `"${k}"`).join(', ')}) VALUES (${keys.map(() => '?').join(', ')})`
+            ).run(...(Object.values(record) as (string | number | bigint | null)[]));
+          }
+          break;
+
+        case 'update_record': {
+          if (!act.target_table || !act.record_data || !act.where) break;
+          const whereEntries = Object.entries(act.where);
+          const whereClause = whereEntries.map(([col]) => `"${col}" = ?`).join(' AND ');
+          const whereValues = whereEntries.map(([, expr]) => evaluateExpression(expr, data));
+          const targetRecord = db.prepare(
+            `SELECT * FROM "${act.target_table}" WHERE ${whereClause} LIMIT 1`
+          ).get(...(whereValues as (string | number | bigint | null)[])) as Record<string, unknown> | undefined;
+          const context: Record<string, unknown> = { ...data };
+          if (targetRecord) {
+            for (const [k, v] of Object.entries(targetRecord)) context[`__old_${k}`] = v;
+          }
+          const updates: Record<string, unknown> = {};
+          for (const [key, expr] of Object.entries(act.record_data)) {
+            updates[key] = evaluateExpression(expr, context);
+          }
+          if (targetRecord) {
+            const setClause = Object.keys(updates).map(k => `"${k}" = ?`).join(', ');
+            db.prepare(`UPDATE "${act.target_table}" SET ${setClause} WHERE ${whereClause}`)
+              .run(...(Object.values(updates) as (string | number | bigint | null)[]), ...(whereValues as (string | number | bigint | null)[]));
+          }
+          break;
+        }
+
+        case 'webhook':
+          if (act.url) {
+            await fetch(act.url, {
+              method: act.method ?? 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ table, data, rule: rule.name }),
+            });
+          }
+          break;
+
+        case 'notify':
+          console.log(`[RuleEngine/manual] 通知 — 規則「${rule.name}」：${act.text ?? ''}`);
+          break;
+      }
+    } catch (err) {
+      errors.push(`動作執行失敗：${String(err)}`);
+    }
+  }
+
+  return { success: errors.length === 0, errors };
+}
+
 export async function executeAfter(
   table: string,
   action: TriggerAction,
