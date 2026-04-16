@@ -3,6 +3,8 @@
  * 所有 View、Form、Table 都依賴此定義
  */
 
+import type { AppearanceRule } from './appearance';
+
 // ===== 欄位類型 =====
 
 /** Phase 1（現有）基礎型別 */
@@ -95,4 +97,7 @@ export interface FieldDef {
 
   /** 驗證規則 */
   validation?: ValidationDef;
+
+  /** 條件外觀規則（Client-side 即時求值） */
+  appearance?: AppearanceRule[];
 }

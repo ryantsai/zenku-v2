@@ -7,8 +7,8 @@ export type {
 export type { ColumnDef } from './types/column';
 
 export type {
-  ViewType, ViewDefinition, ViewAction, DetailViewDef,
-  DashboardWidget, WidgetType, KanbanConfig, CalendarConfig,
+  ViewType, ViewDefinition, ViewAction, BuiltinAction, CustomViewAction, ActionBehavior,
+  DetailViewDef, DashboardWidget, WidgetType, KanbanConfig, CalendarConfig,
   Filter, FilterOperator,
 } from './types/view';
 
@@ -33,6 +33,10 @@ export type { TriggerType, Rule, RuleCondition, RuleAction } from './types/rule'
 export type { JournalType, JournalEntry } from './types/journal';
 
 export type { User, AuthToken } from './types/auth';
+
+// ===== Conditional Appearance =====
+export type { LeafCondition, AppearanceCondition, AppearanceEffect, AppearanceRule } from './types/appearance';
+export { evaluateAppearanceCondition, resolveAppearance } from './appearance';
 
 // ===== Formula Engine =====
 export { evaluateFormula, validateFormula, extractDependencies } from './formula';

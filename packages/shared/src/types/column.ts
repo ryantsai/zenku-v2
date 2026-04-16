@@ -1,4 +1,5 @@
 import type { FieldType } from './field';
+import type { AppearanceRule } from './appearance';
 
 export interface ColumnDef {
   /** DB 欄位名 */
@@ -16,4 +17,9 @@ export interface ColumnDef {
     table: string;
     display_field: string;
   };
+  /** 在列表中隱藏此欄（仍保留定義，可於介面管理中切換） */
+  hidden_in_table?: boolean;
+
+  /** 條件外觀規則（表格每列依資料動態套用樣式） */
+  appearance?: AppearanceRule[];
 }

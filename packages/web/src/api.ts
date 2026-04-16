@@ -82,6 +82,19 @@ export async function deleteRow(table: string, id: unknown): Promise<void> {
   await parseJsonOrThrow<{ success: boolean }>(res);
 }
 
+export async function executeViewAction(
+  viewId: string,
+  actionId: string,
+  recordId: string | number,
+): Promise<{ success: boolean; message?: string; updated?: Record<string, unknown> }> {
+  const res = await fetch(`${BASE}/views/${viewId}/actions/${actionId}/execute`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
+    body: JSON.stringify({ record_id: recordId }),
+  });
+  return parseJsonOrThrow<{ success: boolean; message?: string; updated?: Record<string, unknown> }>(res);
+}
+
 export async function runQuery(sql: string): Promise<Record<string, unknown>[]> {
   const res = await fetch(`${BASE}/query`, {
     method: 'POST',

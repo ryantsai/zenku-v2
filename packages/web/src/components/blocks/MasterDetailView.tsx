@@ -2,11 +2,13 @@ import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
 import { toast } from 'sonner';
-import { getRecord, updateRow } from '../../api';
-import type { DetailViewDef, ViewDefinition } from '../../types';
+import { executeViewAction, getRecord, updateRow } from '../../api';
+import type { CustomViewAction, DetailViewDef, ViewDefinition } from '../../types';
+import { evaluateAppearanceCondition } from '@zenku/shared';
 import { Button } from '../ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Skeleton } from '../ui/skeleton';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '../ui/alert-dialog';
 import { FormView } from './FormView';
 import { TableView } from './TableView';
 
@@ -28,6 +30,7 @@ export function MasterDetailView({ view, recordId }: Props) {
   const navigate = useNavigate();
   const [record, setRecord] = useState<RowData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [confirmAction, setConfirmAction] = useState<CustomViewAction | null>(null);
 
   const fetchRecord = useCallback(async () => {
     setLoading(true);
@@ -55,6 +58,37 @@ export function MasterDetailView({ view, recordId }: Props) {
     }
   };
 
+  const handleCustomAction = async (action: CustomViewAction) => {
+    if (action.behavior.type === 'navigate') {
+      const nav = action.behavior as { type: string; view_id: string; filter_field?: string; filter_value_from?: string };
+      const filterVal = nav.filter_value_from && record ? record[nav.filter_value_from] : undefined;
+      const query = nav.filter_field && filterVal !== undefined ? `?filter[${nav.filter_field}]=${String(filterVal)}` : '';
+      navigate(`/view/${nav.view_id}${query}`);
+      return;
+    }
+    try {
+      const result = await executeViewAction(view.id, action.id, recordId);
+      toast.success(action.label + ' 執行成功');
+      if (result.updated) setRecord(result.updated);
+      else void fetchRecord();
+    } catch (error) {
+      toast.error(action.label + ' 執行失敗', { description: String(error) });
+    }
+  };
+
+  const triggerAction = (action: CustomViewAction) => {
+    if (action.confirm) {
+      setConfirmAction(action);
+    } else {
+      void handleCustomAction(action);
+    }
+  };
+
+  // Derive custom actions for the record context
+  const recordCustomActions = view.actions
+    .filter((a): a is CustomViewAction => typeof a === 'object')
+    .filter(a => !a.context || a.context === 'record' || a.context === 'both');
+
   const formColumns = view.form.columns ?? 2;
 
   return (
@@ -73,7 +107,45 @@ export function MasterDetailView({ view, recordId }: Props) {
         <span className="text-muted-foreground">/</span>
         <span className="text-sm font-medium">{view.name}</span>
         <span className="text-sm text-muted-foreground">#{recordId}</span>
+
+        {/* Custom action buttons */}
+        {record && recordCustomActions.length > 0 && (
+          <div className="ml-auto flex items-center gap-2">
+            {recordCustomActions
+              .filter(a => !a.visible_when || evaluateAppearanceCondition(a.visible_when, record))
+              .map(a => {
+                const isEnabled = !a.enabled_when || evaluateAppearanceCondition(a.enabled_when, record);
+                return (
+                  <Button
+                    key={a.id}
+                    variant={(a.variant === 'warning' ? 'outline' : a.variant) ?? 'outline'}
+                    size="sm"
+                    disabled={!isEnabled}
+                    onClick={() => triggerAction(a)}
+                  >
+                    {a.label}
+                  </Button>
+                );
+              })}
+          </div>
+        )}
       </div>
+
+      {/* Confirm dialog */}
+      <AlertDialog open={Boolean(confirmAction)} onOpenChange={open => { if (!open) setConfirmAction(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{confirmAction?.confirm?.title}</AlertDialogTitle>
+            <AlertDialogDescription>{confirmAction?.confirm?.description}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>取消</AlertDialogCancel>
+            <AlertDialogAction onClick={() => { if (confirmAction) { void handleCustomAction(confirmAction); setConfirmAction(null); } }}>
+              確認
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Scrollable body */}
       <div className="flex-1 overflow-y-auto">

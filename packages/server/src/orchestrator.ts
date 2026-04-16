@@ -102,6 +102,75 @@ const FORM_FIELD_SCHEMA = {
       },
       required: ['formula', 'dependencies'],
     },
+    hidden_in_form: {
+      type: 'boolean',
+      description: 'Permanently hide this field from the form (static). Use appearance[] for conditional hiding instead.',
+    },
+    hidden_in_table: {
+      type: 'boolean',
+      description: 'Permanently hide this field from the table list (static).',
+    },
+    appearance: {
+      type: 'array',
+      description: `Conditional appearance rules evaluated client-side in real time as the user fills in the form.
+Each rule has a condition (when) and an effect (apply). Rules are applied in order; later rules override earlier ones when multiple conditions match.
+Supported operators: eq, neq, gt, lt, gte, lte, contains.
+Typical use cases:
+- Hide a field unless another field has a specific value (e.g., show tax_id only when customer_type eq "company")
+- Make all fields read-only when status eq "completed"
+- Highlight a value in red when amount gt 10000
+- Make a field required when a related field is filled`,
+      items: {
+        type: 'object',
+        properties: {
+          when: {
+            type: 'object',
+            description: 'Condition based on current form values. Field must be a key present in the same form.',
+            properties: {
+              field: { type: 'string', description: 'Form field key to evaluate (must exist in same form)' },
+              operator: {
+                type: 'string',
+                enum: ['eq', 'neq', 'gt', 'lt', 'gte', 'lte', 'contains'],
+              },
+              value: { description: 'Value to compare against' },
+            },
+            required: ['field', 'operator'],
+          },
+          apply: {
+            type: 'object',
+            description: 'Effect to apply when condition is true',
+            properties: {
+              visibility: {
+                type: 'string',
+                enum: ['hidden', 'visible'],
+                description: '"hidden" hides the field; "visible" shows it (use to override a default-hidden field)',
+              },
+              enabled: {
+                type: 'boolean',
+                description: 'false = field becomes read-only/disabled',
+              },
+              required: {
+                type: 'boolean',
+                description: 'true = field becomes required when condition is met',
+              },
+              text_color: {
+                type: 'string',
+                description: 'CSS color value, e.g. "#dc2626" (red) or "#16a34a" (green)',
+              },
+              bg_color: {
+                type: 'string',
+                description: 'Background color for the field cell',
+              },
+              font_weight: {
+                type: 'string',
+                enum: ['normal', 'bold'],
+              },
+            },
+          },
+        },
+        required: ['when', 'apply'],
+      },
+    },
   },
   required: ['key', 'label', 'type'],
 };
@@ -244,7 +313,82 @@ When users say "statistics/kanban/calendar", directly create a view of that type
             },
             actions: {
               type: 'array',
-              items: { type: 'string', enum: ['create', 'edit', 'delete'] },
+              description: 'Built-in string actions and/or custom action objects.',
+              items: {
+                oneOf: [
+                  {
+                    type: 'string',
+                    enum: ['create', 'edit', 'delete', 'export'],
+                    description: 'Built-in CRUD action',
+                  },
+                  {
+                    type: 'object',
+                    description: 'Custom action button',
+                    properties: {
+                      id:      { type: 'string', description: 'Unique action ID (lowercase underscore)' },
+                      label:   { type: 'string', description: 'Button label' },
+                      icon:    { type: 'string', description: 'Lucide icon name, e.g. "check-circle", "truck"' },
+                      variant: { type: 'string', enum: ['default', 'outline', 'secondary', 'destructive', 'warning'] },
+                      context: {
+                        type: 'string',
+                        enum: ['record', 'list', 'both'],
+                        description: 'record = detail form toolbar; list = table row; both = everywhere. Default: record',
+                      },
+                      visible_when: {
+                        type: 'object',
+                        description: 'Condition to show the button (same schema as AppearanceCondition)',
+                        properties: {
+                          field:    { type: 'string' },
+                          operator: { type: 'string', enum: ['eq', 'neq', 'gt', 'lt', 'gte', 'lte', 'contains'] },
+                          value:    {},
+                        },
+                        required: ['field', 'operator'],
+                      },
+                      enabled_when: {
+                        type: 'object',
+                        description: 'Condition to enable the button; disabled when not met',
+                        properties: {
+                          field:    { type: 'string' },
+                          operator: { type: 'string', enum: ['eq', 'neq', 'gt', 'lt', 'gte', 'lte', 'contains'] },
+                          value:    {},
+                        },
+                        required: ['field', 'operator'],
+                      },
+                      behavior: {
+                        type: 'object',
+                        properties: {
+                          type: {
+                            type: 'string',
+                            enum: ['set_field', 'trigger_rule', 'webhook', 'navigate', 'create_related'],
+                          },
+                          field:             { type: 'string', description: 'set_field: target field name' },
+                          value:             { type: 'string', description: 'set_field: value to set' },
+                          rule_id:           { type: 'string', description: 'trigger_rule: rule ID' },
+                          url:               { type: 'string', description: 'webhook: URL' },
+                          method:            { type: 'string', enum: ['GET', 'POST'], description: 'webhook: HTTP method' },
+                          payload:           { type: 'string', description: 'webhook: JSON template, use {{field}} for record values' },
+                          view_id:           { type: 'string', description: 'navigate: target view ID' },
+                          filter_field:      { type: 'string', description: 'navigate: filter field in target view' },
+                          filter_value_from: { type: 'string', description: 'navigate: field from current record to use as filter value' },
+                          table:             { type: 'string', description: 'create_related: target table' },
+                          field_mapping:     { type: 'object', description: 'create_related: { targetField: sourceFieldOrLiteral }' },
+                        },
+                        required: ['type'],
+                      },
+                      confirm: {
+                        type: 'object',
+                        description: 'Show a confirmation dialog before executing',
+                        properties: {
+                          title:       { type: 'string' },
+                          description: { type: 'string' },
+                        },
+                        required: ['title', 'description'],
+                      },
+                    },
+                    required: ['id', 'label', 'behavior'],
+                  },
+                ],
+              },
             },
           },
           detail_views: {
@@ -412,7 +556,8 @@ Condition field supports FK paths (cross-table conditions):
             table_name: { type: 'string', description: 'Table this rule applies to' },
             trigger_type: {
               type: 'string',
-              enum: ['before_insert', 'after_insert', 'before_update', 'after_update', 'before_delete', 'after_delete'],
+              enum: ['before_insert', 'after_insert', 'before_update', 'after_update', 'before_delete', 'after_delete', 'manual'],
+              description: 'manual = triggered by a custom ViewAction button (trigger_rule behavior)',
             },
             condition: {
               type: 'object',
@@ -588,6 +733,87 @@ Destructive Schema Changes (drop_column, rename_column, change_type, drop_table)
 1. Must call assess_impact first.
 2. Report impact to user.
 3. Proceed with manage_schema only after user confirmation.
+
+Conditional Appearance (動態 UI 呈現):
+Use appearance[] on form fields to change how a field looks or behaves based on other field values. This is evaluated client-side in real time — no extra server calls.
+
+Common patterns:
+1. Show a field only when another field has a specific value ("統編欄位只在公司戶時顯示"):
+   appearance: [{ when: { field: "customer_type", operator: "neq", value: "company" }, apply: { visibility: "hidden" } }]
+
+2. Make all fields read-only after a status is set ("已完成後全部唯讀"):
+   On each editable field: appearance: [{ when: { field: "status", operator: "eq", value: "completed" }, apply: { enabled: false } }]
+
+3. Highlight a value in red when it exceeds a threshold ("金額超過10000標紅"):
+   appearance: [{ when: { field: "amount", operator: "gt", value: 10000 }, apply: { text_color: "#dc2626", font_weight: "bold" } }]
+
+4. Make a field required conditionally ("選擇信用卡時才必填卡號"):
+   appearance: [{ when: { field: "payment_method", operator: "eq", value: "credit_card" }, apply: { required: true } }]
+
+5. Multiple rules on same field (later rules override earlier when both match):
+   appearance: [
+     { when: { field: "score", operator: "gte", value: 80 }, apply: { text_color: "#16a34a" } },
+     { when: { field: "score", operator: "lt", value: 60 }, apply: { text_color: "#dc2626" } }
+   ]
+
+Important constraints:
+- appearance[] only works in form.fields (not columns).
+- The "field" in "when" must be a key that exists in the same form.
+- For permanent hiding, use hidden_in_form: true instead of appearance[].
+- For cross-table conditions (e.g., check customer tier), use Business Rules (manage_rules) instead — appearance only accesses current form values.
+- To remove a conditional appearance rule, call manage_ui (update_view) and omit the appearance property from that field.
+
+Custom ViewActions (自訂動作按鈕):
+Add custom buttons to record forms or table rows via the actions array. Mix built-in strings with custom objects.
+
+behavior types:
+1. set_field — Change a field value on the record. Best for status transitions.
+   { type: 'set_field', field: 'status', value: 'approved' }
+
+2. trigger_rule — Execute a business rule with trigger_type='manual'. (Phase 4.2, coming soon)
+   { type: 'trigger_rule', rule_id: '<rule_id>' }
+
+3. webhook — Call an external URL with record data. Use {{field}} in payload to inject record field values.
+   { type: 'webhook', url: 'https://...', method: 'POST', payload: '{"id":"{{id}}","status":"{{status}}"}' }
+
+4. navigate — Navigate to another View (client-side only). Optionally pass a filter from the current record.
+   { type: 'navigate', view_id: 'orders', filter_field: 'customer_id', filter_value_from: 'id' }
+
+5. create_related — Insert a new record in another table. field_mapping keys are target fields; values are source field names (from current record) or literals.
+   { type: 'create_related', table: 'shipments', field_mapping: { order_id: 'id', status: 'pending' } }
+
+context rules:
+- 'record' (default): button appears in the detail form header (MasterDetailView)
+- 'list': button appears in each table row's actions column
+- 'both': appears in both places
+
+Common patterns:
+- Status transition with confirmation: set_field + confirm { title, description } + visible_when condition
+- "核准" button visible only when status=pending: visible_when: { field: 'status', operator: 'eq', value: 'pending' }
+- Notify external system after user action: webhook
+- Jump to related view: navigate with filter_field + filter_value_from
+
+Example — "核准訂單" button on a master-detail record form:
+{
+  id: 'approve',
+  label: '核准',
+  variant: 'default',
+  context: 'record',
+  visible_when: { field: 'status', operator: 'eq', value: 'pending' },
+  behavior: { type: 'set_field', field: 'status', value: 'approved' },
+  confirm: { title: '確認核准', description: '核准後將通知採購部門，此操作無法復原。' }
+}
+
+Example — "出貨" button that creates a shipment record:
+{
+  id: 'ship',
+  label: '出貨',
+  variant: 'outline',
+  context: 'record',
+  visible_when: { field: 'status', operator: 'eq', value: 'approved' },
+  behavior: { type: 'create_related', table: 'shipments', field_mapping: { order_id: 'id', status: 'shipped' } },
+  confirm: { title: '建立出貨記錄', description: '將為此訂單建立出貨記錄。' }
+}
 
 Field Type Guide:
 - Currency -> schema: REAL, ui type: currency.

@@ -1,10 +1,13 @@
+import type React from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { ColumnDef as TableColumnDef, PaginationState, SortingState } from '@tanstack/react-table';
 import { flexRender, getCoreRowModel, useReactTable } from '@tanstack/react-table';
 import { ArrowDown, ArrowUp, ArrowUpDown, Pencil, Plus, Search, Trash2 } from 'lucide-react';
-import { createRow, deleteRow, getTableData, updateRow } from '../../api';
-import type { ViewDefinition } from '../../types';
+import { createRow, deleteRow, executeViewAction, getTableData, updateRow } from '../../api';
+import type { CustomViewAction, ViewDefinition } from '../../types';
+import { resolveAppearance } from '../../types';
+import { evaluateAppearanceCondition } from '@zenku/shared';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '../ui/alert-dialog';
 import { Button } from '../ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '../ui/dialog';
@@ -79,35 +82,96 @@ export function TableView({ view, filters, onCreateData }: Props) {
     void fetchRows();
   }, [fetchRows]);
 
-  const canCreate = view.actions.includes('create');
-  const canEdit = view.actions.includes('edit');
-  const canDelete = view.actions.includes('delete');
+  const builtinActions = view.actions.filter((a): a is import('../../types').BuiltinAction => typeof a === 'string');
+  const canCreate = builtinActions.includes('create');
+  const canEdit = builtinActions.includes('edit');
+  const canDelete = builtinActions.includes('delete');
+
+  const listCustomActions = view.actions
+    .filter((a): a is CustomViewAction => typeof a === 'object')
+    .filter(a => a.context === 'list' || a.context === 'both');
+
+  const [confirmListAction, setConfirmListAction] = useState<{ action: CustomViewAction; row: RowData } | null>(null);
+
+  const handleListCustomAction = useCallback(async (action: CustomViewAction, row: RowData) => {
+    if (action.behavior.type === 'navigate') {
+      const nav = action.behavior as { type: string; view_id: string; filter_field?: string; filter_value_from?: string };
+      const filterVal = nav.filter_value_from ? row[nav.filter_value_from] : undefined;
+      const query = nav.filter_field && filterVal !== undefined ? `?filter[${nav.filter_field}]=${String(filterVal)}` : '';
+      navigate(`/view/${nav.view_id}${query}`);
+      return;
+    }
+    try {
+      await executeViewAction(view.id, action.id, row.id as string | number);
+      toast.success(action.label + ' 執行成功');
+      void fetchRows();
+    } catch (error) {
+      toast.error(action.label + ' 執行失敗', { description: String(error) });
+    }
+  }, [view.id, navigate, fetchRows]);
 
   const columns = useMemo<TableColumnDef<RowData>[]>(() => {
-    const dataColumns = view.columns.map(col => ({
+    const dataColumns = view.columns.filter(col => !col.hidden_in_table).map(col => ({
       id: col.key,
       accessorFn: (row: RowData) => row[col.key],
       header: col.label,
-      cell: ({ getValue, row }: { getValue: () => unknown; row: { original: RowData } }) => (
-            <CellValue value={getValue()} colKey={col.key} type={col.type} row={row.original} />
-          ),
+      cell: ({ getValue, row }: { getValue: () => unknown; row: { original: RowData } }) => {
+        const rowData = row.original;
+        const appearance = col.appearance?.length
+          ? resolveAppearance(col.appearance, rowData)
+          : undefined;
+        return (
+          <CellValue
+            value={getValue()}
+            colKey={col.key}
+            type={col.type}
+            row={rowData}
+            appearance={appearance}
+          />
+        );
+      },
       enableSorting: col.sortable !== false,
       size: col.width ?? 180,
       minSize: 120,
       maxSize: 480,
     }));
 
-    if (!(canEdit || canDelete)) {
+    if (!(canEdit || canDelete || listCustomActions.length > 0)) {
       return dataColumns;
     }
+
+    const customActionsForCol = listCustomActions; // captured in closure
 
     const actionsColumn: TableColumnDef<RowData> = {
       id: '_actions',
       header: '操作',
       cell: ({ row }) => {
         const data = row.original;
+        const visibleCustom = customActionsForCol.filter(
+          a => !a.visible_when || evaluateAppearanceCondition(a.visible_when, data)
+        );
         return (
           <div className="flex items-center justify-end gap-1" onClick={e => e.stopPropagation()}>
+            {visibleCustom.map(a => {
+              const isEnabled = !a.enabled_when || evaluateAppearanceCondition(a.enabled_when, data);
+              return (
+                <Button
+                  key={a.id}
+                  variant={(a.variant === 'warning' ? 'outline' : a.variant) ?? 'outline'}
+                  size="sm"
+                  disabled={!isEnabled}
+                  onClick={() => {
+                    if (a.confirm) {
+                      setConfirmListAction({ action: a, row: data });
+                    } else {
+                      void handleListCustomAction(a, data);
+                    }
+                  }}
+                >
+                  {a.label}
+                </Button>
+              );
+            })}
             {canEdit ? (
               <Button
                 variant="ghost"
@@ -130,14 +194,14 @@ export function TableView({ view, filters, onCreateData }: Props) {
           </div>
         );
       },
-      size: 80,
+      size: 80 + listCustomActions.length * 64,
       minSize: 70,
-      maxSize: 120,
+      maxSize: 400,
       enableSorting: false,
     };
 
     return [...dataColumns, actionsColumn];
-  }, [canDelete, canEdit, isMasterDetail, view.columns]);
+  }, [canDelete, canEdit, isMasterDetail, listCustomActions, handleListCustomAction, view.columns]);
 
   const table = useReactTable({
     data: rows,
@@ -340,16 +404,53 @@ export function TableView({ view, filters, onCreateData }: Props) {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <AlertDialog open={Boolean(confirmListAction)} onOpenChange={open => { if (!open) setConfirmListAction(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{confirmListAction?.action.confirm?.title}</AlertDialogTitle>
+            <AlertDialogDescription>{confirmListAction?.action.confirm?.description}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>取消</AlertDialogCancel>
+            <AlertDialogAction onClick={() => {
+              if (confirmListAction) {
+                void handleListCustomAction(confirmListAction.action, confirmListAction.row);
+                setConfirmListAction(null);
+              }
+            }}>
+              確認
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
 
-function CellValue({ value, colKey, type, row }: { value: unknown; colKey: string; type: string; row: RowData }) {
+function CellValue({
+  value, colKey, type, row, appearance,
+}: {
+  value: unknown;
+  colKey: string;
+  type: string;
+  row: RowData;
+  appearance?: import('../../types').AppearanceEffect;
+}) {
+  const textStyle: React.CSSProperties = {};
+  if (appearance?.text_color)  textStyle.color      = appearance.text_color;
+  if (appearance?.font_weight) textStyle.fontWeight = appearance.font_weight;
+  if (appearance?.bg_color)    textStyle.backgroundColor = appearance.bg_color;
+
+  const hasStyle = Object.keys(textStyle).length > 0;
+  const wrap = (node: React.ReactNode) =>
+    hasStyle ? <span style={textStyle} className="rounded px-0.5">{node}</span> : <>{node}</>;
+
   if (type === 'relation') {
     const display = row[`${colKey}__display`];
     const text = display ?? value;
     if (text === null || text === undefined || text === '') return <span className="text-muted-foreground">-</span>;
-    return <span>{String(text)}</span>;
+    return wrap(<span>{String(text)}</span>);
   }
 
   if (value === null || value === undefined || value === '') {
@@ -358,21 +459,23 @@ function CellValue({ value, colKey, type, row }: { value: unknown; colKey: strin
 
   switch (type) {
     case 'boolean':
-      return <span>{Boolean(value) ? '是' : '否'}</span>;
+      return wrap(<span>{Boolean(value) ? '是' : '否'}</span>);
 
     case 'currency': {
       const num = Number(value);
-      return <span>{isFinite(num) ? `$${num.toLocaleString('zh-TW', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}` : String(value)}</span>;
+      return wrap(
+        <span>{isFinite(num) ? `$${num.toLocaleString('zh-TW', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}` : String(value)}</span>
+      );
     }
 
     case 'phone':
-      return <a href={`tel:${value}`} className="text-primary hover:underline" onClick={e => e.stopPropagation()}>{String(value)}</a>;
+      return wrap(<a href={`tel:${value}`} className="text-primary hover:underline" onClick={e => e.stopPropagation()}>{String(value)}</a>);
 
     case 'email':
-      return <a href={`mailto:${value}`} className="text-primary hover:underline" onClick={e => e.stopPropagation()}>{String(value)}</a>;
+      return wrap(<a href={`mailto:${value}`} className="text-primary hover:underline" onClick={e => e.stopPropagation()}>{String(value)}</a>);
 
     case 'url':
-      return (
+      return wrap(
         <a href={String(value)} target="_blank" rel="noreferrer" className="text-primary hover:underline" onClick={e => e.stopPropagation()}>
           連結
         </a>
@@ -382,7 +485,7 @@ function CellValue({ value, colKey, type, row }: { value: unknown; colKey: strin
       return <span className="inline-flex items-center rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">{String(value)}</span>;
 
     default:
-      return <span>{String(value)}</span>;
+      return wrap(<span>{String(value)}</span>);
   }
 }
 

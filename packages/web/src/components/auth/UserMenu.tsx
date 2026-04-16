@@ -1,9 +1,11 @@
 import { useState } from 'react';
-import { LogOut, Users, ChevronUp, MessageSquare, BarChart2, Settings } from 'lucide-react';
+import { LogOut, Users, ChevronUp, MessageSquare, BarChart2, Settings, ShieldCheck, LayoutTemplate } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { UserManagement } from '../admin/UserManagement';
 import { ChatHistory } from '../admin/ChatHistory';
 import { UsageStats } from '../admin/UsageStats';
+import { RulesManagement } from '../admin/RulesManagement';
+import { ViewManagement } from '../admin/ViewManagement';
 import { ProfileDialog } from './ProfileDialog';
 
 const ROLE_LABEL: Record<string, string> = {
@@ -18,6 +20,8 @@ export function UserMenu() {
   const [showUserMgmt, setShowUserMgmt] = useState(false);
   const [showChatHistory, setShowChatHistory] = useState(false);
   const [showUsageStats, setShowUsageStats] = useState(false);
+  const [showRules, setShowRules] = useState(false);
+  const [showViewMgmt, setShowViewMgmt] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
 
   return (
@@ -73,6 +77,20 @@ export function UserMenu() {
                     <BarChart2 size={14} />
                     用量統計
                   </button>
+                  <button
+                    onClick={() => { setShowRules(true); setOpen(false); }}
+                    className="flex w-full items-center gap-2 px-3 py-2 text-sm hover:bg-accent"
+                  >
+                    <ShieldCheck size={14} />
+                    業務規則
+                  </button>
+                  <button
+                    onClick={() => { setShowViewMgmt(true); setOpen(false); }}
+                    className="flex w-full items-center gap-2 px-3 py-2 text-sm hover:bg-accent"
+                  >
+                    <LayoutTemplate size={14} />
+                    介面管理
+                  </button>
                 </>
               )}
               <button
@@ -97,6 +115,8 @@ export function UserMenu() {
       {showUserMgmt && <UserManagement onClose={() => setShowUserMgmt(false)} />}
       {showChatHistory && <ChatHistory onClose={() => setShowChatHistory(false)} />}
       {showUsageStats && <UsageStats onClose={() => setShowUsageStats(false)} />}
+      {showRules && <RulesManagement onClose={() => setShowRules(false)} />}
+      {showViewMgmt && <ViewManagement onClose={() => setShowViewMgmt(false)} />}
       <ProfileDialog open={showProfile} onClose={() => setShowProfile(false)} />
     </>
   );

@@ -1,5 +1,6 @@
 import type { ColumnDef } from './column';
 import type { FieldDef } from './field';
+import type { AppearanceCondition } from './appearance';
 
 // ===== View 類型 =====
 
@@ -35,7 +36,70 @@ export interface ViewDefinition {
   default_filters?: Filter[];
 }
 
-export type ViewAction = 'create' | 'edit' | 'delete' | 'export';
+// ===== ViewAction =====
+
+/** 內建 CRUD 動作（字串格式，向下相容） */
+export type BuiltinAction = 'create' | 'edit' | 'delete' | 'export';
+
+/** 自訂動作執行行為 */
+export type ActionBehavior =
+  | {
+      /** 直接修改當前記錄的欄位值 */
+      type: 'set_field';
+      field: string;
+      value: string;
+    }
+  | {
+      /** 觸發一條 trigger_type='manual' 的業務規則 */
+      type: 'trigger_rule';
+      rule_id: string;
+    }
+  | {
+      /** 呼叫外部 Webhook */
+      type: 'webhook';
+      url: string;
+      method?: 'GET' | 'POST';
+      /** JSON 樣板，可用 {{field}} 插入記錄欄位值 */
+      payload?: string;
+    }
+  | {
+      /** 跳轉到另一個 View */
+      type: 'navigate';
+      view_id: string;
+      filter_field?: string;
+      filter_value_from?: string;
+    }
+  | {
+      /** 在另一張表建立關聯記錄 */
+      type: 'create_related';
+      table: string;
+      field_mapping: Record<string, string>;
+    };
+
+/** 自訂動作按鈕定義 */
+export interface CustomViewAction {
+  /** 唯一識別碼（英文 underscore） */
+  id: string;
+  /** 按鈕文字 */
+  label: string;
+  /** Lucide icon 名稱，如 "check", "truck", "x-circle" */
+  icon?: string;
+  /** 按鈕樣式 */
+  variant?: 'default' | 'outline' | 'secondary' | 'destructive' | 'warning';
+  /** 出現在哪個情境：record = 詳情頁, list = 列表列, both = 兩者皆有 */
+  context?: 'record' | 'list' | 'both';
+  /** 顯示條件 */
+  visible_when?: AppearanceCondition;
+  /** 啟用條件（不滿足時按鈕 disabled） */
+  enabled_when?: AppearanceCondition;
+  /** 執行行為 */
+  behavior: ActionBehavior;
+  /** 執行前彈出確認框 */
+  confirm?: { title: string; description: string };
+}
+
+/** ViewDefinition.actions 型別（字串 = 內建；物件 = 自訂） */
+export type ViewAction = BuiltinAction | CustomViewAction;
 
 // ===== Master-Detail =====
 

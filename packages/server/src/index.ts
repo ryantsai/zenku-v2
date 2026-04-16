@@ -916,6 +916,353 @@ app.get('/api/admin/usage', requireAdmin, (req, res) => {
 });
 
 // ──────────────────────────────────────────────
+// Admin — view management
+// ──────────────────────────────────────────────
+
+/** 取得所有 View 完整定義（管理員用） */
+app.get('/api/admin/views', requireAdmin, (_req, res) => {
+  const db = getDb();
+  const rows = db.prepare(
+    'SELECT id, name, table_name, definition, created_at, updated_at FROM _zenku_views ORDER BY name ASC'
+  ).all() as Array<{ id: string; name: string; table_name: string; definition: string; created_at: string; updated_at: string }>;
+  res.json(rows.map(r => ({ ...r, definition: JSON.parse(r.definition) })));
+});
+
+/** 更新 View 中單一欄位的基本屬性（label, required, hidden_in_form, hidden_in_table）
+ *  detail_index: 若指定，則修改 detail_views[detail_index] 下的欄位 */
+app.patch('/api/admin/views/:id/field-prop', requireAdmin, (req, res) => {
+  const db = getDb();
+  const viewId = String(req.params.id);
+  const { scope, field_key, updates, detail_index } = req.body as {
+    scope?: 'form' | 'column';
+    field_key?: string;
+    updates?: Record<string, unknown>;
+    detail_index?: number;
+  };
+
+  if (!scope || !field_key || !updates) {
+    res.status(400).json({ error: '缺少必要參數' }); return;
+  }
+
+  const row = db.prepare('SELECT definition FROM _zenku_views WHERE id = ?').get(viewId) as { definition: string } | undefined;
+  if (!row) { res.status(404).json({ error: 'View 不存在' }); return; }
+
+  const def = JSON.parse(row.definition) as Record<string, unknown>;
+
+  // Resolve target definition (master or a specific detail_view)
+  let target: Record<string, unknown> = def;
+  if (detail_index !== undefined) {
+    const dv = (def.detail_views as Array<{ view: Record<string, unknown> }> | undefined)?.[detail_index];
+    if (!dv) { res.status(404).json({ error: '明細 View 不存在' }); return; }
+    target = dv.view;
+  }
+
+  const fields: Array<Record<string, unknown>> = scope === 'form'
+    ? ((target.form as { fields?: Array<Record<string, unknown>> } | undefined)?.fields ?? [])
+    : ((target.columns as Array<Record<string, unknown>>) ?? []);
+
+  const field = fields.find(f => f.key === field_key);
+  if (!field) { res.status(404).json({ error: '欄位不存在' }); return; }
+
+  const allowed = ['label', 'required', 'hidden_in_form', 'hidden_in_table'];
+  for (const [k, v] of Object.entries(updates)) {
+    if (allowed.includes(k)) field[k] = v;
+  }
+
+  db.prepare(`UPDATE _zenku_views SET definition = ?, updated_at = datetime('now') WHERE id = ?`)
+    .run(JSON.stringify(def), viewId);
+  res.json({ success: true });
+});
+
+// ──────────────────────────────────────────────
+// Admin — conditional appearance
+// ──────────────────────────────────────────────
+
+/** 從 ViewDefinition 中彙整所有含 appearance 規則的欄位 */
+app.get('/api/admin/appearance', requireAdmin, (_req, res) => {
+  const db = getDb();
+  const views = db.prepare('SELECT id, name, table_name, definition FROM _zenku_views').all() as
+    Array<{ id: string; name: string; table_name: string; definition: string }>;
+
+  const result: Array<{
+    view_id: string; view_name: string; table_name: string;
+    scope: 'form' | 'column'; field_key: string; field_label: string;
+    rule_index: number; rule: Record<string, unknown>;
+  }> = [];
+
+  for (const view of views) {
+    let def: Record<string, unknown>;
+    try { def = JSON.parse(view.definition); } catch { continue; }
+
+    // form fields
+    const formFields = (def.form as { fields?: unknown[] } | undefined)?.fields ?? [];
+    for (const field of formFields as Array<Record<string, unknown>>) {
+      if (!Array.isArray(field.appearance) || field.appearance.length === 0) continue;
+      (field.appearance as Array<Record<string, unknown>>).forEach((rule, idx) => {
+        result.push({
+          view_id: view.id, view_name: view.name, table_name: view.table_name,
+          scope: 'form', field_key: String(field.key), field_label: String(field.label ?? field.key),
+          rule_index: idx, rule,
+        });
+      });
+    }
+
+    // columns
+    const columns = (def.columns as Array<Record<string, unknown>>) ?? [];
+    for (const col of columns) {
+      if (!Array.isArray(col.appearance) || col.appearance.length === 0) continue;
+      (col.appearance as Array<Record<string, unknown>>).forEach((rule, idx) => {
+        result.push({
+          view_id: view.id, view_name: view.name, table_name: view.table_name,
+          scope: 'column', field_key: String(col.key), field_label: String(col.label ?? col.key),
+          rule_index: idx, rule,
+        });
+      });
+    }
+  }
+
+  res.json(result);
+});
+
+/** 切換單條 appearance 規則的 enabled 狀態 */
+app.patch('/api/admin/appearance/toggle', requireAdmin, (req, res) => {
+  const { view_id, scope, field_key, rule_index, detail_index } = req.body as {
+    view_id?: string; scope?: string; field_key?: string; rule_index?: number; detail_index?: number;
+  };
+  if (!view_id || !scope || !field_key || rule_index === undefined) {
+    res.status(400).json({ error: '缺少必要參數' }); return;
+  }
+
+  const db = getDb();
+  const row = db.prepare('SELECT definition FROM _zenku_views WHERE id = ?').get(view_id) as { definition: string } | undefined;
+  if (!row) { res.status(404).json({ error: 'View 不存在' }); return; }
+
+  const def = JSON.parse(row.definition) as Record<string, unknown>;
+  let target: Record<string, unknown> = def;
+  if (detail_index !== undefined) {
+    const dv = (def.detail_views as Array<{ view: Record<string, unknown> }> | undefined)?.[detail_index];
+    if (!dv) { res.status(404).json({ error: '明細 View 不存在' }); return; }
+    target = dv.view;
+  }
+
+  const fields: Array<Record<string, unknown>> = scope === 'form'
+    ? ((target.form as { fields?: Array<Record<string, unknown>> } | undefined)?.fields ?? [])
+    : ((target.columns as Array<Record<string, unknown>>) ?? []);
+
+  const field = fields.find(f => f.key === field_key);
+  if (!field || !Array.isArray(field.appearance) || !field.appearance[rule_index]) {
+    res.status(404).json({ error: '規則不存在' }); return;
+  }
+
+  const rule = field.appearance[rule_index] as Record<string, unknown>;
+  const next = rule.enabled === false;
+  rule.enabled = next;
+
+  db.prepare(`UPDATE _zenku_views SET definition = ?, updated_at = datetime('now') WHERE id = ?`)
+    .run(JSON.stringify(def), view_id);
+
+  res.json({ success: true, enabled: next });
+});
+
+/** 刪除單條 appearance 規則 */
+app.delete('/api/admin/appearance/rule', requireAdmin, (req, res) => {
+  const { view_id, scope, field_key, rule_index, detail_index } = req.body as {
+    view_id?: string; scope?: string; field_key?: string; rule_index?: number; detail_index?: number;
+  };
+  if (!view_id || !scope || !field_key || rule_index === undefined) {
+    res.status(400).json({ error: '缺少必要參數' }); return;
+  }
+
+  const db = getDb();
+  const row = db.prepare('SELECT definition FROM _zenku_views WHERE id = ?').get(view_id) as { definition: string } | undefined;
+  if (!row) { res.status(404).json({ error: 'View 不存在' }); return; }
+
+  const def = JSON.parse(row.definition) as Record<string, unknown>;
+  let target: Record<string, unknown> = def;
+  if (detail_index !== undefined) {
+    const dv = (def.detail_views as Array<{ view: Record<string, unknown> }> | undefined)?.[detail_index];
+    if (!dv) { res.status(404).json({ error: '明細 View 不存在' }); return; }
+    target = dv.view;
+  }
+
+  const fields: Array<Record<string, unknown>> = scope === 'form'
+    ? ((target.form as { fields?: Array<Record<string, unknown>> } | undefined)?.fields ?? [])
+    : ((target.columns as Array<Record<string, unknown>>) ?? []);
+
+  const field = fields.find(f => f.key === field_key);
+  if (!field || !Array.isArray(field.appearance) || !field.appearance[rule_index]) {
+    res.status(404).json({ error: '規則不存在' }); return;
+  }
+
+  field.appearance.splice(rule_index, 1);
+  if (field.appearance.length === 0) delete field.appearance;
+
+  db.prepare(`UPDATE _zenku_views SET definition = ?, updated_at = datetime('now') WHERE id = ?`)
+    .run(JSON.stringify(def), view_id);
+
+  res.json({ success: true });
+});
+
+// ──────────────────────────────────────────────
+// Admin — business rules
+// ──────────────────────────────────────────────
+app.get('/api/admin/rules', requireAdmin, (_req, res) => {
+  const db = getDb();
+  const rows = db.prepare(
+    `SELECT id, name, description, table_name, trigger_type, condition, actions, priority, enabled, created_at, updated_at
+     FROM _zenku_rules ORDER BY priority DESC, created_at ASC`
+  ).all() as Array<Record<string, unknown>>;
+
+  const rules = rows.map(r => ({
+    ...r,
+    condition: r.condition ? JSON.parse(r.condition as string) : null,
+    actions: r.actions ? JSON.parse(r.actions as string) : [],
+    enabled: Boolean(r.enabled),
+  }));
+  res.json(rules);
+});
+
+app.patch('/api/admin/rules/:id/toggle', requireAdmin, (req, res) => {
+  const db = getDb();
+  const id = String(req.params.id);
+  const rule = db.prepare('SELECT enabled FROM _zenku_rules WHERE id = ?').get(id) as { enabled: number } | undefined;
+  if (!rule) { res.status(404).json({ error: '規則不存在' }); return; }
+  const next = rule.enabled ? 0 : 1;
+  db.prepare(`UPDATE _zenku_rules SET enabled = ?, updated_at = datetime('now') WHERE id = ?`).run(next, id);
+  res.json({ success: true, enabled: Boolean(next) });
+});
+
+app.delete('/api/admin/rules/:id', requireAdmin, (req, res) => {
+  const db = getDb();
+  const id = String(req.params.id);
+  const rule = db.prepare('SELECT id FROM _zenku_rules WHERE id = ?').get(id);
+  if (!rule) { res.status(404).json({ error: '規則不存在' }); return; }
+  db.prepare('DELETE FROM _zenku_rules WHERE id = ?').run(id);
+  res.json({ success: true });
+});
+
+// ──────────────────────────────────────────────
+// Custom ViewAction execution
+// ──────────────────────────────────────────────
+
+app.post('/api/views/:viewId/actions/:actionId/execute', requireAuth, async (req, res) => {
+  const db = getDb();
+  const viewId = p(req.params['viewId']);
+  const actionId = p(req.params['actionId']);
+  const { record_id } = req.body as { record_id?: string | number };
+
+  if (record_id === undefined || record_id === null) {
+    res.status(400).json({ error: '缺少 record_id' }); return;
+  }
+
+  // Load view definition
+  const viewRow = db.prepare('SELECT definition, table_name FROM _zenku_views WHERE id = ?').get(viewId) as
+    { definition: string; table_name: string } | undefined;
+  if (!viewRow) { res.status(404).json({ error: 'View 不存在' }); return; }
+
+  const def = JSON.parse(viewRow.definition) as { actions?: unknown[] };
+  const actions: unknown[] = def.actions ?? [];
+  const action = actions.find(
+    (a): a is { id: string; behavior: { type: string; [k: string]: unknown } } =>
+      typeof a === 'object' && a !== null && (a as Record<string, unknown>)['id'] === actionId
+  );
+  if (!action) { res.status(404).json({ error: '自訂動作不存在' }); return; }
+
+  const { behavior } = action;
+  const tableName = viewRow.table_name;
+
+  // Load current record
+  const record = db.prepare(`SELECT * FROM "${tableName}" WHERE id = ?`).get(record_id) as
+    Record<string, unknown> | undefined;
+  if (!record) { res.status(404).json({ error: '記錄不存在' }); return; }
+
+  try {
+    switch (behavior.type) {
+      case 'set_field': {
+        const { field, value } = behavior as { type: string; field: string; value: string };
+        if (!field) { res.status(400).json({ error: '缺少 field' }); return; }
+        // Run through rule engine (before_update / after_update will fire)
+        const data = { [field]: value };
+        const beforeResult = await executeBefore(tableName, 'update', data, record);
+        if (!beforeResult.allowed) {
+          res.status(422).json({ error: beforeResult.errors.join('; ') }); return;
+        }
+        const merged = { ...beforeResult.data };
+        db.prepare(`UPDATE "${tableName}" SET "${field}" = ?, updated_at = datetime('now') WHERE id = ?`)
+          .run(String(merged[field] ?? value), record_id);
+        const updated = db.prepare(`SELECT * FROM "${tableName}" WHERE id = ?`).get(record_id) as Record<string, unknown>;
+        void executeAfter(tableName, 'update', updated, record);
+        res.json({ success: true, updated });
+        break;
+      }
+
+      case 'webhook': {
+        const { url, method = 'POST', payload } = behavior as {
+          type: string; url: string; method?: string; payload?: string;
+        };
+        if (!url) { res.status(400).json({ error: '缺少 url' }); return; }
+        // Interpolate {{field}} tokens
+        const body = payload
+          ? payload.replace(/\{\{(\w+)\}\}/g, (_, f) => String(record[f] ?? ''))
+          : JSON.stringify(record);
+        const hookRes = await fetch(url, {
+          method,
+          headers: { 'Content-Type': 'application/json' },
+          body: method === 'GET' ? undefined : body,
+        });
+        if (!hookRes.ok) {
+          res.status(502).json({ error: `Webhook 回應 ${hookRes.status}` }); return;
+        }
+        res.json({ success: true });
+        break;
+      }
+
+      case 'create_related': {
+        const { table, field_mapping } = behavior as {
+          type: string; table: string; field_mapping: Record<string, string>;
+        };
+        if (!table || !field_mapping) { res.status(400).json({ error: '缺少 table 或 field_mapping' }); return; }
+        const insertData: Record<string, unknown> = {};
+        for (const [targetField, sourceExpr] of Object.entries(field_mapping)) {
+          // If sourceExpr matches a field name in the record, use its value; otherwise treat as literal
+          insertData[targetField] = sourceExpr in record ? record[sourceExpr] : sourceExpr;
+        }
+        const beforeResult = await executeBefore(table, 'insert', insertData, {});
+        if (!beforeResult.allowed) {
+          res.status(422).json({ error: beforeResult.errors.join('; ') }); return;
+        }
+        const cols = Object.keys(beforeResult.data);
+        const vals = Object.values(beforeResult.data) as (string | number | bigint | null)[];
+        const newId = crypto.randomUUID();
+        db.prepare(
+          `INSERT INTO "${table}" (id, ${cols.map(c => `"${c}"`).join(', ')}, created_at, updated_at)
+           VALUES (?, ${cols.map(() => '?').join(', ')}, datetime('now'), datetime('now'))`
+        ).run(newId, ...vals);
+        const created = db.prepare(`SELECT * FROM "${table}" WHERE id = ?`).get(newId) as Record<string, unknown>;
+        void executeAfter(table, 'insert', created, {});
+        res.json({ success: true, created });
+        break;
+      }
+
+      case 'navigate':
+        // Pure client-side — server has nothing to do
+        res.json({ success: true });
+        break;
+
+      case 'trigger_rule':
+        // Phase 4.2 — not yet implemented
+        res.status(501).json({ error: 'trigger_rule 尚未實作（Phase 4.2）' });
+        break;
+
+      default:
+        res.status(400).json({ error: `未知的 behavior type: ${String(behavior.type)}` });
+    }
+  } catch (err) {
+    res.status(500).json({ error: String(err) });
+  }
+});
+
+// ──────────────────────────────────────────────
 // Webhook callback
 // ──────────────────────────────────────────────
 function authenticateWebhook(req: import('express').Request, res: import('express').Response, next: import('express').NextFunction): void {
