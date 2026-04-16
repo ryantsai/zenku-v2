@@ -1,0 +1,82 @@
+import { ZenkuTool } from '../types';
+import { runSchemaAgent } from '../../agents/schema-agent';
+
+export const COLUMN_DEF_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    name: { type: 'string', description: 'Field name (lowercase with underscores)' },
+    type: {
+      type: 'string',
+      enum: ['TEXT', 'INTEGER', 'REAL', 'BOOLEAN', 'DATE', 'DATETIME'],
+    },
+    required: { type: 'boolean' },
+    options: {
+      type: 'array',
+      items: { type: 'string' },
+      description: 'List of allowed values for enum-type fields',
+    },
+    references: {
+      type: 'object',
+      description: 'Foreign key reference. This field references a column in the target table (default: id)',
+      properties: {
+        table: { type: 'string', description: 'Target table name' },
+        column: { type: 'string', description: 'Target field, default id' },
+      },
+      required: ['table'],
+    },
+  },
+  required: ['name', 'type'],
+};
+
+export const manageSchemaTool: ZenkuTool = {
+  definition: {
+    name: 'manage_schema',
+    description: `Create or modify database table schema.
+
+After creating a new table, you must call manage_ui to create the corresponding interface.
+
+Field type mapping:
+- Plain text → TEXT
+- Number (integer) → INTEGER
+- Number (decimal/currency) → REAL
+- Yes/No → BOOLEAN
+- Date → DATE
+- DateTime → DATETIME
+- Reference to another table → INTEGER + references: { table: 'target_table' }`,
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        action: {
+          type: 'string',
+          enum: ['create_table', 'alter_table', 'describe_tables'],
+          description: 'Type of action to perform',
+        },
+        table_name: {
+          type: 'string',
+          description: 'Table name (lowercase English with underscores)',
+        },
+        columns: {
+          type: 'array',
+          description: 'Field definitions for create_table',
+          items: COLUMN_DEF_SCHEMA,
+        },
+        changes: {
+          type: 'array',
+          description: 'Changes for alter_table',
+          items: {
+            type: 'object',
+            properties: {
+              operation: { type: 'string', enum: ['add_column'] },
+              column: COLUMN_DEF_SCHEMA,
+            },
+            required: ['operation', 'column'],
+          },
+        },
+      },
+      required: ['action'],
+    },
+  },
+  execute: async (input: any, userMessage?: string) => {
+    return runSchemaAgent(input, userMessage!);
+  },
+};
