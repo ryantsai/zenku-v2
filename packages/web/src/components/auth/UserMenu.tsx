@@ -1,26 +1,22 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { LogOut, Users, ChevronUp, MessageSquare, BarChart2, Settings, ShieldCheck, LayoutTemplate, Key } from 'lucide-react';
+import { LogOut, ChevronUp, Settings } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
-import { UserManagement } from '../admin/UserManagement';
-import { ChatHistory } from '../admin/ChatHistory';
-import { UsageStats } from '../admin/UsageStats';
-import { RulesManagement } from '../admin/RulesManagement';
-import { ViewManagement } from '../admin/ViewManagement';
-import { ApiKeyManagement } from '../admin/ApiKeyManagement';
+import { AdminPanel } from '../admin/AdminPanel';
+import type { AdminTab } from '../admin/AdminPanel';
 import { ProfileDialog } from './ProfileDialog';
 
 export function UserMenu() {
   const { t } = useTranslation();
   const { user, logout } = useAuth();
   const [open, setOpen] = useState(false);
-  const [showUserMgmt, setShowUserMgmt] = useState(false);
-  const [showChatHistory, setShowChatHistory] = useState(false);
-  const [showUsageStats, setShowUsageStats] = useState(false);
-  const [showRules, setShowRules] = useState(false);
-  const [showViewMgmt, setShowViewMgmt] = useState(false);
-  const [showApiKeys, setShowApiKeys] = useState(false);
+  const [adminTab, setAdminTab] = useState<AdminTab | null>(null);
   const [showProfile, setShowProfile] = useState(false);
+
+  const openAdmin = (tab: AdminTab) => {
+    setAdminTab(tab);
+    setOpen(false);
+  };
 
   return (
     <>
@@ -53,50 +49,13 @@ export function UserMenu() {
                 {user.email}
               </div>
               {user.role === 'admin' && (
-                <>
-                  <button
-                    onClick={() => { setShowUserMgmt(true); setOpen(false); }}
-                    className="flex w-full items-center gap-2 px-3 py-2 text-sm hover:bg-accent"
-                  >
-                    <Users size={14} />
-                    {t('admin.menu.user_mgmt')}
-                  </button>
-                  <button
-                    onClick={() => { setShowChatHistory(true); setOpen(false); }}
-                    className="flex w-full items-center gap-2 px-3 py-2 text-sm hover:bg-accent"
-                  >
-                    <MessageSquare size={14} />
-                    {t('admin.menu.chat_history')}
-                  </button>
-                  <button
-                    onClick={() => { setShowUsageStats(true); setOpen(false); }}
-                    className="flex w-full items-center gap-2 px-3 py-2 text-sm hover:bg-accent"
-                  >
-                    <BarChart2 size={14} />
-                    {t('admin.menu.usage_stats')}
-                  </button>
-                  <button
-                    onClick={() => { setShowRules(true); setOpen(false); }}
-                    className="flex w-full items-center gap-2 px-3 py-2 text-sm hover:bg-accent"
-                  >
-                    <ShieldCheck size={14} />
-                    {t('admin.menu.rules_mgmt')}
-                  </button>
-                  <button
-                    onClick={() => { setShowViewMgmt(true); setOpen(false); }}
-                    className="flex w-full items-center gap-2 px-3 py-2 text-sm hover:bg-accent"
-                  >
-                    <LayoutTemplate size={14} />
-                    {t('admin.menu.view_mgmt')}
-                  </button>
-                  <button
-                    onClick={() => { setShowApiKeys(true); setOpen(false); }}
-                    className="flex w-full items-center gap-2 px-3 py-2 text-sm hover:bg-accent"
-                  >
-                    <Key size={14} />
-                    {t('admin.menu.api_keys')}
-                  </button>
-                </>
+                <button
+                  onClick={() => openAdmin('users')}
+                  className="flex w-full items-center gap-2 px-3 py-2 text-sm hover:bg-accent"
+                >
+                  <Settings size={14} />
+                  {t('admin.panel.title', { defaultValue: '系統設定' })}
+                </button>
               )}
               <button
                 onClick={() => { setShowProfile(true); setOpen(false); }}
@@ -117,12 +76,12 @@ export function UserMenu() {
         )}
       </div>
 
-      {showUserMgmt && <UserManagement onClose={() => setShowUserMgmt(false)} />}
-      {showChatHistory && <ChatHistory onClose={() => setShowChatHistory(false)} />}
-      {showUsageStats && <UsageStats onClose={() => setShowUsageStats(false)} />}
-      {showRules && <RulesManagement onClose={() => setShowRules(false)} />}
-      {showViewMgmt && <ViewManagement onClose={() => setShowViewMgmt(false)} />}
-      {showApiKeys && <ApiKeyManagement onClose={() => setShowApiKeys(false)} />}
+      {adminTab !== null && (
+        <AdminPanel
+          initialTab={adminTab}
+          onClose={() => setAdminTab(null)}
+        />
+      )}
       <ProfileDialog open={showProfile} onClose={() => setShowProfile(false)} />
     </>
   );

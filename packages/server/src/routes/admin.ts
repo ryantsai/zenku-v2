@@ -282,20 +282,39 @@ router.get('/admin/appearance', requireAdmin, (_req, res) => {
 
   for (const v of views) {
     const def = JSON.parse(v.definition);
-    const appearance = def.appearance || {};
-    for (const [field, config] of Object.entries(appearance)) {
-      if (Array.isArray(config)) {
-        config.forEach((rule: any, idx: number) => {
-          rules.push({
-            view_id: v.id,
-            view_name: v.name,
-            table_name: v.table_name,
-            field_key: field,
-            rule_index: idx,
-            ...rule
-          });
+
+    // Read from table columns
+    for (const col of (def.columns ?? [])) {
+      if (!Array.isArray(col.appearance) || col.appearance.length === 0) continue;
+      col.appearance.forEach((rule: any, idx: number) => {
+        rules.push({
+          view_id: v.id,
+          view_name: v.name,
+          table_name: v.table_name,
+          scope: 'column',
+          field_key: col.key,
+          field_label: col.label ?? col.key,
+          rule_index: idx,
+          rule,
         });
-      }
+      });
+    }
+
+    // Read from form fields
+    for (const field of (def.form?.fields ?? [])) {
+      if (!Array.isArray(field.appearance) || field.appearance.length === 0) continue;
+      field.appearance.forEach((rule: any, idx: number) => {
+        rules.push({
+          view_id: v.id,
+          view_name: v.name,
+          table_name: v.table_name,
+          scope: 'form',
+          field_key: field.key,
+          field_label: field.label ?? field.key,
+          rule_index: idx,
+          rule,
+        });
+      });
     }
   }
   res.json(rules);
@@ -303,7 +322,9 @@ router.get('/admin/appearance', requireAdmin, (_req, res) => {
 
 router.patch('/admin/appearance/toggle', requireAdmin, (req, res) => {
   const db = getDb();
-  const { view_id, field_key, rule_index } = req.body as { view_id: string; field_key: string; rule_index: number };
+  const { view_id, field_key, rule_index, scope } = req.body as {
+    view_id: string; field_key: string; rule_index: number; scope: 'column' | 'form';
+  };
   if (!view_id || !field_key || rule_index === undefined) {
     res.status(400).json({ error: 'ERROR_MISSING_FIELDS' }); return;
   }
@@ -312,7 +333,9 @@ router.patch('/admin/appearance/toggle', requireAdmin, (req, res) => {
   if (!row) { res.status(404).json({ error: 'ERROR_VIEW_NOT_FOUND' }); return; }
 
   const def = JSON.parse(row.definition);
-  const rule = def.appearance?.[field_key]?.[rule_index];
+  const fields: any[] = scope === 'form' ? (def.form?.fields ?? []) : (def.columns ?? []);
+  const field = fields.find((f: any) => f.key === field_key);
+  const rule = field?.appearance?.[rule_index];
   if (!rule) { res.status(404).json({ error: 'ERROR_RULE_NOT_FOUND' }); return; }
 
   rule.enabled = !rule.enabled;
@@ -324,7 +347,9 @@ router.patch('/admin/appearance/toggle', requireAdmin, (req, res) => {
 
 router.delete('/admin/appearance/rule', requireAdmin, (req, res) => {
   const db = getDb();
-  const { view_id, field_key, rule_index, type } = req.body as { view_id: string; field_key: string; rule_index: number; type: 'column' | 'form' };
+  const { view_id, field_key, rule_index, scope } = req.body as {
+    view_id: string; field_key: string; rule_index: number; scope: 'column' | 'form';
+  };
   if (!view_id || !field_key || rule_index === undefined) {
     res.status(400).json({ error: 'ERROR_MISSING_FIELDS' }); return;
   }
@@ -333,12 +358,7 @@ router.delete('/admin/appearance/rule', requireAdmin, (req, res) => {
   if (!row) { res.status(404).json({ error: 'ERROR_VIEW_NOT_FOUND' }); return; }
 
   const def = JSON.parse(row.definition);
-  // 在 master-detail 模型中，appearance 可能附加在 columns 或 form 欄位定義內
-  const target = type === 'form' ? def.form : def;
-  const fields = type === 'form'
-    ? ((target.form as { fields?: Array<Record<string, unknown>> } | undefined)?.fields ?? [])
-    : ((target.columns as Array<Record<string, unknown>>) ?? []);
-
+  const fields: any[] = scope === 'form' ? (def.form?.fields ?? []) : (def.columns ?? []);
   const field = fields.find((f: any) => f.key === field_key);
   if (!field || !Array.isArray(field.appearance) || !field.appearance[rule_index]) {
     res.status(404).json({ error: 'ERROR_RULE_NOT_FOUND' }); return;

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { X, RefreshCw, TrendingUp, MessageSquare, Database, DollarSign } from 'lucide-react';
+import { RefreshCw, TrendingUp, MessageSquare, Database, DollarSign } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 
 interface Totals {
@@ -51,9 +51,7 @@ interface UsageData {
   daily: DailyStat[];
 }
 
-interface Props {
-  onClose: () => void;
-}
+// No props needed — AdminPanel provides the container
 
 function StatCard({ icon: Icon, label, value, sub }: {
   icon: React.ComponentType<{ size?: number; className?: string }>;
@@ -75,7 +73,7 @@ function StatCard({ icon: Icon, label, value, sub }: {
   );
 }
 
-export function UsageStats({ onClose }: Props) {
+export function UsageStats() {
   const { t } = useTranslation();
   const { token } = useAuth();
   const [data, setData] = useState<UsageData | null>(null);
@@ -97,8 +95,7 @@ export function UsageStats({ onClose }: Props) {
   const totals = data?.totals;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="flex w-full max-w-4xl flex-col overflow-hidden rounded-xl border bg-background shadow-xl" style={{ maxHeight: '85vh' }}>
+    <div className="flex h-full flex-col overflow-hidden">
         {/* Header */}
         <div className="flex items-center justify-between border-b px-6 py-4">
           <h2 className="text-base font-semibold">{t('admin.usage.title')}</h2>
@@ -109,9 +106,6 @@ export function UsageStats({ onClose }: Props) {
               title={t('common.refresh')}
             >
               <RefreshCw size={14} />
-            </button>
-            <button onClick={onClose} className="rounded-md p-1 hover:bg-accent">
-              <X size={16} />
             </button>
           </div>
         </div>
@@ -276,7 +270,6 @@ export function UsageStats({ onClose }: Props) {
             </>
           )}
         </div>
-      </div>
     </div>
   );
 }

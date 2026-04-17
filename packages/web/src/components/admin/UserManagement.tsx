@@ -22,11 +22,8 @@ interface UserRow {
   last_login_at: string | null;
 }
 
-interface Props {
-  onClose: () => void;
-}
 
-export function UserManagement({ onClose }: Props) {
+export function UserManagement() {
   const { t, i18n } = useTranslation();
   const { token, user: me } = useAuth();
   const [users, setUsers] = useState<UserRow[]>([]);
@@ -149,9 +146,8 @@ export function UserManagement({ onClose }: Props) {
 
   return (
     <>
-      {/* Main dialog */}
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-        <div className="flex w-full max-w-3xl flex-col overflow-hidden rounded-xl border bg-background shadow-xl" style={{ maxHeight: '85vh' }}>
+      {/* Main content */}
+      <div className="flex h-full flex-col overflow-hidden">
           {/* Header */}
           <div className="flex shrink-0 items-center justify-between border-b px-6 py-4">
             <h2 className="text-base font-semibold">{t('admin.users.title')}</h2>
@@ -162,9 +158,6 @@ export function UserManagement({ onClose }: Props) {
               </Button>
               <Button variant="ghost" size="icon" onClick={() => void fetchUsers()} title={t('admin.users.refresh')}>
                 <RefreshCw className="h-4 w-4" />
-              </Button>
-              <Button variant="ghost" size="icon" onClick={onClose}>
-                <X className="h-4 w-4" />
               </Button>
             </div>
           </div>
@@ -267,7 +260,6 @@ export function UserManagement({ onClose }: Props) {
           <div className="shrink-0 border-t px-6 py-3 text-xs text-muted-foreground">
             {t('admin.users.total_count', { count: users.length })}
           </div>
-        </div>
       </div>
 
       {/* Add user dialog */}

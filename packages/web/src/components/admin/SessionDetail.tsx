@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ArrowLeft, X, ChevronDown, ChevronRight, Wrench } from 'lucide-react';
+import { ArrowLeft, ChevronDown, ChevronRight, Wrench } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 
 interface ToolEventRow {
@@ -17,6 +17,7 @@ interface MessageRow {
   id: string;
   role: 'user' | 'assistant';
   content: string;
+  content_blocks?: string; // JSON string of { type, mime_type, data, filename }[]
   provider?: string;
   model?: string;
   input_tokens: number;
@@ -44,7 +45,6 @@ interface SessionData {
 interface Props {
   sessionId: string;
   onBack: () => void;
-  onClose: () => void;
 }
 
 function ToolEventCard({ event }: { event: ToolEventRow }) {
@@ -93,6 +93,11 @@ function MessageBubble({ msg }: { msg: MessageRow }) {
   const [showThinking, setShowThinking] = useState(false);
   const isUser = msg.role === 'user';
 
+  // Parse image/file attachments from content_blocks
+  const attachments: { type: string; mime_type: string; data: string; filename?: string }[] =
+    msg.content_blocks ? (JSON.parse(msg.content_blocks) as { type: string; mime_type: string; data: string; filename?: string }[]) : [];
+  const imageAttachments = attachments.filter(a => a.type === 'image' || a.mime_type?.startsWith('image/'));
+
   return (
     <div className={`flex gap-3 ${isUser ? 'flex-row-reverse' : ''}`}>
       {/* Avatar */}
@@ -101,7 +106,7 @@ function MessageBubble({ msg }: { msg: MessageRow }) {
       </div>
 
       {/* Content */}
-      <div className={`flex-1 ${isUser ? 'flex flex-col items-end' : ''}`}>
+      <div className={`min-w-0 flex-1 ${isUser ? 'flex flex-col items-end' : ''}`}>
         {/* Timestamp */}
         <div className="mb-1 text-[10px] text-muted-foreground">
           {new Date(msg.created_at).toLocaleTimeString(i18n.language)}
@@ -111,6 +116,20 @@ function MessageBubble({ msg }: { msg: MessageRow }) {
             </span>
           )}
         </div>
+
+        {/* Image attachments */}
+        {imageAttachments.length > 0 && (
+          <div className={`mb-2 flex flex-wrap gap-2 ${isUser ? 'justify-end' : ''}`}>
+            {imageAttachments.map((img, i) => (
+              <img
+                key={i}
+                src={`data:${img.mime_type};base64,${img.data}`}
+                alt={img.filename ?? `image-${i}`}
+                className="max-h-48 max-w-xs rounded-lg border object-contain"
+              />
+            ))}
+          </div>
+        )}
 
         {/* Thinking chain */}
         {msg.thinking_content && (
@@ -123,7 +142,7 @@ function MessageBubble({ msg }: { msg: MessageRow }) {
               {t('admin.chat.thinking_chain', { tokens: msg.thinking_tokens })}
             </button>
             {showThinking && (
-              <pre className="mt-1 overflow-auto rounded border border-dashed bg-muted/20 p-2 text-[10px] leading-relaxed text-muted-foreground">
+              <pre className="mt-1 overflow-x-auto rounded border border-dashed bg-muted/20 p-2 text-[10px] leading-relaxed text-muted-foreground">
                 {msg.thinking_content}
               </pre>
             )}
@@ -139,8 +158,12 @@ function MessageBubble({ msg }: { msg: MessageRow }) {
 
         {/* Text bubble */}
         {msg.content && (
-          <div className={`max-w-lg rounded-lg px-3 py-2 text-sm leading-relaxed ${isUser ? 'bg-primary text-primary-foreground' : 'border bg-card'}`}>
-            {msg.content}
+          <div className={`overflow-x-auto rounded-lg px-3 py-2 text-sm leading-relaxed ${
+            isUser
+              ? 'bg-primary text-primary-foreground'
+              : 'border bg-card'
+          }`}>
+            <pre className="whitespace-pre-wrap break-words font-sans">{msg.content}</pre>
           </div>
         )}
 
@@ -157,7 +180,7 @@ function MessageBubble({ msg }: { msg: MessageRow }) {
   );
 }
 
-export function SessionDetail({ sessionId, onBack, onClose }: Props) {
+export function SessionDetail({ sessionId, onBack }: Props) {
   const { t } = useTranslation();
   const { token } = useAuth();
   const [session, setSession] = useState<SessionData | null>(null);
@@ -179,8 +202,7 @@ export function SessionDetail({ sessionId, onBack, onClose }: Props) {
   }, [sessionId]);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="flex w-full max-w-3xl flex-col overflow-hidden rounded-xl border bg-background shadow-xl" style={{ maxHeight: '85vh' }}>
+    <div className="flex h-full flex-col overflow-hidden">
         {/* Header */}
         <div className="flex items-center gap-3 border-b px-6 py-4">
           <button onClick={onBack} className="rounded-md p-1 hover:bg-accent">
@@ -196,9 +218,6 @@ export function SessionDetail({ sessionId, onBack, onClose }: Props) {
               </p>
             )}
           </div>
-          <button onClick={onClose} className="rounded-md p-1 hover:bg-accent">
-            <X size={16} />
-          </button>
         </div>
 
         {/* Messages */}
@@ -215,7 +234,6 @@ export function SessionDetail({ sessionId, onBack, onClose }: Props) {
             </div>
           )}
         </div>
-      </div>
     </div>
   );
 }

@@ -45,9 +45,6 @@ interface RuleRow {
   updated_at: string;
 }
 
-interface Props {
-  onClose: () => void;
-}
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -173,7 +170,7 @@ function RuleDetail({ rule }: { rule: RuleRow }) {
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
-export function RulesManagement({ onClose }: Props) {
+export function RulesManagement() {
   const { t } = useTranslation();
   const { token } = useAuth();
   const [rules, setRules] = useState<RuleRow[]>([]);
@@ -256,11 +253,7 @@ export function RulesManagement({ onClose }: Props) {
 
   return (
     <>
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-        <div
-          className="flex w-full max-w-5xl flex-col overflow-hidden rounded-xl border bg-background shadow-xl"
-          style={{ maxHeight: '88vh' }}
-        >
+      <div className="flex h-full flex-col overflow-hidden">
           {/* Header */}
           <div className="flex shrink-0 items-center justify-between border-b px-6 py-4">
             <div>
@@ -272,9 +265,6 @@ export function RulesManagement({ onClose }: Props) {
             <div className="flex items-center gap-2">
               <Button variant="ghost" size="icon" onClick={() => void fetchRules()} title={t('admin.rules.refresh')} disabled={loading}>
                 <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-              </Button>
-              <Button variant="ghost" size="icon" onClick={onClose}>
-                <X className="h-4 w-4" />
               </Button>
             </div>
           </div>
@@ -425,7 +415,6 @@ export function RulesManagement({ onClose }: Props) {
             </div>
           )}
         </div>
-      </div>
 
       {/* Delete confirm */}
       <AlertDialog open={!!deleteRuleId} onOpenChange={open => { if (!open) setDeleteRuleId(null); }}>

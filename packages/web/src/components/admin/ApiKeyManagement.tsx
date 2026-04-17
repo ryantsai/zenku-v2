@@ -26,13 +26,10 @@ interface ScopeOption {
   group: string;
 }
 
-interface Props {
-  onClose: () => void;
-}
 
 const BASE = '/api';
 
-export function ApiKeyManagement({ onClose }: Props) {
+export function ApiKeyManagement() {
   const { t } = useTranslation();
   const { token } = useAuth();
   const headers = { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` };
@@ -126,24 +123,23 @@ export function ApiKeyManagement({ onClose }: Props) {
 
   return (
     <>
-      <Dialog open onOpenChange={open => { if (!open) onClose(); }}>
-        <DialogContent className="max-w-3xl max-h-[85vh] flex flex-col">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
+      <div className="flex h-full flex-col overflow-hidden">
+        {/* Header */}
+        <div className="flex shrink-0 items-center justify-between border-b px-6 py-4">
+          <div>
+            <h2 className="flex items-center gap-2 text-base font-semibold">
               <Key size={16} />
               {t('api_keys.title')}
-            </DialogTitle>
-            <DialogDescription>{t('api_keys.description')}</DialogDescription>
-          </DialogHeader>
+            </h2>
+            <p className="mt-0.5 text-xs text-muted-foreground">{t('api_keys.description')}</p>
+          </div>
+          <Button size="sm" onClick={() => setShowCreate(true)}>
+            <Plus size={14} className="mr-1" />
+            {t('api_keys.create')}
+          </Button>
+        </div>
 
-          <div className="flex-1 overflow-y-auto space-y-3 pr-1">
-            <div className="flex justify-end">
-              <Button size="sm" onClick={() => setShowCreate(true)}>
-                <Plus size={14} className="mr-1" />
-                {t('api_keys.create')}
-              </Button>
-            </div>
-
+        <div className="flex-1 overflow-y-auto p-6 space-y-3">
             {loading ? (
               <div className="text-sm text-muted-foreground text-center py-8">{t('common.loading')}</div>
             ) : keys.length === 0 ? (
@@ -190,9 +186,8 @@ export function ApiKeyManagement({ onClose }: Props) {
                 ))}
               </div>
             )}
-          </div>
-        </DialogContent>
-      </Dialog>
+        </div>
+      </div>
 
       {/* Create Key Dialog */}
       <Dialog open={showCreate} onOpenChange={open => { if (!open) setShowCreate(false); }}>
