@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { toast } from 'sonner';
 import { getTableData, updateRow, createRow } from '../../api';
@@ -33,6 +34,7 @@ function getColorClass(colorValue: string | undefined, colorMap: Map<string, num
 }
 
 export function CalendarView({ view }: Props) {
+  const { t } = useTranslation();
   const calendar = view.calendar;
   const [rows, setRows] = useState<RowData[]>([]);
   const [loading, setLoading] = useState(true);
@@ -50,7 +52,7 @@ export function CalendarView({ view }: Props) {
       const result = await getTableData(view.table_name, { page: 1, limit: 500 });
       setRows(result.rows);
     } catch (err) {
-      toast.error('載入失敗', { description: String(err) });
+      toast.error(t('common_toast.load_failed'), { description: String(err) });
     } finally {
       setLoading(false);
     }
@@ -61,11 +63,11 @@ export function CalendarView({ view }: Props) {
     if (id === undefined || id === null) return;
     try {
       await updateRow(view.table_name, id, data);
-      toast.success('更新成功');
+      toast.success(t('common_toast.update_success'));
       setEditingRow(null);
       void fetchRows();
     } catch (err) {
-      toast.error('更新失敗', { description: String(err) });
+      toast.error(t('common_toast.update_failed'), { description: String(err) });
     }
   };
 
@@ -75,12 +77,12 @@ export function CalendarView({ view }: Props) {
         data[calendar.date_field] = creatingDate;
       }
       await createRow(view.table_name, data);
-      toast.success('新增成功');
+      toast.success(t('common_toast.create_success'));
       setShowCreate(false);
       setCreatingDate(null);
       void fetchRows();
     } catch (err) {
-      toast.error('新增失敗', { description: String(err) });
+      toast.error(t('common_toast.create_failed'), { description: String(err) });
     }
   };
 

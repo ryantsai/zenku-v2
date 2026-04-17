@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   DndContext,
   DragOverlay,
@@ -25,6 +26,7 @@ interface Props {
 type RowData = Record<string, unknown>;
 
 export function KanbanView({ view }: Props) {
+  const { t } = useTranslation();
   const kanban = view.kanban;
   const [rows, setRows] = useState<RowData[]>([]);
   const [loading, setLoading] = useState(true);
@@ -43,7 +45,7 @@ export function KanbanView({ view }: Props) {
       const result = await getTableData(view.table_name, { page: 1, limit: 200 });
       setRows(result.rows);
     } catch (err) {
-      toast.error('載入失敗', { description: String(err) });
+      toast.error(t('common_toast.load_failed'), { description: String(err) });
     } finally {
       setLoading(false);
     }
@@ -54,11 +56,11 @@ export function KanbanView({ view }: Props) {
     if (id === undefined || id === null) return;
     try {
       await updateRow(view.table_name, id, data);
-      toast.success('更新成功');
+      toast.success(t('common_toast.update_success'));
       setEditingRow(null);
       void fetchRows();
     } catch (err) {
-      toast.error('更新失敗', { description: String(err) });
+      toast.error(t('common_toast.update_failed'), { description: String(err) });
     }
   };
 
@@ -68,12 +70,12 @@ export function KanbanView({ view }: Props) {
         data[kanban.group_field] = creatingGroup;
       }
       await createRow(view.table_name, data);
-      toast.success('新增成功');
+      toast.success(t('common_toast.create_success'));
       setShowCreate(false);
       setCreatingGroup(null);
       void fetchRows();
     } catch (err) {
-      toast.error('新增失敗', { description: String(err) });
+      toast.error(t('common_toast.create_failed'), { description: String(err) });
     }
   };
 
@@ -140,7 +142,7 @@ export function KanbanView({ view }: Props) {
     try {
       await updateRow(view.table_name, draggedIdStr, { [groupField]: targetGroup });
     } catch (err) {
-      toast.error('更新失敗', { description: String(err) });
+      toast.error(t('common_toast.update_failed'), { description: String(err) });
       void fetchRows(); // revert
     }
   };

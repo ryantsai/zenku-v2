@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import type { PaginationState } from '@tanstack/react-table';
 import { ChevronLeft, ChevronRight, Plus, Search } from 'lucide-react';
 import { getTableData, updateRow, createRow } from '../../api';
@@ -16,6 +17,7 @@ interface Props {
 type RowData = Record<string, unknown>;
 
 export function GalleryView({ view }: Props) {
+  const { t } = useTranslation();
   const gallery = view.gallery;
   const canCreate = view.actions?.includes('create');
 
@@ -39,7 +41,7 @@ export function GalleryView({ view }: Props) {
       setRows(result.rows);
       setTotal(result.total);
     } catch (err) {
-      toast.error('載入失敗', { description: String(err) });
+      toast.error(t('common_toast.load_failed'), { description: String(err) });
     } finally {
       setLoading(false);
     }
@@ -69,22 +71,22 @@ export function GalleryView({ view }: Props) {
     if (!id) return;
     try {
       await updateRow(view.table_name, id, data);
-      toast.success('更新成功');
+      toast.success(t('common_toast.update_success'));
       setEditingRow(null);
       void fetchRows();
     } catch (err) {
-      toast.error('更新失敗', { description: String(err) });
+      toast.error(t('common_toast.update_failed'), { description: String(err) });
     }
   };
 
   const handleCreate = async (data: Record<string, unknown>) => {
     try {
       await createRow(view.table_name, data);
-      toast.success('新增成功');
+      toast.success(t('common_toast.create_success'));
       setShowCreate(false);
       void fetchRows();
     } catch (err) {
-      toast.error('新增失敗', { description: String(err) });
+      toast.error(t('common_toast.create_failed'), { description: String(err) });
     }
   };
 

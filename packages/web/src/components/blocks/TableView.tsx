@@ -1,6 +1,7 @@
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import type { ColumnDef as TableColumnDef, PaginationState, SortingState } from '@tanstack/react-table';
 import { flexRender, getCoreRowModel, useReactTable } from '@tanstack/react-table';
 import { ArrowDown, ArrowUp, ArrowUpDown, Filter, Pencil, Plus, Search, Trash2 } from 'lucide-react';
@@ -32,6 +33,7 @@ interface Props {
 type RowData = Record<string, unknown>;
 
 export function TableView({ view, filters, onCreateData }: Props) {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const isMasterDetail = view.type === 'master-detail';
 
@@ -84,7 +86,7 @@ export function TableView({ view, filters, onCreateData }: Props) {
       setRows(result.rows);
       setTotal(result.total);
     } catch (error) {
-      toast.error('載入資料失敗', { description: String(error) });
+      toast.error(t('table.view.load_data_error'), { description: String(error) });
     } finally {
       setLoading(false);
     }
@@ -115,10 +117,10 @@ export function TableView({ view, filters, onCreateData }: Props) {
     }
     try {
       await executeViewAction(view.id, action.id, row.id as string | number);
-      toast.success(action.label + ' 執行成功');
+      toast.success(t('table.view.toast_action_success', { action: action.label }));
       void fetchRows();
     } catch (error) {
-      toast.error(action.label + ' 執行失敗', { description: String(error) });
+      toast.error(t('table.view.toast_action_failed', { action: action.label }), { description: String(error) });
     }
   }, [view.id, navigate, fetchRows]);
 
@@ -129,7 +131,7 @@ export function TableView({ view, filters, onCreateData }: Props) {
         <Checkbox
           checked={table.getIsAllPageRowsSelected()}
           onCheckedChange={v => table.toggleAllPageRowsSelected(!!v)}
-          aria-label="全選"
+          aria-label={t('table.view.select_all')}
         />
       ),
       cell: ({ row }) => (
@@ -137,7 +139,7 @@ export function TableView({ view, filters, onCreateData }: Props) {
           <Checkbox
             checked={row.getIsSelected()}
             onCheckedChange={v => row.toggleSelected(!!v)}
-            aria-label="選取列"
+            aria-label={t('table.view.select_row')}
           />
         </div>
       ),
@@ -177,7 +179,7 @@ export function TableView({ view, filters, onCreateData }: Props) {
 
     const actionsColumn: TableColumnDef<RowData> = {
       id: '_actions',
-      header: '操作',
+      header: t('table.view.actions_col'),
       cell: ({ row }) => {
         const data = row.original;
         const visibleCustom = customActionsForCol.filter(
@@ -210,7 +212,7 @@ export function TableView({ view, filters, onCreateData }: Props) {
               <Button
                 variant="ghost"
                 size="icon"
-                aria-label="編輯"
+                aria-label={t('table.view.edit')}
                 onClick={() =>
                   isMasterDetail
                     ? navigate(`/view/${view.id}/${data.id}`)
@@ -221,7 +223,7 @@ export function TableView({ view, filters, onCreateData }: Props) {
               </Button>
             ) : null}
             {canDelete ? (
-              <Button variant="ghost" size="icon" onClick={() => setDeletingRow(data)} aria-label="刪除">
+              <Button variant="ghost" size="icon" onClick={() => setDeletingRow(data)} aria-label={t('table.view.delete')}>
                 <Trash2 className="h-4 w-4 text-destructive" />
               </Button>
             ) : null}
@@ -261,45 +263,45 @@ export function TableView({ view, filters, onCreateData }: Props) {
     try {
       const payload = onCreateData ? onCreateData(data) : data;
       await createRow(view.table_name, payload);
-      toast.success('儲存成功');
+      toast.success(t('table.view.toast_save_success'));
       setShowCreate(false);
       void fetchRows();
     } catch (error) {
-      toast.error('新增失敗', { description: String(error) });
+      toast.error(t('table.view.toast_create_failed'), { description: String(error) });
     }
   };
 
   const handleUpdate = async (data: Record<string, unknown>) => {
     const id = editingRow?.id;
     if (id === undefined || id === null) {
-      toast.error('找不到資料識別碼');
+      toast.error(t('table.view.toast_id_not_found'));
       return;
     }
 
     try {
       await updateRow(view.table_name, id, data);
-      toast.success('更新成功');
+      toast.success(t('table.view.toast_update_success'));
       setEditingRow(null);
       void fetchRows();
     } catch (error) {
-      toast.error('更新失敗', { description: String(error) });
+      toast.error(t('table.view.toast_update_failed'), { description: String(error) });
     }
   };
 
   const handleDelete = async () => {
     const id = deletingRow?.id;
     if (id === undefined || id === null) {
-      toast.error('找不到資料識別碼');
+      toast.error(t('table.view.toast_id_not_found'));
       return;
     }
 
     try {
       await deleteRow(view.table_name, id);
-      toast.success('刪除成功');
+      toast.success(t('table.view.toast_delete_success'));
       setDeletingRow(null);
       void fetchRows();
     } catch (error) {
-      toast.error('刪除失敗', { description: String(error) });
+      toast.error(t('table.view.toast_delete_failed'), { description: String(error) });
     }
   };
 
@@ -311,11 +313,11 @@ export function TableView({ view, filters, onCreateData }: Props) {
   const handleBulkDelete = async () => {
     try {
       await Promise.all(selectedIds.map(id => deleteRow(view.table_name, id)));
-      toast.success(`已刪除 ${selectedIds.length} 筆`);
+      toast.success(t('table.view.toast_batch_delete_success', { count: selectedIds.length }));
       setRowSelection({});
       void fetchRows();
     } catch (err) {
-      toast.error('批次刪除失敗', { description: String(err) });
+      toast.error(t('table.view.toast_batch_delete_failed'), { description: String(err) });
     }
   };
 
@@ -328,13 +330,13 @@ export function TableView({ view, filters, onCreateData }: Props) {
     <div className="flex h-full flex-col">
       {selectedIds.length > 0 && (
         <div className="flex items-center gap-3 border-b bg-muted/50 px-6 py-2 text-sm">
-          <span className="text-muted-foreground">已選 <strong>{selectedIds.length}</strong> 筆</span>
+          <span className="text-muted-foreground" dangerouslySetInnerHTML={{ __html: t('table.view.selected_count', { count: selectedIds.length }) }} />
           {canDelete && (
             <Button variant="destructive" size="sm" onClick={handleBulkDelete}>
-              <Trash2 className="mr-1 h-4 w-4" />批次刪除
+              <Trash2 className="mr-1 h-4 w-4" />{t('table.view.batch_delete')}
             </Button>
           )}
-          <Button variant="ghost" size="sm" onClick={() => setRowSelection({})}>取消選取</Button>
+          <Button variant="ghost" size="sm" onClick={() => setRowSelection({})}>{t('table.view.deselect')}</Button>
         </div>
       )}
       <div className="flex flex-wrap items-center justify-between gap-3 border-b px-6 py-3">
@@ -344,7 +346,7 @@ export function TableView({ view, filters, onCreateData }: Props) {
             <Input
               value={searchInput}
               onChange={event => setSearchInput(event.target.value)}
-              placeholder="搜尋文字欄位..."
+              placeholder={t('table.view.search_placeholder')}
               className="pl-8"
             />
           </div>
@@ -355,7 +357,7 @@ export function TableView({ view, filters, onCreateData }: Props) {
             className="relative"
           >
             <Filter className="mr-1.5 h-4 w-4" />
-            篩選
+            {t('table.filter.button_label')}
             {advFilters.length > 0 && (
               <span className="ml-1.5 inline-flex h-4 w-4 items-center justify-center rounded-full bg-primary-foreground text-[10px] font-bold text-primary">
                 {advFilters.length}
@@ -369,15 +371,15 @@ export function TableView({ view, filters, onCreateData }: Props) {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="20">20 筆</SelectItem>
-              <SelectItem value="50">50 筆</SelectItem>
-              <SelectItem value="100">100 筆</SelectItem>
+              <SelectItem value="20">{t('table.view.page_size_20')}</SelectItem>
+              <SelectItem value="50">{t('table.view.page_size_50')}</SelectItem>
+              <SelectItem value="100">{t('table.view.page_size_100')}</SelectItem>
             </SelectContent>
           </Select>
           {canCreate ? (
             <Button onClick={() => isMasterDetail ? navigate(`/view/${view.id}/new`) : setShowCreate(true)}>
               <Plus className="h-4 w-4" />
-              新增
+              {t('table.view.create_button')}
             </Button>
           ) : null}
         </div>
@@ -425,7 +427,7 @@ export function TableView({ view, filters, onCreateData }: Props) {
             {loading ? (
               <TableRow>
                 <TableCell colSpan={columns.length} className="h-40 text-center text-muted-foreground">
-                  載入資料中...
+                  {t('table.view.loading')}
                 </TableCell>
               </TableRow>
             ) : table.getRowModel().rows.length ? (
@@ -439,7 +441,7 @@ export function TableView({ view, filters, onCreateData }: Props) {
             ) : (
               <TableRow>
                 <TableCell colSpan={columns.length} className="h-40 text-center text-muted-foreground">
-                  沒有符合條件的資料
+                  {t('table.view.no_matching_data')}
                 </TableCell>
               </TableRow>
             )}
@@ -449,17 +451,17 @@ export function TableView({ view, filters, onCreateData }: Props) {
 
       <div className="flex items-center justify-between border-t px-6 py-3 text-sm text-muted-foreground">
         <span>
-          顯示 {pageStart}-{pageEnd} / 共 {total}
+          {t('table.view.showing_info', { start: pageStart, end: pageEnd, total })}
         </span>
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm" disabled={currentPage <= 1} onClick={() => table.setPageIndex(currentPage - 2)}>
-            上一頁
+            {t('table.view.prev_page')}
           </Button>
           <span>
-            第 {currentPage} / {totalPages} 頁
+            {t('table.view.page_info', { current: currentPage, total: totalPages })}
           </span>
           <Button variant="outline" size="sm" disabled={currentPage >= totalPages} onClick={() => table.setPageIndex(currentPage)}>
-            下一頁
+            {t('table.view.next_page')}
           </Button>
         </div>
       </div>
@@ -467,8 +469,8 @@ export function TableView({ view, filters, onCreateData }: Props) {
       <Dialog open={showCreate} onOpenChange={setShowCreate}>
         <DialogContent className={dialogWidthClass}>
           <DialogHeader>
-            <DialogTitle>新增 {view.name}</DialogTitle>
-            <DialogDescription>填入欄位資料後儲存。</DialogDescription>
+            <DialogTitle>{t('table.view.create_dialog_title', { name: view.name })}</DialogTitle>
+            <DialogDescription>{t('table.view.create_dialog_desc')}</DialogDescription>
           </DialogHeader>
           <FormView fields={view.form.fields} columns={formColumns} onSubmit={handleCreate} onCancel={() => setShowCreate(false)} />
         </DialogContent>
@@ -477,8 +479,8 @@ export function TableView({ view, filters, onCreateData }: Props) {
       <Dialog open={Boolean(editingRow)} onOpenChange={open => (!open ? setEditingRow(null) : null)}>
         <DialogContent className={dialogWidthClass}>
           <DialogHeader>
-            <DialogTitle>編輯 {view.name}</DialogTitle>
-            <DialogDescription>更新資料後按下儲存。</DialogDescription>
+            <DialogTitle>{t('table.view.edit_dialog_title', { name: view.name })}</DialogTitle>
+            <DialogDescription>{t('table.view.edit_dialog_desc')}</DialogDescription>
           </DialogHeader>
           {editingRow ? (
             <FormView
@@ -495,12 +497,12 @@ export function TableView({ view, filters, onCreateData }: Props) {
       <AlertDialog open={Boolean(deletingRow)} onOpenChange={open => (!open ? setDeletingRow(null) : null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>確認刪除資料？</AlertDialogTitle>
-            <AlertDialogDescription>刪除後無法還原。</AlertDialogDescription>
+            <AlertDialogTitle>{t('table.view.delete_confirm_title')}</AlertDialogTitle>
+            <AlertDialogDescription>{t('table.view.delete_confirm_desc')}</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>取消</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete}>刪除</AlertDialogAction>
+            <AlertDialogCancel>{t('table.view.cancel')}</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete}>{t('table.view.delete')}</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
@@ -519,7 +521,7 @@ export function TableView({ view, filters, onCreateData }: Props) {
                 setConfirmListAction(null);
               }
             }}>
-              確認
+              {t('table.view.confirm')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -537,6 +539,7 @@ function CellValue({
   row: RowData;
   appearance?: import('../../types').AppearanceEffect;
 }) {
+  const { t } = useTranslation();
   const textStyle: React.CSSProperties = {};
   if (appearance?.text_color)  textStyle.color      = appearance.text_color;
   if (appearance?.font_weight) textStyle.fontWeight = appearance.font_weight;
@@ -559,7 +562,7 @@ function CellValue({
 
   switch (type) {
     case 'boolean':
-      return wrap(<span>{Boolean(value) ? '是' : '否'}</span>);
+      return wrap(<span>{Boolean(value) ? t('table.view.boolean_yes') : t('table.view.boolean_no')}</span>);
 
     case 'currency': {
       const num = Number(value);
@@ -577,7 +580,7 @@ function CellValue({
     case 'url':
       return wrap(
         <a href={String(value)} target="_blank" rel="noreferrer" className="text-primary hover:underline" onClick={e => e.stopPropagation()}>
-          連結
+          {t('table.view.attachment')}
         </a>
       );
 

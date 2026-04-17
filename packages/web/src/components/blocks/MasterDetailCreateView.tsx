@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { Plus, Trash2, ArrowLeft, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { createRow } from '../../api';
@@ -20,6 +21,7 @@ interface Props {
 type RowData = Record<string, unknown>;
 
 export function MasterDetailCreateView({ view }: Props) {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [saving, setSaving] = useState(false);
 
@@ -72,7 +74,7 @@ export function MasterDetailCreateView({ view }: Props) {
 
   const handleSaveAll = async () => {
     if (!validateMaster()) {
-      toast.error('請填寫必填欄位');
+      toast.error(t('errors.ERROR_MISSING_FIELDS'));
       return;
     }
     setSaving(true);
@@ -86,10 +88,10 @@ export function MasterDetailCreateView({ view }: Props) {
         }
       }
 
-      toast.success('儲存成功');
+      toast.success(t('common_toast.save_success'));
       navigate(`/view/${view.id}/${masterId}`);
     } catch (error) {
-      toast.error('儲存失敗', { description: String(error) });
+      toast.error(t('common_toast.save_failed'), { description: String(error) });
     } finally {
       setSaving(false);
     }

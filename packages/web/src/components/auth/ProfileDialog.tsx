@@ -35,7 +35,7 @@ export function ProfileDialog({ open, onClose }: Props) {
   const [pwdLoading, setPwdLoading] = useState(false);
 
   const handleSaveProfile = async () => {
-    if (!name.trim()) { toast.error('姓名不可為空'); return; }
+    if (!name.trim()) { toast.error(t('errors.ERROR_INVALID_NAME')); return; }
     setProfileLoading(true);
     try {
       const res = await fetch('/api/users/me', { method: 'PUT', headers, body: JSON.stringify({ name: name.trim(), language }) });

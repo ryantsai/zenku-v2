@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { ArrowLeft } from 'lucide-react';
 import { toast } from 'sonner';
 import { executeViewAction, getRecord, updateRow } from '../../api';
@@ -28,6 +29,7 @@ function formatDateTime(val: unknown): string {
 }
 
 export function MasterDetailView({ view, recordId }: Props) {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [record, setRecord] = useState<RowData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -39,7 +41,7 @@ export function MasterDetailView({ view, recordId }: Props) {
       const data = await getRecord(view.table_name, recordId);
       setRecord(data);
     } catch (error) {
-      toast.error('載入資料失敗', { description: String(error) });
+      toast.error(t('common_toast.load_failed'), { description: String(error) });
     } finally {
       setLoading(false);
     }
@@ -53,9 +55,9 @@ export function MasterDetailView({ view, recordId }: Props) {
     try {
       const updated = await updateRow(view.table_name, recordId, data);
       setRecord(updated);
-      toast.success('更新成功');
+      toast.success(t('common_toast.update_success'));
     } catch (error) {
-      toast.error('更新失敗', { description: String(error) });
+      toast.error(t('common_toast.update_failed'), { description: String(error) });
     }
   };
 

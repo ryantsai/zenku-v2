@@ -1,4 +1,5 @@
 import { Plus, Trash2 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
@@ -13,93 +14,98 @@ interface Props {
 
 type FieldType = ColumnDef['type'];
 
-const OPERATORS_BY_TYPE: Record<string, { value: FilterOperator; label: string }[]> = {
-  text: [
-    { value: 'contains',     label: '包含' },
-    { value: 'not_contains', label: '不包含' },
-    { value: 'eq',           label: '等於' },
-    { value: 'neq',          label: '不等於' },
-    { value: 'is_empty',     label: '為空' },
-    { value: 'is_not_empty', label: '不為空' },
-  ],
-  textarea: [
-    { value: 'contains',     label: '包含' },
-    { value: 'not_contains', label: '不包含' },
-    { value: 'is_empty',     label: '為空' },
-    { value: 'is_not_empty', label: '不為空' },
-  ],
-  number: [
-    { value: 'eq',           label: '等於' },
-    { value: 'neq',          label: '不等於' },
-    { value: 'gt',           label: '大於' },
-    { value: 'gte',          label: '大於等於' },
-    { value: 'lt',           label: '小於' },
-    { value: 'lte',          label: '小於等於' },
-    { value: 'is_empty',     label: '為空' },
-    { value: 'is_not_empty', label: '不為空' },
-  ],
-  currency: [
-    { value: 'eq',           label: '等於' },
-    { value: 'neq',          label: '不等於' },
-    { value: 'gt',           label: '大於' },
-    { value: 'gte',          label: '大於等於' },
-    { value: 'lt',           label: '小於' },
-    { value: 'lte',          label: '小於等於' },
-    { value: 'is_empty',     label: '為空' },
-    { value: 'is_not_empty', label: '不為空' },
-  ],
-  date: [
-    { value: 'eq',           label: '等於' },
-    { value: 'neq',          label: '不等於' },
-    { value: 'gt',           label: '晚於' },
-    { value: 'gte',          label: '晚於等於' },
-    { value: 'lt',           label: '早於' },
-    { value: 'lte',          label: '早於等於' },
-    { value: 'is_empty',     label: '為空' },
-    { value: 'is_not_empty', label: '不為空' },
-  ],
-  datetime: [
-    { value: 'eq',           label: '等於' },
-    { value: 'neq',          label: '不等於' },
-    { value: 'gt',           label: '晚於' },
-    { value: 'gte',          label: '晚於等於' },
-    { value: 'lt',           label: '早於' },
-    { value: 'lte',          label: '早於等於' },
-    { value: 'is_empty',     label: '為空' },
-    { value: 'is_not_empty', label: '不為空' },
-  ],
-  boolean: [
-    { value: 'eq',  label: '等於' },
-    { value: 'neq', label: '不等於' },
-  ],
-  select: [
-    { value: 'eq',           label: '等於' },
-    { value: 'neq',          label: '不等於' },
-    { value: 'is_empty',     label: '為空' },
-    { value: 'is_not_empty', label: '不為空' },
-  ],
-};
+function getOperatorsByType(t: (key: string) => string): Record<string, { value: FilterOperator; label: string }[]> {
+  const op = (key: string) => t(`table.filter.operators.${key}`);
+  return {
+    text: [
+      { value: 'contains',     label: op('contains') },
+      { value: 'not_contains', label: op('not_contains') },
+      { value: 'eq',           label: op('eq') },
+      { value: 'neq',          label: op('neq') },
+      { value: 'is_empty',     label: op('is_empty') },
+      { value: 'is_not_empty', label: op('is_not_empty') },
+    ],
+    textarea: [
+      { value: 'contains',     label: op('contains') },
+      { value: 'not_contains', label: op('not_contains') },
+      { value: 'is_empty',     label: op('is_empty') },
+      { value: 'is_not_empty', label: op('is_not_empty') },
+    ],
+    number: [
+      { value: 'eq',           label: op('eq') },
+      { value: 'neq',          label: op('neq') },
+      { value: 'gt',           label: op('gt') },
+      { value: 'gte',          label: op('gte') },
+      { value: 'lt',           label: op('lt') },
+      { value: 'lte',          label: op('lte') },
+      { value: 'is_empty',     label: op('is_empty') },
+      { value: 'is_not_empty', label: op('is_not_empty') },
+    ],
+    currency: [
+      { value: 'eq',           label: op('eq') },
+      { value: 'neq',          label: op('neq') },
+      { value: 'gt',           label: op('gt') },
+      { value: 'gte',          label: op('gte') },
+      { value: 'lt',           label: op('lt') },
+      { value: 'lte',          label: op('lte') },
+      { value: 'is_empty',     label: op('is_empty') },
+      { value: 'is_not_empty', label: op('is_not_empty') },
+    ],
+    date: [
+      { value: 'eq',           label: op('eq') },
+      { value: 'neq',          label: op('neq') },
+      { value: 'gt',           label: op('gt_date') },
+      { value: 'gte',          label: op('gte_date') },
+      { value: 'lt',           label: op('lt_date') },
+      { value: 'lte',          label: op('lte_date') },
+      { value: 'is_empty',     label: op('is_empty') },
+      { value: 'is_not_empty', label: op('is_not_empty') },
+    ],
+    datetime: [
+      { value: 'eq',           label: op('eq') },
+      { value: 'neq',          label: op('neq') },
+      { value: 'gt',           label: op('gt_date') },
+      { value: 'gte',          label: op('gte_date') },
+      { value: 'lt',           label: op('lt_date') },
+      { value: 'lte',          label: op('lte_date') },
+      { value: 'is_empty',     label: op('is_empty') },
+      { value: 'is_not_empty', label: op('is_not_empty') },
+    ],
+    boolean: [
+      { value: 'eq',  label: op('eq') },
+      { value: 'neq', label: op('neq') },
+    ],
+    select: [
+      { value: 'eq',           label: op('eq') },
+      { value: 'neq',          label: op('neq') },
+      { value: 'is_empty',     label: op('is_empty') },
+      { value: 'is_not_empty', label: op('is_not_empty') },
+    ],
+  };
+}
 
-function getOperators(type: FieldType) {
-  return OPERATORS_BY_TYPE[type] ?? OPERATORS_BY_TYPE['text'];
+function getOperators(type: FieldType, operatorsByType: Record<string, { value: FilterOperator; label: string }[]>) {
+  return operatorsByType[type] ?? operatorsByType['text'];
 }
 
 function needsValue(op: FilterOperator): boolean {
   return op !== 'is_empty' && op !== 'is_not_empty';
 }
 
-function defaultOperator(type: FieldType): FilterOperator {
-  const ops = getOperators(type);
+function defaultOperator(type: FieldType, operatorsByType: Record<string, { value: FilterOperator; label: string }[]>): FilterOperator {
+  const ops = getOperators(type, operatorsByType);
   return ops[0]?.value ?? 'eq';
 }
 
 export function FilterPanel({ columns, filters, onChange }: Props) {
+  const { t } = useTranslation();
   const filterableColumns = columns.filter(c => !c.hidden_in_table);
+  const operatorsByType = getOperatorsByType(t);
 
   const addFilter = () => {
     const firstCol = filterableColumns[0];
     if (!firstCol) return;
-    onChange([...filters, { field: firstCol.key, operator: defaultOperator(firstCol.type), value: '' }]);
+    onChange([...filters, { field: firstCol.key, operator: defaultOperator(firstCol.type, operatorsByType), value: '' }]);
   };
 
   const removeFilter = (index: number) => {
@@ -115,7 +121,7 @@ export function FilterPanel({ columns, filters, onChange }: Props) {
       // If field changed, reset operator and value
       if (patch.field) {
         const newCol = filterableColumns.find(c => c.key === patch.field);
-        updated.operator = newCol ? defaultOperator(newCol.type) : 'eq';
+        updated.operator = newCol ? defaultOperator(newCol.type, operatorsByType) : 'eq';
         updated.value = '';
       }
       return updated;
@@ -125,9 +131,9 @@ export function FilterPanel({ columns, filters, onChange }: Props) {
   if (filters.length === 0) {
     return (
       <div className="flex items-center gap-3 border-b bg-muted/30 px-6 py-2">
-        <span className="text-xs text-muted-foreground">無篩選條件</span>
+        <span className="text-xs text-muted-foreground">{t('table.filter.no_filters')}</span>
         <Button variant="ghost" size="sm" onClick={addFilter} disabled={filterableColumns.length === 0}>
-          <Plus className="mr-1 h-3.5 w-3.5" />加入條件
+          <Plus className="mr-1 h-3.5 w-3.5" />{t('table.filter.add_condition')}
         </Button>
       </div>
     );
@@ -137,7 +143,7 @@ export function FilterPanel({ columns, filters, onChange }: Props) {
     <div className="border-b bg-muted/30 px-6 py-3 space-y-2">
       {filters.map((f, i) => {
         const col = filterableColumns.find(c => c.key === f.field) ?? filterableColumns[0];
-        const operators = col ? getOperators(col.type) : OPERATORS_BY_TYPE['text'];
+        const operators = col ? getOperators(col.type, operatorsByType) : operatorsByType['text'];
         const showValue = needsValue(f.operator);
 
         return (
@@ -170,7 +176,7 @@ export function FilterPanel({ columns, filters, onChange }: Props) {
             {showValue ? (
               <Input
                 className="h-8 text-xs w-40"
-                placeholder="輸入值..."
+                placeholder={t('table.filter.input_placeholder')}
                 value={String(f.value ?? '')}
                 onChange={e => updateFilter(i, { value: e.target.value })}
               />
@@ -187,10 +193,10 @@ export function FilterPanel({ columns, filters, onChange }: Props) {
 
       <div className="flex items-center gap-2 pt-1">
         <Button variant="ghost" size="sm" onClick={addFilter}>
-          <Plus className="mr-1 h-3.5 w-3.5" />加入條件
+          <Plus className="mr-1 h-3.5 w-3.5" />{t('table.filter.add_condition')}
         </Button>
         <Button variant="ghost" size="sm" className="text-muted-foreground" onClick={() => onChange([])}>
-          清除全部
+          {t('table.filter.clear_all')}
         </Button>
       </div>
     </div>
