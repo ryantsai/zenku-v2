@@ -94,6 +94,16 @@ export class GeminiProvider implements AIProvider {
           }
         }
         if (parts.length > 0) result.push({ role: 'model', parts });
+      } else if (msg.content_blocks && msg.content_blocks.length > 0) {
+        // Multimodal user message — inlineData parts
+        const parts: Part[] = msg.content_blocks.map(b => {
+          if ((b.type === 'image' || b.type === 'document') && b.source) {
+            return { inlineData: { mimeType: b.source.media_type, data: b.source.data } };
+          }
+          return { text: b.text ?? `[附件: 格式 ${b.source?.media_type ?? 'unknown'} 不支援]` };
+        });
+        if (msg.content) parts.push({ text: msg.content });
+        result.push({ role: 'user', parts });
       } else {
         // user or system → user turn
         result.push({ role: 'user', parts: [{ text: msg.content }] });

@@ -98,6 +98,20 @@ export class OpenAIProvider implements AIProvider {
           }));
         }
         result.push(oaiMsg);
+      } else if (msg.content_blocks && msg.content_blocks.length > 0) {
+        // Multimodal user message — vision format
+        const parts: OpenAI.ChatCompletionContentPart[] = msg.content_blocks.map(b => {
+          if (b.type === 'image' && b.source) {
+            return {
+              type: 'image_url' as const,
+              image_url: { url: `data:${b.source.media_type};base64,${b.source.data}` },
+            };
+          }
+          // document or text fallback
+          return { type: 'text' as const, text: b.text ?? `[附件: 格式 ${b.source?.media_type ?? 'unknown'} 不支援]` };
+        });
+        if (msg.content) parts.push({ type: 'text' as const, text: msg.content });
+        result.push({ role: 'user' as const, content: parts });
       } else {
         result.push({ role: 'user' as const, content: msg.content });
       }
