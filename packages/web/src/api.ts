@@ -15,6 +15,8 @@ export interface TableQuery {
   search?: string;
   /** Filter by specific field values: { field_name: value } */
   filters?: Record<string, string | number>;
+  /** Advanced multi-condition filters */
+  advFilters?: import('./types').Filter[];
 }
 
 export interface TableQueryResult {
@@ -63,6 +65,9 @@ export async function getTableData(table: string, query: TableQuery): Promise<Ta
     for (const [key, value] of Object.entries(query.filters)) {
       params.set(`filter[${key}]`, String(value));
     }
+  }
+  if (query.advFilters?.length) {
+    params.set('advfilter', JSON.stringify(query.advFilters));
   }
 
   const res = await fetch(`${BASE}/data/${table}?${params.toString()}`, { headers: authHeaders() });

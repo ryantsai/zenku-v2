@@ -3,11 +3,13 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { ColumnDef as TableColumnDef, PaginationState, SortingState } from '@tanstack/react-table';
 import { flexRender, getCoreRowModel, useReactTable } from '@tanstack/react-table';
-import { ArrowDown, ArrowUp, ArrowUpDown, Pencil, Plus, Search, Trash2 } from 'lucide-react';
+import { ArrowDown, ArrowUp, ArrowUpDown, Filter, Pencil, Plus, Search, Trash2 } from 'lucide-react';
 import { createRow, deleteRow, executeViewAction, getTableData, updateRow } from '../../api';
 import type { CustomViewAction, ViewDefinition } from '../../types';
 import { resolveAppearance } from '../../types';
 import { evaluateAppearanceCondition } from '@zenku/shared';
+import type { Filter as FilterCondition } from '@zenku/shared';
+import { FilterPanel } from './FilterPanel';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '../ui/alert-dialog';
 import { Button } from '../ui/button';
 import { Checkbox } from '../ui/checkbox';
@@ -44,6 +46,8 @@ export function TableView({ view, filters, onCreateData }: Props) {
   const [editingRow, setEditingRow] = useState<RowData | null>(null);
   const [deletingRow, setDeletingRow] = useState<RowData | null>(null);
   const [rowSelection, setRowSelection] = useState<Record<string, boolean>>({});
+  const [advFilters, setAdvFilters] = useState<FilterCondition[]>([]);
+  const [showFilterPanel, setShowFilterPanel] = useState(false);
 
   useEffect(() => {
     setPagination({ pageIndex: 0, pageSize: 20 });
@@ -51,6 +55,8 @@ export function TableView({ view, filters, onCreateData }: Props) {
     setSearch('');
     setSearchInput('');
     setRowSelection({});
+    setAdvFilters([]);
+    setShowFilterPanel(false);
   }, [view.id, filters]);
 
   useEffect(() => {
@@ -72,6 +78,7 @@ export function TableView({ view, filters, onCreateData }: Props) {
         order: sort ? (sort.desc ? 'desc' : 'asc') : undefined,
         search: search || undefined,
         filters,
+        advFilters: advFilters.length ? advFilters : undefined,
       });
 
       setRows(result.rows);
@@ -81,7 +88,7 @@ export function TableView({ view, filters, onCreateData }: Props) {
     } finally {
       setLoading(false);
     }
-  }, [pagination.pageIndex, pagination.pageSize, search, sorting, view.table_name, filters]);
+  }, [pagination.pageIndex, pagination.pageSize, search, sorting, view.table_name, filters, advFilters]);
 
   useEffect(() => {
     void fetchRows();
@@ -330,7 +337,7 @@ export function TableView({ view, filters, onCreateData }: Props) {
           <Button variant="ghost" size="sm" onClick={() => setRowSelection({})}>取消選取</Button>
         </div>
       )}
-      <div className="flex flex-wrap items-center justify-end gap-3 border-b px-6 py-3">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b px-6 py-3">
         <div className="flex items-center gap-2">
           <div className="relative w-64">
             <Search className="pointer-events-none absolute left-2.5 top-3 h-4 w-4 text-muted-foreground" />
@@ -341,6 +348,22 @@ export function TableView({ view, filters, onCreateData }: Props) {
               className="pl-8"
             />
           </div>
+          <Button
+            variant={showFilterPanel || advFilters.length > 0 ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setShowFilterPanel(v => !v)}
+            className="relative"
+          >
+            <Filter className="mr-1.5 h-4 w-4" />
+            篩選
+            {advFilters.length > 0 && (
+              <span className="ml-1.5 inline-flex h-4 w-4 items-center justify-center rounded-full bg-primary-foreground text-[10px] font-bold text-primary">
+                {advFilters.length}
+              </span>
+            )}
+          </Button>
+        </div>
+        <div className="flex items-center gap-2">
           <Select value={String(pagination.pageSize)} onValueChange={v => setPagination({ ...pagination, pageSize: Number(v), pageIndex: 0 })}>
             <SelectTrigger className="w-32">
               <SelectValue />
@@ -359,6 +382,17 @@ export function TableView({ view, filters, onCreateData }: Props) {
           ) : null}
         </div>
       </div>
+
+      {showFilterPanel && (
+        <FilterPanel
+          columns={view.columns}
+          filters={advFilters}
+          onChange={filters => {
+            setAdvFilters(filters);
+            setPagination(p => ({ ...p, pageIndex: 0 }));
+          }}
+        />
+      )}
 
       <div className="flex-1 overflow-auto">
         <Table>

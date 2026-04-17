@@ -180,6 +180,36 @@ router.get('/:table', requireAuth, (req, res) => {
       whereParams.push(...textFieldNames.map(() => `%${escapedSearch}%`));
     }
 
+    // Advanced filters
+    const advfilterRaw = String(req.query.advfilter ?? '').trim();
+    if (advfilterRaw) {
+      try {
+        const advFilters = JSON.parse(advfilterRaw) as { field: string; operator: string; value: unknown }[];
+        for (const f of advFilters) {
+          if (!isSafeFieldName(f.field) || !fieldNames.has(f.field)) continue;
+          const col = `"${table}"."${f.field}"`;
+          switch (f.operator) {
+            case 'eq':           whereParts.push(`${col} = ?`);           whereParams.push(f.value); break;
+            case 'neq':          whereParts.push(`${col} != ?`);          whereParams.push(f.value); break;
+            case 'gt':           whereParts.push(`${col} > ?`);           whereParams.push(f.value); break;
+            case 'gte':          whereParts.push(`${col} >= ?`);          whereParams.push(f.value); break;
+            case 'lt':           whereParts.push(`${col} < ?`);           whereParams.push(f.value); break;
+            case 'lte':          whereParts.push(`${col} <= ?`);          whereParams.push(f.value); break;
+            case 'contains': {
+              const esc = String(f.value).replaceAll('\\', '\\\\').replaceAll('%', '\\%').replaceAll('_', '\\_');
+              whereParts.push(`${col} LIKE ? ESCAPE '\\'`); whereParams.push(`%${esc}%`); break;
+            }
+            case 'not_contains': {
+              const esc = String(f.value).replaceAll('\\', '\\\\').replaceAll('%', '\\%').replaceAll('_', '\\_');
+              whereParts.push(`${col} NOT LIKE ? ESCAPE '\\'`); whereParams.push(`%${esc}%`); break;
+            }
+            case 'is_empty':     whereParts.push(`(${col} IS NULL OR ${col} = '')`); break;
+            case 'is_not_empty': whereParts.push(`(${col} IS NOT NULL AND ${col} != '')`); break;
+          }
+        }
+      } catch { /* malformed JSON — ignore */ }
+    }
+
     const whereClause = whereParts.length > 0 ? `WHERE ${whereParts.join(' AND ')}` : '';
 
     const relationCols = getRelationColumns(table);
