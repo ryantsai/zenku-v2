@@ -1012,7 +1012,7 @@ function ColumnSection({
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
-export function ViewManagement({ onClose }: Props) {
+export function ViewManagement() {
   const { t, i18n } = useTranslation();
   const { token } = useAuth();
   const [views, setViews] = useState<AdminView[]>([]);
@@ -1183,9 +1183,7 @@ export function ViewManagement({ onClose }: Props) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="flex w-full max-w-6xl overflow-hidden rounded-xl border bg-background shadow-xl"
-        style={{ height: '90vh' }}>
+    <div className="flex h-full overflow-hidden">
 
         {/* ── Left: view list ── */}
         <div className="flex w-64 shrink-0 flex-col border-r">
@@ -1195,9 +1193,6 @@ export function ViewManagement({ onClose }: Props) {
               <Button variant="ghost" size="icon" className="h-7 w-7"
                 onClick={() => void fetchViews()} disabled={loading}>
                 <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
-              </Button>
-              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onClose}>
-                <X className="h-3.5 w-3.5" />
               </Button>
             </div>
           </div>
@@ -1361,7 +1356,6 @@ export function ViewManagement({ onClose }: Props) {
             </>
           )}
         </div>
-      </div>
     </div>
   );
 }
