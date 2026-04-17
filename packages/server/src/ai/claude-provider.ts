@@ -13,11 +13,18 @@ export class ClaudeProvider implements AIProvider {
   async chat(params: ChatParams): Promise<LLMResponse> {
     const startTime = Date.now();
 
+    const tools = params.tools.map(t => this.toAnthropicTool(t));
+    // Mark the end of static content so Anthropic can cache system prompt + tools.
+    // Cache TTL is 5 min; hits cost ~90% less than regular input tokens.
+    if (tools.length > 0) {
+      (tools[tools.length - 1] as unknown as Record<string, unknown>).cache_control = { type: 'ephemeral' };
+    }
+
     const response = await this.client.messages.create({
       model: params.model,
       max_tokens: params.maxTokens ?? 4096,
-      system: params.system,
-      tools: params.tools.map(t => this.toAnthropicTool(t)),
+      system: [{ type: 'text', text: params.system, cache_control: { type: 'ephemeral' } }],
+      tools: tools as Anthropic.Tool[],
       messages: this.toAnthropicMessages(params.messages),
     });
 
