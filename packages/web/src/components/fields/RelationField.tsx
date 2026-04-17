@@ -90,6 +90,7 @@ export function RelationField({ field, value, onChange }: Props) {
                     <CommandItem
                       key={opt.value}
                       value={opt.label}
+                      onMouseDown={e => { e.preventDefault(); handleSelect(opt); }}
                       onSelect={() => handleSelect(opt)}
                     >
                       <Check
