@@ -48,7 +48,15 @@ const upload = multer({
 });
 
 // POST /api/files/upload
-router.post('/upload', requireAuth, upload.array('files', 10), (req, res) => {
+router.post('/upload', requireAuth, (req, res, next) => {
+  upload.array('files', 10)(req, res, (err) => {
+    if (err) {
+      res.status(400).json({ error: err.message });
+      return;
+    }
+    next();
+  });
+}, (req, res) => {
   const files = req.files as Express.Multer.File[];
   if (!files || files.length === 0) {
     res.status(400).json({ error: 'No files uploaded' });
@@ -59,9 +67,11 @@ router.post('/upload', requireAuth, upload.array('files', 10), (req, res) => {
 
   const records = files.map(f => {
     const id = path.basename(f.filename);
+    // multer decodes originalname as latin1; re-encode to UTF-8 for Chinese filenames
+    const filename = Buffer.from(f.originalname, 'latin1').toString('utf8');
     return insertFile({
       id,
-      filename: f.originalname,
+      filename,
       mime_type: f.mimetype,
       size: f.size,
       path: f.filename,
@@ -81,6 +91,19 @@ router.post('/upload', requireAuth, upload.array('files', 10), (req, res) => {
   })));
 });
 
+// GET /api/files/:id/meta — metadata only (no file content)
+router.get('/:id/meta', requireAuth, (req, res) => {
+  const record = getFile(String(req.params.id));
+  if (!record) { res.status(404).json({ error: 'File not found' }); return; }
+  res.json({
+    id: record.id,
+    filename: record.filename,
+    mime_type: record.mime_type,
+    size: record.size,
+    url: `/api/files/${record.id}`,
+  });
+});
+
 // GET /api/files/:id
 router.get('/:id', requireAuth, (req, res) => {
   const record = getFile(String(req.params.id));
@@ -92,11 +115,9 @@ router.get('/:id', requireAuth, (req, res) => {
   const isImage = record.mime_type.startsWith('image/');
   const isPdf = record.mime_type === 'application/pdf';
   res.setHeader('Content-Type', record.mime_type);
-  res.setHeader('Content-Disposition',
-    (isImage || isPdf)
-      ? `inline; filename="${encodeURIComponent(record.filename)}"`
-      : `attachment; filename="${encodeURIComponent(record.filename)}"`
-  );
+  const encodedName = `UTF-8''${encodeURIComponent(record.filename)}`;
+  const disposition = isImage || isPdf ? 'inline' : 'attachment';
+  res.setHeader('Content-Disposition', `${disposition}; filename*=${encodedName}`);
   res.sendFile(path.resolve(filePath));
 });
 

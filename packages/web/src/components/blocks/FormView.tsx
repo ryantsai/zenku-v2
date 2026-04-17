@@ -8,6 +8,7 @@ import { Button } from '../ui/button';
 import { FormItem, FormMessage } from '../ui/form';
 import { Label } from '../ui/label';
 import { FieldInput } from '../fields';
+import { FileReadonlyList } from '../fields/FileInput';
 import { cn } from '../../lib/cn';
 
 export type FormMode = 'create' | 'edit' | 'view';
@@ -263,6 +264,10 @@ function ReadonlyValue({
 
   if (value === null || value === undefined || value === '') {
     return <p className="py-1 text-sm text-muted-foreground">-</p>;
+  }
+
+  if (field.type === 'file' || field.type === 'image') {
+    return <FileReadonlyList value={value} />;
   }
 
   switch (field.type) {

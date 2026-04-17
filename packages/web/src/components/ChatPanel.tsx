@@ -477,6 +477,19 @@ export function ChatPanel({ onViewsChanged, className }: Props) {
                 void handleSend();
               }
             }}
+            onPaste={e => {
+              const images = Array.from(e.clipboardData.items)
+                .filter(item => item.type.startsWith('image/'))
+                .map(item => item.getAsFile())
+                .filter((f): f is File => f !== null);
+              if (images.length === 0) return;
+              e.preventDefault();
+              const newItems = images.map(f => ({
+                file: f,
+                preview: URL.createObjectURL(f),
+              }));
+              setAttachments(prev => [...prev, ...newItems]);
+            }}
             placeholder={t('chat.placeholder_input')}
             disabled={loading}
           />

@@ -258,6 +258,11 @@ export async function uploadFiles(
   return parseJsonOrThrow<FileUploadResult[]>(res);
 }
 
+export async function getFileMeta(id: string): Promise<FileUploadResult> {
+  const res = await fetch(`${BASE}/files/${id}/meta`, { headers: authHeaders() });
+  return parseJsonOrThrow<FileUploadResult>(res);
+}
+
 export async function deleteFile(id: string): Promise<void> {
   const res = await fetch(`${BASE}/files/${id}`, {
     method: 'DELETE',
