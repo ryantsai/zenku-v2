@@ -18,6 +18,43 @@ export function p(v: string | string[] | undefined): string {
 }
 
 /**
+ * 從視圖定義中提取 multiselect 欄位鍵名（供序列化/反序列化使用）
+ */
+export function getMultiselectColumns(tableName: string): string[] {
+  const views = getAllViews();
+  const found: string[] = [];
+
+  for (const v of views) {
+    try {
+      const def = JSON.parse(v.definition) as {
+        table_name?: string;
+        form?: { fields?: { key: string; type: string }[] };
+        detail_views?: { table_name: string; view: { form?: { fields?: { key: string; type: string }[] } } }[];
+      };
+
+      let fields: { key: string; type: string }[] = [];
+
+      if (def.table_name === tableName) {
+        fields = def.form?.fields ?? [];
+      } else if (def.detail_views) {
+        const detail = def.detail_views.find(dv => dv.table_name === tableName);
+        if (detail) fields = detail.view.form?.fields ?? [];
+      }
+
+      for (const f of fields) {
+        if (f.type === 'multiselect' && !found.includes(f.key)) {
+          found.push(f.key);
+        }
+      }
+    } catch {
+      continue;
+    }
+  }
+
+  return found;
+}
+
+/**
  * 關聯欄位定義介面
  */
 export interface RelationColumnDef {

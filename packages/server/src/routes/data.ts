@@ -3,9 +3,32 @@ import { getDb, getTableSchema, writeJournal } from '../db';
 import { requireAuth } from '../middleware/auth';
 import { executeBefore, executeAfter } from '../engine/rule-engine';
 import { recalculateComputedFields } from '../engine/formula-handler';
-import { p, isSafeFieldName, getRelationColumns } from '../utils';
+import { p, isSafeFieldName, getRelationColumns, getMultiselectColumns } from '../utils';
 
 const router = Router();
+
+// ── Multiselect helpers ───────────────────────────────────────────────────────
+
+function parseMultiselect(row: Record<string, unknown>, msColumns: string[]): Record<string, unknown> {
+  const result = { ...row };
+  for (const key of msColumns) {
+    const val = result[key];
+    if (typeof val === 'string' && val.startsWith('[')) {
+      try { result[key] = JSON.parse(val); } catch { /* leave as-is */ }
+    }
+  }
+  return result;
+}
+
+function serializeMultiselect(data: Record<string, unknown>, msColumns: string[]): Record<string, unknown> {
+  const result = { ...data };
+  for (const key of msColumns) {
+    if (Array.isArray(result[key])) {
+      result[key] = JSON.stringify(result[key]);
+    }
+  }
+  return result;
+}
 
 // ──────────────────────────────────────────────
 // Generic CRUD for user tables
@@ -90,7 +113,8 @@ router.get('/:table/:id', requireAuth, (req, res) => {
       res.status(404).json({ error: 'ERROR_DATA_NOT_FOUND' });
       return;
     }
-    res.json(row);
+    const msColumns = getMultiselectColumns(table);
+    res.json(msColumns.length ? parseMultiselect(row as Record<string, unknown>, msColumns) : row);
   } catch (err) {
     res.status(400).json({ error: 'ERROR_INTERNAL_SERVER', params: { detail: String(err) } });
   }
@@ -179,8 +203,13 @@ router.get('/:table', requireAuth, (req, res) => {
       .prepare(`SELECT COUNT(*) AS count FROM "${table}" ${joinClause} ${whereClause}`)
       .get(...(whereParams as any[])) as { count: number };
 
+    const msColumns = getMultiselectColumns(table);
+    const parsedRows = msColumns.length
+      ? (rows as Record<string, unknown>[]).map(row => parseMultiselect(row, msColumns))
+      : rows;
+
     res.json({
-      rows,
+      rows: parsedRows,
       total: totalResult.count,
       page,
       limit,
@@ -203,10 +232,11 @@ router.post('/:table', requireAuth, async (req, res) => {
   }
   try {
     const db = getDb();
-    const body = { ...req.body } as Record<string, unknown>;
-    delete body.id;
-    delete body.created_at;
-    delete body.updated_at;
+    const rawBody = { ...req.body } as Record<string, unknown>;
+    delete rawBody.id;
+    delete rawBody.created_at;
+    delete rawBody.updated_at;
+    const body = serializeMultiselect(rawBody, getMultiselectColumns(table));
 
     const beforeResult = await executeBefore(table, 'insert', body);
     if (!beforeResult.allowed) {
@@ -250,10 +280,11 @@ router.put('/:table/:id', requireAuth, async (req, res) => {
     const db = getDb();
     const oldData = db.prepare(`SELECT * FROM "${table}" WHERE id = ?`).get(id) as Record<string, unknown> | undefined;
 
-    const body = { ...req.body } as Record<string, unknown>;
-    delete body.id;
-    delete body.created_at;
-    body.updated_at = new Date().toISOString();
+    const rawBody = { ...req.body } as Record<string, unknown>;
+    delete rawBody.id;
+    delete rawBody.created_at;
+    rawBody.updated_at = new Date().toISOString();
+    const body = serializeMultiselect(rawBody, getMultiselectColumns(table));
 
     const beforeResult = await executeBefore(table, 'update', body, oldData);
     if (!beforeResult.allowed) {
