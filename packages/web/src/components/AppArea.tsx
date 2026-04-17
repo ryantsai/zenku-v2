@@ -1,46 +1,30 @@
 import { useParams } from 'react-router-dom';
 import { useViews } from '../contexts/ViewsContext';
-import { TableView } from './blocks/TableView';
-import { MasterDetailView } from './blocks/MasterDetailView';
-import { MasterDetailCreateView } from './blocks/MasterDetailCreateView';
-import { DashboardView } from './blocks/DashboardView';
-import { KanbanView } from './blocks/KanbanView';
-import { CalendarView } from './blocks/CalendarView';
+import { VIEW_REGISTRY } from './blocks/registry';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 
 export function AppArea() {
   const { viewId, recordId } = useParams();
   const { views } = useViews();
 
-  if (!viewId) {
-    return <EmptyState />;
-  }
+  if (!viewId) return <EmptyState />;
 
   const view = views.find(v => v.id === viewId);
-
   if (!view) {
     if (views.length === 0) return null;
     return <EmptyState />;
   }
 
-  switch (view.type) {
-    case 'master-detail':
-      if (recordId === 'new') return <MasterDetailCreateView view={view} />;
-      if (recordId) return <MasterDetailView view={view} recordId={recordId} />;
-      return <TableView view={view} />;
+  const entry = VIEW_REGISTRY[view.type];
+  if (!entry) return <EmptyState />;
 
-    case 'dashboard':
-      return <DashboardView view={view} />;
-
-    case 'kanban':
-      return <KanbanView view={view} />;
-
-    case 'calendar':
-      return <CalendarView view={view} />;
-
-    default:
-      return <TableView view={view} />;
+  if (recordId === 'new' && entry.createComponent) {
+    return <entry.createComponent view={view} />;
   }
+  if (recordId && entry.detailComponent) {
+    return <entry.detailComponent view={view} recordId={recordId} />;
+  }
+  return <entry.component view={view} />;
 }
 
 function EmptyState() {

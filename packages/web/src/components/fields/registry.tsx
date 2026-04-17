@@ -1,0 +1,256 @@
+import type { CSSProperties } from 'react';
+import { Input } from '../ui/input';
+import { Textarea } from '../ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
+import { Checkbox } from '../ui/checkbox';
+import { Label } from '../ui/label';
+import { RelationField } from './RelationField';
+import { DynamicSelectField } from './DynamicSelectField';
+import { DatePickerField } from './DatePickerField';
+import { FileInput, FileReadonlyList } from './FileInput';
+import type { FieldDef, FieldType } from '../../types';
+import { cn } from '../../lib/cn';
+
+// ─── Shared prop types ────────────────────────────────────────────────────────
+
+export interface FieldInputInnerProps {
+  field: FieldDef;
+  value: unknown;
+  formValues: Record<string, unknown>;
+  onChange: (value: unknown) => void;
+  disabled?: boolean;
+}
+
+export interface FieldReadonlyProps {
+  field: FieldDef;
+  value: unknown;
+  allValues: Record<string, unknown>;
+  textStyle?: CSSProperties;
+  bgClass?: string;
+  bgStyle?: CSSProperties;
+}
+
+// ─── Registry entry ───────────────────────────────────────────────────────────
+
+export interface FieldEntry {
+  input: React.ComponentType<FieldInputInnerProps>;
+  readonly: React.ComponentType<FieldReadonlyProps>;
+  /** 在多欄表單中強制佔滿整行 */
+  fullWidth?: boolean;
+}
+
+// ─── Input components ─────────────────────────────────────────────────────────
+
+function TextInput({ field, value, onChange, disabled }: FieldInputInnerProps) {
+  return (
+    <Input
+      id={field.key}
+      value={String(value ?? '')}
+      placeholder={field.placeholder}
+      onChange={e => onChange(e.target.value)}
+      disabled={disabled}
+    />
+  );
+}
+
+function NumberInput({ field, value, onChange, disabled }: FieldInputInnerProps) {
+  return (
+    <Input
+      id={field.key}
+      type="number"
+      value={String(value ?? '')}
+      placeholder={field.placeholder}
+      onChange={e => onChange(e.target.value === '' ? '' : Number(e.target.value))}
+      disabled={disabled}
+    />
+  );
+}
+
+function TextareaInput({ field, value, onChange, disabled }: FieldInputInnerProps) {
+  return (
+    <Textarea
+      id={field.key}
+      value={String(value ?? '')}
+      placeholder={field.placeholder}
+      onChange={e => onChange(e.target.value)}
+      className="min-h-24"
+      disabled={disabled}
+    />
+  );
+}
+
+function BooleanInput({ field, value, onChange, disabled }: FieldInputInnerProps) {
+  return (
+    <div className="flex items-center gap-2">
+      <Checkbox
+        id={field.key}
+        checked={Boolean(value)}
+        onCheckedChange={checked => onChange(checked === true)}
+        disabled={disabled}
+      />
+      <Label htmlFor={field.key} className="cursor-pointer font-normal">是</Label>
+    </div>
+  );
+}
+
+function SelectInput({ field, value, onChange, disabled }: FieldInputInnerProps) {
+  if (field.source) return <DynamicSelectField field={field} value={value} onChange={onChange} />;
+  return (
+    <Select value={String(value ?? '')} onValueChange={v => onChange(v)} disabled={disabled}>
+      <SelectTrigger id={field.key}>
+        <SelectValue placeholder={field.placeholder ?? '請選擇...'} />
+      </SelectTrigger>
+      <SelectContent>
+        {(field.options ?? []).map(opt => (
+          <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+}
+
+function EmailInput({ field, value, onChange, disabled }: FieldInputInnerProps) {
+  return (
+    <Input
+      id={field.key}
+      type="email"
+      value={String(value ?? '')}
+      placeholder={field.placeholder}
+      onChange={e => onChange(e.target.value)}
+      disabled={disabled}
+    />
+  );
+}
+
+function UrlInput({ field, value, onChange, disabled }: FieldInputInnerProps) {
+  return (
+    <Input
+      id={field.key}
+      type="url"
+      value={String(value ?? '')}
+      placeholder={field.placeholder}
+      onChange={e => onChange(e.target.value)}
+      disabled={disabled}
+    />
+  );
+}
+
+function PhoneInput({ field, value, onChange, disabled }: FieldInputInnerProps) {
+  return (
+    <Input
+      id={field.key}
+      type="tel"
+      value={String(value ?? '')}
+      placeholder={field.placeholder}
+      onChange={e => onChange(e.target.value)}
+      disabled={disabled}
+    />
+  );
+}
+
+function DateInput({ field, value, onChange, disabled }: FieldInputInnerProps) {
+  return <DatePickerField value={value} onChange={onChange} placeholder={field.placeholder} disabled={disabled} />;
+}
+
+function RelationInput({ field, value, onChange }: FieldInputInnerProps) {
+  return <RelationField field={field} value={value} onChange={onChange} />;
+}
+
+function FileFieldInput({ field, value, onChange, disabled }: FieldInputInnerProps) {
+  return <FileInput field={field} value={value} onChange={onChange} disabled={disabled} />;
+}
+
+// ─── Readonly components ──────────────────────────────────────────────────────
+
+function EmptyValue() {
+  return <p className="py-1 text-sm text-muted-foreground">-</p>;
+}
+
+export function TextReadonly({ value, textStyle, bgClass, bgStyle }: FieldReadonlyProps) {
+  if (value === null || value === undefined || value === '') return <EmptyValue />;
+  return <p className={cn('py-1 text-sm', bgClass)} style={{ ...textStyle, ...bgStyle }}>{String(value)}</p>;
+}
+
+function BooleanReadonly({ value, textStyle, bgClass, bgStyle }: FieldReadonlyProps) {
+  if (value === null || value === undefined) return <EmptyValue />;
+  return <p className={cn('py-1 text-sm', bgClass)} style={{ ...textStyle, ...bgStyle }}>{Boolean(value) ? '是' : '否'}</p>;
+}
+
+function CurrencyReadonly({ value, textStyle, bgClass, bgStyle }: FieldReadonlyProps) {
+  if (value === null || value === undefined || value === '') return <EmptyValue />;
+  const num = Number(value);
+  return (
+    <p className={cn('py-1 text-sm', bgClass)} style={{ ...textStyle, ...bgStyle }}>
+      {isFinite(num)
+        ? `$${num.toLocaleString('zh-TW', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`
+        : String(value)}
+    </p>
+  );
+}
+
+function PhoneReadonly({ value, textStyle, bgClass, bgStyle }: FieldReadonlyProps) {
+  if (value === null || value === undefined || value === '') return <EmptyValue />;
+  return (
+    <a href={`tel:${value}`} className={cn('py-1 text-sm text-primary hover:underline', bgClass)} style={{ ...textStyle, ...bgStyle }}>
+      {String(value)}
+    </a>
+  );
+}
+
+function EmailReadonly({ value, textStyle, bgClass, bgStyle }: FieldReadonlyProps) {
+  if (value === null || value === undefined || value === '') return <EmptyValue />;
+  return (
+    <a href={`mailto:${value}`} className={cn('py-1 text-sm text-primary hover:underline', bgClass)} style={{ ...textStyle, ...bgStyle }}>
+      {String(value)}
+    </a>
+  );
+}
+
+function UrlReadonly({ value, textStyle, bgClass, bgStyle }: FieldReadonlyProps) {
+  if (value === null || value === undefined || value === '') return <EmptyValue />;
+  return (
+    <a href={String(value)} target="_blank" rel="noreferrer" className={cn('py-1 text-sm text-primary hover:underline', bgClass)} style={{ ...textStyle, ...bgStyle }}>
+      {String(value)}
+    </a>
+  );
+}
+
+function RelationReadonly({ field, value, allValues, textStyle, bgClass, bgStyle }: FieldReadonlyProps) {
+  const display = allValues[`${field.key}__display`] ?? value;
+  if (display === null || display === undefined || display === '') return <EmptyValue />;
+  return <p className={cn('py-1 text-sm', bgClass)} style={{ ...textStyle, ...bgStyle }}>{String(display)}</p>;
+}
+
+function EnumReadonly({ value }: FieldReadonlyProps) {
+  if (value === null || value === undefined || value === '') return <EmptyValue />;
+  return (
+    <span className="inline-flex items-center rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
+      {String(value)}
+    </span>
+  );
+}
+
+function FileReadonly({ value }: FieldReadonlyProps) {
+  if (value === null || value === undefined || value === '') return <EmptyValue />;
+  return <FileReadonlyList value={value} />;
+}
+
+// ─── Registry ─────────────────────────────────────────────────────────────────
+
+export const FIELD_REGISTRY = {
+  text:     { input: TextInput,      readonly: TextReadonly },
+  number:   { input: NumberInput,    readonly: TextReadonly },
+  currency: { input: NumberInput,    readonly: CurrencyReadonly },
+  textarea: { input: TextareaInput,  readonly: TextReadonly,    fullWidth: true },
+  richtext: { input: TextareaInput,  readonly: TextReadonly,    fullWidth: true },
+  boolean:  { input: BooleanInput,   readonly: BooleanReadonly },
+  date:     { input: DateInput,      readonly: TextReadonly },
+  select:   { input: SelectInput,    readonly: TextReadonly },
+  enum:     { input: SelectInput,    readonly: EnumReadonly },
+  relation: { input: RelationInput,  readonly: RelationReadonly },
+  email:    { input: EmailInput,     readonly: EmailReadonly },
+  phone:    { input: PhoneInput,     readonly: PhoneReadonly },
+  url:      { input: UrlInput,       readonly: UrlReadonly },
+  file:     { input: FileFieldInput, readonly: FileReadonly,    fullWidth: true },
+  image:    { input: FileFieldInput, readonly: FileReadonly,    fullWidth: true },
+} as Record<FieldType, FieldEntry>;

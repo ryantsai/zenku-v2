@@ -1,14 +1,13 @@
 import type React from 'react';
 import { useMemo, useState } from 'react';
 import { Loader2, Pencil } from 'lucide-react';
-import type { FieldDef } from '../../types';
+import type { FieldDef, FieldType } from '../../types';
 import type { AppearanceEffect } from '../../types';
 import { resolveAppearance } from '../../types';
 import { Button } from '../ui/button';
 import { FormItem, FormMessage } from '../ui/form';
 import { Label } from '../ui/label';
-import { FieldInput } from '../fields';
-import { FileReadonlyList } from '../fields/FileInput';
+import { FieldInput, FIELD_REGISTRY } from '../fields';
 import { cn } from '../../lib/cn';
 
 export type FormMode = 'create' | 'edit' | 'view';
@@ -23,9 +22,8 @@ interface Props {
   onCancel?: () => void;
 }
 
-/** 哪些欄位需要佔滿全行 */
 function isFullWidth(field: FieldDef): boolean {
-  return field.type === 'textarea' || field.type === 'richtext' || field.type === 'file' || field.type === 'image' || !!field.computed;
+  return !!FIELD_REGISTRY[field.type as FieldType]?.fullWidth || !!field.computed;
 }
 
 type ErrorMap = Record<string, string | null>;
@@ -245,71 +243,21 @@ function ReadonlyValue({
     : appearance?.font_weight
     ? { fontWeight: appearance.font_weight }
     : undefined;
-
   const bgClass = appearance?.bg_color ? 'rounded px-1' : '';
   const bgStyle = appearance?.bg_color ? { backgroundColor: appearance.bg_color } : undefined;
 
-  // relation: 優先顯示 __display 值
-  if (field.type === 'relation') {
-    const display = allValues[`${field.key}__display`] ?? value;
-    if (display === null || display === undefined || display === '') {
-      return <p className="py-1 text-sm text-muted-foreground">-</p>;
-    }
-    return (
-      <p className={cn('py-1 text-sm', bgClass)} style={{ ...textStyle, ...bgStyle }}>
-        {String(display)}
-      </p>
-    );
-  }
+  const entry = FIELD_REGISTRY[field.type as FieldType];
+  const ReadonlyComponent = entry?.readonly;
+  if (!ReadonlyComponent) return <p className="py-1 text-sm text-muted-foreground">-</p>;
 
-  if (value === null || value === undefined || value === '') {
-    return <p className="py-1 text-sm text-muted-foreground">-</p>;
-  }
-
-  if (field.type === 'file' || field.type === 'image') {
-    return <FileReadonlyList value={value} />;
-  }
-
-  switch (field.type) {
-    case 'boolean':
-      return (
-        <p className={cn('py-1 text-sm', bgClass)} style={{ ...textStyle, ...bgStyle }}>
-          {Boolean(value) ? '是' : '否'}
-        </p>
-      );
-    case 'currency': {
-      const num = Number(value);
-      return (
-        <p className={cn('py-1 text-sm', bgClass)} style={{ ...textStyle, ...bgStyle }}>
-          {isFinite(num)
-            ? `$${num.toLocaleString('zh-TW', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`
-            : String(value)}
-        </p>
-      );
-    }
-    case 'phone':
-      return (
-        <a href={`tel:${value}`} className={cn('py-1 text-sm text-primary hover:underline', bgClass)} style={{ ...textStyle, ...bgStyle }}>
-          {String(value)}
-        </a>
-      );
-    case 'email':
-      return (
-        <a href={`mailto:${value}`} className={cn('py-1 text-sm text-primary hover:underline', bgClass)} style={{ ...textStyle, ...bgStyle }}>
-          {String(value)}
-        </a>
-      );
-    case 'url':
-      return (
-        <a href={String(value)} target="_blank" rel="noreferrer" className={cn('py-1 text-sm text-primary hover:underline', bgClass)} style={{ ...textStyle, ...bgStyle }}>
-          {String(value)}
-        </a>
-      );
-    default:
-      return (
-        <p className={cn('py-1 text-sm', bgClass)} style={{ ...textStyle, ...bgStyle }}>
-          {String(value)}
-        </p>
-      );
-  }
+  return (
+    <ReadonlyComponent
+      field={field}
+      value={value}
+      allValues={allValues}
+      textStyle={textStyle}
+      bgClass={bgClass}
+      bgStyle={bgStyle}
+    />
+  );
 }
