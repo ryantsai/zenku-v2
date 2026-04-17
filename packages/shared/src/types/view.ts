@@ -6,6 +6,9 @@ import type { AppearanceCondition } from './appearance';
 
 export type ViewType = 'table' | 'master-detail' | 'dashboard' | 'kanban' | 'calendar';
 
+/** Runtime 常數陣列（供 server 端 AI tool schema 使用） */
+export const VIEW_TYPES: ViewType[] = ['table', 'master-detail', 'dashboard', 'kanban', 'calendar'];
+
 // ===== View 定義 =====
 
 export interface ViewDefinition {

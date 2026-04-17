@@ -19,6 +19,13 @@ export type FileFieldType = 'image' | 'file';
 /** 所有欄位型別 */
 export type FieldType = BasicFieldType | ExtendedFieldType | FileFieldType;
 
+/** Runtime 常數陣列（供 server 端 AI tool schema 使用） */
+export const FIELD_TYPES: FieldType[] = [
+  'text', 'number', 'select', 'boolean', 'date', 'textarea',
+  'relation', 'currency', 'phone', 'email', 'url', 'enum', 'richtext',
+  'image', 'file',
+];
+
 // ===== 關聯定義 =====
 
 export interface RelationDef {

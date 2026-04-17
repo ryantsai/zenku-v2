@@ -1,19 +1,13 @@
 import { ZenkuTool } from '../types';
 import { runUiAgent } from '../../agents/ui-agent';
+import { FIELD_TYPES, VIEW_TYPES } from '@zenku/shared';
 
 export const FORM_FIELD_SCHEMA = {
   type: 'object' as const,
   properties: {
     key: { type: 'string', description: 'Database field name' },
     label: { type: 'string', description: 'Field label (for UI display)' },
-    type: {
-      type: 'string',
-      enum: [
-        'text', 'number', 'select', 'boolean', 'date', 'textarea',
-        'relation', 'currency', 'phone', 'email', 'url',
-        'file', 'image',
-      ],
-    },
+    type: { type: 'string', enum: FIELD_TYPES },
     required: { type: 'boolean' },
     placeholder: { type: 'string' },
     options: {
@@ -191,7 +185,7 @@ When users say "statistics/kanban/calendar", directly create a view of that type
             id: { type: 'string', description: 'Unique ID, usually matches table_name' },
             name: { type: 'string', description: 'Display name' },
             table_name: { type: 'string' },
-            type: { type: 'string', enum: ['table', 'master-detail', 'dashboard', 'kanban', 'calendar'] },
+            type: { type: 'string', enum: VIEW_TYPES },
             group: { type: 'string', description: 'Sidebar group name; views with the same group are displayed together under a collapsible section' },
             columns: {
               type: 'array',
@@ -201,13 +195,7 @@ When users say "statistics/kanban/calendar", directly create a view of that type
                 properties: {
                   key: { type: 'string', description: 'Database field name' },
                   label: { type: 'string', description: 'Column label' },
-                  type: {
-                    type: 'string',
-                    enum: [
-                      'text', 'number', 'select', 'boolean', 'date',
-                      'relation', 'currency', 'phone', 'email', 'url', 'enum',
-                    ],
-                  },
+                  type: { type: 'string', enum: FIELD_TYPES },
                   sortable: { type: 'boolean' },
                   relation: {
                     type: 'object',

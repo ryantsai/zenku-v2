@@ -237,7 +237,7 @@ function FileReadonly({ value }: FieldReadonlyProps) {
 
 // ─── Registry ─────────────────────────────────────────────────────────────────
 
-export const FIELD_REGISTRY = {
+export const FIELD_REGISTRY: Record<FieldType, FieldEntry> = {
   text:     { input: TextInput,      readonly: TextReadonly },
   number:   { input: NumberInput,    readonly: TextReadonly },
   currency: { input: NumberInput,    readonly: CurrencyReadonly },
@@ -253,4 +253,4 @@ export const FIELD_REGISTRY = {
   url:      { input: UrlInput,       readonly: UrlReadonly },
   file:     { input: FileFieldInput, readonly: FileReadonly,    fullWidth: true },
   image:    { input: FileFieldInput, readonly: FileReadonly,    fullWidth: true },
-} as Record<FieldType, FieldEntry>;
+};

@@ -3,6 +3,7 @@ export type {
   BasicFieldType, ExtendedFieldType, FileFieldType, FieldType,
   RelationDef, SourceDef, ComputedDef, ValidationDef, FieldDef,
 } from './types/field';
+export { FIELD_TYPES } from './types/field';
 
 export type { ColumnDef } from './types/column';
 
@@ -11,6 +12,7 @@ export type {
   DetailViewDef, DashboardWidget, WidgetType, KanbanConfig, CalendarConfig,
   Filter, FilterOperator,
 } from './types/view';
+export { VIEW_TYPES } from './types/view';
 
 export type {
   AgentName, UserRole, AgentResult, AgentPermission,
