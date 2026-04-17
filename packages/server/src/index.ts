@@ -12,6 +12,7 @@ import adminRouter from './routes/admin';
 import viewsRouter from './routes/views';
 import dataRouter from './routes/data';
 import chatRouter from './routes/chat';
+import extRouter from './routes/ext';
 import { requireAuth } from './middleware/auth';
 import crypto from 'crypto';
 
@@ -29,13 +30,19 @@ app.use('/api', adminRouter);
 app.use('/api', viewsRouter);
 app.use('/api/data', dataRouter);
 app.use('/api', chatRouter);
+app.use('/api/ext', extRouter);
 
 // ──────────────────────────────────────────────
 // Webhook callback
 // ──────────────────────────────────────────────
+// Legacy webhook callback — kept for backward compatibility but now requires WEBHOOK_SECRET.
+// Prefer using POST /api/ext/webhook/callback with API Key instead.
 function authenticateWebhook(req: express.Request, res: express.Response, next: express.NextFunction): void {
   const secret = process.env.WEBHOOK_SECRET;
-  if (!secret) { next(); return; }
+  if (!secret) {
+    res.status(503).json({ error: 'Webhook not configured. Use /api/ext/webhook/callback with an API Key instead.' });
+    return;
+  }
 
   const signature = req.headers['x-zenku-signature'];
   const expected = crypto
@@ -43,7 +50,9 @@ function authenticateWebhook(req: express.Request, res: express.Response, next: 
     .update(JSON.stringify(req.body))
     .digest('hex');
 
-  if (signature !== expected) {
+  const sigBuf = Buffer.from(typeof signature === 'string' ? signature : '', 'utf8');
+  const expBuf = Buffer.from(expected, 'utf8');
+  if (sigBuf.length !== expBuf.length || !crypto.timingSafeEqual(sigBuf, expBuf)) {
     res.status(401).json({ error: 'Invalid signature' });
     return;
   }

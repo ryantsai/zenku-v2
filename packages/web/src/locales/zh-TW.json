@@ -117,7 +117,8 @@
       "chat_history": "對話歷程",
       "usage_stats": "用量統計",
       "rules_mgmt": "業務規則",
-      "view_mgmt": "介面管理"
+      "view_mgmt": "介面管理",
+      "api_keys": "API 金鑰"
     },
     "roles": {
       "admin": "管理員",
@@ -379,5 +380,26 @@
       "col_out_tokens": "輸出 Tokens",
       "load_error": "載入統計資料失敗"
     }
+  },
+  "api_keys": {
+    "title": "API 金鑰管理",
+    "description": "管理外部系統整合用的 API 金鑰（例如 n8n、Zapier）。",
+    "create": "建立 API 金鑰",
+    "create_confirm": "建立",
+    "empty": "尚未建立任何 API 金鑰。",
+    "revoke": "撤銷",
+    "revoked": "已撤銷金鑰",
+    "revoked_badge": "已撤銷",
+    "deleted": "已刪除金鑰",
+    "created": "建立時間",
+    "last_used": "最後使用",
+    "expires": "到期時間",
+    "created_title": "API 金鑰已建立",
+    "created_warning": "此金鑰只會顯示一次，請立即複製並妥善保存，之後將無法再次查看。",
+    "error_name_and_scope": "請填寫名稱並至少選擇一個權限範圍。",
+    "form_name": "金鑰名稱",
+    "form_name_placeholder": "例如：n8n 生產環境",
+    "form_scopes": "權限範圍",
+    "form_expires": "到期日"
   }
 }

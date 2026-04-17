@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import crypto from 'crypto';
 import bcrypt from 'bcryptjs';
-import { getDb } from '../db';
+import { getDb, createApiKey, listApiKeys, revokeApiKey, deleteApiKey, getUserTables } from '../db';
 import { requireAdmin, requireAuth } from '../middleware/auth';
 import { getAvailableProviders } from '../ai';
 import { p } from '../utils';
@@ -424,6 +424,67 @@ router.post('/reset', requireAdmin, (_req, res) => {
   } catch (err) {
     res.status(500).json({ error: 'ERROR_INTERNAL_SERVER', params: { detail: String(err) } });
   }
+});
+
+// ──────────────────────────────────────────────
+// API Key Management
+// ──────────────────────────────────────────────
+
+router.get('/admin/api-keys', requireAdmin, (_req, res) => {
+  res.json(listApiKeys());
+});
+
+router.get('/admin/api-keys/scopes', requireAdmin, (_req, res) => {
+  const tables = getUserTables();
+  const actions = ['read', 'write'];
+  const scopes: { value: string; label: string; group: string }[] = [
+    { value: 'read:*', label: '讀取所有資料表', group: '全域' },
+    { value: 'write:*', label: '寫入所有資料表', group: '全域' },
+    { value: 'webhook:callback', label: 'Webhook 回呼', group: '全域' },
+  ];
+  for (const table of tables) {
+    for (const action of actions) {
+      scopes.push({
+        value: `${action}:${table}`,
+        label: `${action === 'read' ? '讀取' : '寫入'} ${table}`,
+        group: table,
+      });
+    }
+  }
+  res.json(scopes);
+});
+
+router.post('/admin/api-keys', requireAdmin, (req, res) => {
+  const { name, scopes, expires_at } = req.body as {
+    name?: string;
+    scopes?: string[];
+    expires_at?: string;
+  };
+  if (!name?.trim()) {
+    res.status(400).json({ error: 'ERROR_MISSING_FIELDS' });
+    return;
+  }
+  if (!Array.isArray(scopes) || scopes.length === 0) {
+    res.status(400).json({ error: 'ERROR_API_KEY_NO_SCOPES' });
+    return;
+  }
+  const userId = (req as any).user?.id ?? 'system';
+  const { rawKey, record } = createApiKey(name.trim(), scopes, userId, expires_at);
+  res.status(201).json({ raw_key: rawKey, record });
+});
+
+router.patch('/admin/api-keys/:id/revoke', requireAdmin, (req, res) => {
+  const id = p(req.params.id);
+  const ok = revokeApiKey(id);
+  if (!ok) { res.status(404).json({ error: 'ERROR_DATA_NOT_FOUND' }); return; }
+  res.json({ success: true });
+});
+
+router.delete('/admin/api-keys/:id', requireAdmin, (req, res) => {
+  const id = p(req.params.id);
+  const ok = deleteApiKey(id);
+  if (!ok) { res.status(404).json({ error: 'ERROR_DATA_NOT_FOUND' }); return; }
+  res.json({ success: true });
 });
 
 export default router;

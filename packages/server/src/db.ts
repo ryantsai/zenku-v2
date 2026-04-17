@@ -1,4 +1,5 @@
 import { DatabaseSync } from 'node:sqlite';
+import { createHash, randomBytes } from 'node:crypto';
 import path from 'path';
 
 const DB_PATH = path.join(process.cwd(), 'zenku.db');
@@ -137,6 +138,19 @@ function initSystemTables(db: DatabaseSync): void {
     CREATE INDEX IF NOT EXISTS idx_chat_messages_session ON _zenku_chat_messages(session_id);
     CREATE INDEX IF NOT EXISTS idx_tool_events_session ON _zenku_tool_events(session_id);
     CREATE INDEX IF NOT EXISTS idx_tool_events_message ON _zenku_tool_events(message_id);
+
+    CREATE TABLE IF NOT EXISTS _zenku_api_keys (
+      id          TEXT PRIMARY KEY,
+      name        TEXT NOT NULL,
+      key_prefix  TEXT NOT NULL,
+      key_hash    TEXT NOT NULL UNIQUE,
+      scopes      TEXT NOT NULL DEFAULT '[]',
+      created_by  TEXT NOT NULL,
+      created_at  TEXT DEFAULT (datetime('now')),
+      expires_at  TEXT,
+      last_used_at TEXT,
+      revoked     INTEGER NOT NULL DEFAULT 0
+    );
   `);
 
   // Migrations for existing databases
@@ -325,6 +339,93 @@ export function getUserLanguage(userId: string): string {
   const db = getDb();
   const row = db.prepare('SELECT language FROM _zenku_users WHERE id = ?').get(userId) as { language?: string } | undefined;
   return row?.language || 'en';
+}
+
+// ===== API Keys =====
+
+export interface ApiKeyRecord {
+  id: string;
+  name: string;
+  key_prefix: string;
+  key_hash: string;
+  scopes: string[];
+  created_by: string;
+  created_at: string;
+  expires_at: string | null;
+  last_used_at: string | null;
+  revoked: number;
+}
+
+function hashKey(rawKey: string): string {
+  return createHash('sha256').update(rawKey).digest('hex');
+}
+
+export function createApiKey(
+  name: string,
+  scopes: string[],
+  createdBy: string,
+  expiresAt?: string,
+): { rawKey: string; record: Omit<ApiKeyRecord, 'key_hash'> } {
+  const random = randomBytes(24).toString('base64url').slice(0, 32);
+  const rawKey = `zk_live_${random}`;
+  const keyPrefix = `zk_live_${random.slice(0, 4)}`;
+  const keyHash = hashKey(rawKey);
+  const id = crypto.randomUUID();
+  const db = getDb();
+  db.prepare(
+    `INSERT INTO _zenku_api_keys (id, name, key_prefix, key_hash, scopes, created_by, expires_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`
+  ).run(id, name, keyPrefix, keyHash, JSON.stringify(scopes), createdBy, expiresAt ?? null);
+  return {
+    rawKey,
+    record: { id, name, key_prefix: keyPrefix, scopes, created_by: createdBy, created_at: new Date().toISOString(), expires_at: expiresAt ?? null, last_used_at: null, revoked: 0 },
+  };
+}
+
+export function verifyApiKey(rawKey: string, requiredScope: string): ApiKeyRecord | null {
+  if (!rawKey.startsWith('zk_live_')) return null;
+  const keyHash = hashKey(rawKey);
+  const db = getDb();
+  const row = db.prepare(
+    `SELECT * FROM _zenku_api_keys
+     WHERE key_hash = ? AND revoked = 0
+       AND (expires_at IS NULL OR expires_at > datetime('now'))`
+  ).get(keyHash) as (Omit<ApiKeyRecord, 'scopes'> & { scopes: string }) | undefined;
+  if (!row) return null;
+
+  const scopes: string[] = JSON.parse(row.scopes);
+  if (!hasScope(scopes, requiredScope)) return null;
+
+  db.prepare(`UPDATE _zenku_api_keys SET last_used_at = datetime('now') WHERE id = ?`).run(row.id);
+  return { ...row, scopes };
+}
+
+function hasScope(keyScopes: string[], required: string): boolean {
+  const [action, resource] = required.split(':');
+  return keyScopes.some(s => {
+    const [sa, sr] = s.split(':');
+    return sa === action && (sr === '*' || sr === resource);
+  });
+}
+
+export function listApiKeys(): Omit<ApiKeyRecord, 'key_hash'>[] {
+  const db = getDb();
+  const rows = db.prepare(
+    'SELECT id, name, key_prefix, scopes, created_by, created_at, expires_at, last_used_at, revoked FROM _zenku_api_keys ORDER BY created_at DESC'
+  ).all() as (Omit<ApiKeyRecord, 'scopes' | 'key_hash'> & { scopes: string })[];
+  return rows.map(r => ({ ...r, scopes: JSON.parse(r.scopes) }));
+}
+
+export function revokeApiKey(id: string): boolean {
+  const db = getDb();
+  const result = db.prepare('UPDATE _zenku_api_keys SET revoked = 1 WHERE id = ?').run(id);
+  return result.changes > 0;
+}
+
+export function deleteApiKey(id: string): boolean {
+  const db = getDb();
+  const result = db.prepare('DELETE FROM _zenku_api_keys WHERE id = ?').run(id);
+  return result.changes > 0;
 }
 
 // ===== Legacy (kept for compatibility) =====

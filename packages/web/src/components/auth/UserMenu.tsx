@@ -1,12 +1,13 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { LogOut, Users, ChevronUp, MessageSquare, BarChart2, Settings, ShieldCheck, LayoutTemplate } from 'lucide-react';
+import { LogOut, Users, ChevronUp, MessageSquare, BarChart2, Settings, ShieldCheck, LayoutTemplate, Key } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { UserManagement } from '../admin/UserManagement';
 import { ChatHistory } from '../admin/ChatHistory';
 import { UsageStats } from '../admin/UsageStats';
 import { RulesManagement } from '../admin/RulesManagement';
 import { ViewManagement } from '../admin/ViewManagement';
+import { ApiKeyManagement } from '../admin/ApiKeyManagement';
 import { ProfileDialog } from './ProfileDialog';
 
 export function UserMenu() {
@@ -18,6 +19,7 @@ export function UserMenu() {
   const [showUsageStats, setShowUsageStats] = useState(false);
   const [showRules, setShowRules] = useState(false);
   const [showViewMgmt, setShowViewMgmt] = useState(false);
+  const [showApiKeys, setShowApiKeys] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
 
   return (
@@ -87,6 +89,13 @@ export function UserMenu() {
                     <LayoutTemplate size={14} />
                     {t('admin.menu.view_mgmt')}
                   </button>
+                  <button
+                    onClick={() => { setShowApiKeys(true); setOpen(false); }}
+                    className="flex w-full items-center gap-2 px-3 py-2 text-sm hover:bg-accent"
+                  >
+                    <Key size={14} />
+                    {t('admin.menu.api_keys')}
+                  </button>
                 </>
               )}
               <button
@@ -113,6 +122,7 @@ export function UserMenu() {
       {showUsageStats && <UsageStats onClose={() => setShowUsageStats(false)} />}
       {showRules && <RulesManagement onClose={() => setShowRules(false)} />}
       {showViewMgmt && <ViewManagement onClose={() => setShowViewMgmt(false)} />}
+      {showApiKeys && <ApiKeyManagement onClose={() => setShowApiKeys(false)} />}
       <ProfileDialog open={showProfile} onClose={() => setShowProfile(false)} />
     </>
   );

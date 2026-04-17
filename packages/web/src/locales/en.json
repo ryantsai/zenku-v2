@@ -108,7 +108,8 @@
       "chat_history": "Chat History",
       "usage_stats": "Usage Stats",
       "rules_mgmt": "Business Rules",
-      "view_mgmt": "Interface Management"
+      "view_mgmt": "Interface Management",
+      "api_keys": "API Keys"
     },
     "roles": {
       "admin": "Administrator",
@@ -370,5 +371,26 @@
       "col_out_tokens": "Output Tokens",
       "load_error": "Failed to load usage data"
     }
+  },
+  "api_keys": {
+    "title": "API Keys",
+    "description": "Manage API keys for external system integration (e.g. n8n, Zapier).",
+    "create": "Create API Key",
+    "create_confirm": "Create",
+    "empty": "No API keys created yet.",
+    "revoke": "Revoke",
+    "revoked": "Key revoked",
+    "revoked_badge": "Revoked",
+    "deleted": "Key deleted",
+    "created": "Created",
+    "last_used": "Last used",
+    "expires": "Expires",
+    "created_title": "API Key Created",
+    "created_warning": "This key will only be shown once. Copy and store it safely — you cannot retrieve it again.",
+    "error_name_and_scope": "Name and at least one scope are required.",
+    "form_name": "Key Name",
+    "form_name_placeholder": "e.g. n8n Production",
+    "form_scopes": "Permission Scopes",
+    "form_expires": "Expiry Date"
   }
 }
