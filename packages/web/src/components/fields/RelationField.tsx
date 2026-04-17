@@ -1,8 +1,7 @@
-import { useState, useEffect } from 'react';
-import { Check, ChevronsUpDown } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { Check, ChevronsUpDown, Search } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover';
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '../ui/command';
 import { cn } from '../../lib/cn';
 import type { FieldDef } from '../../types';
 
@@ -27,10 +26,11 @@ export function RelationField({ field, value, onChange }: Props) {
   const [options, setOptions] = useState<Option[]>([]);
   const [loading, setLoading] = useState(false);
   const [displayValue, setDisplayValue] = useState('');
+  const [search, setSearch] = useState('');
+  const inputRef = useRef<HTMLInputElement>(null);
 
   const { table, value_field, display_field } = field.relation!;
 
-  // 初始化：取得目前值的顯示名稱
   useEffect(() => {
     if (!value) { setDisplayValue(''); return; }
     const params = new URLSearchParams({ value_field, display_field, id: String(value) });
@@ -42,17 +42,23 @@ export function RelationField({ field, value, onChange }: Props) {
       .catch(() => {});
   }, [value, table, value_field, display_field]);
 
-  // 下拉開啟時載入選項
   useEffect(() => {
-    if (!open) return;
+    if (!open) { setSearch(''); return; }
     setLoading(true);
     const params = new URLSearchParams({ value_field, display_field });
     fetch(`/api/data/${table}/options?${params}`, { headers: getAuthHeaders() })
       .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
       .then((data: unknown) => setOptions(Array.isArray(data) ? (data as Option[]) : []))
       .catch(() => setOptions([]))
-      .finally(() => setLoading(false));
+      .finally(() => {
+        setLoading(false);
+        setTimeout(() => inputRef.current?.focus(), 0);
+      });
   }, [open, table, value_field, display_field]);
+
+  const filtered = search
+    ? options.filter(o => o.label.toLowerCase().includes(search.toLowerCase()))
+    : options;
 
   const handleSelect = (opt: Option) => {
     onChange(opt.value);
@@ -77,36 +83,43 @@ export function RelationField({ field, value, onChange }: Props) {
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
-        <Command>
-          <CommandInput placeholder="搜尋..." />
-          <CommandList>
-            {loading ? (
-              <div className="py-4 text-center text-sm text-muted-foreground">載入中...</div>
-            ) : (
-              <>
-                <CommandEmpty>無符合結果</CommandEmpty>
-                <CommandGroup>
-                  {options.map(opt => (
-                    <CommandItem
-                      key={opt.value}
-                      value={opt.label}
-                      onMouseDown={e => { e.preventDefault(); handleSelect(opt); }}
-                      onSelect={() => handleSelect(opt)}
-                    >
-                      <Check
-                        className={cn(
-                          'mr-2 h-4 w-4',
-                          String(value) === String(opt.value) ? 'opacity-100' : 'opacity-0',
-                        )}
-                      />
-                      {opt.label}
-                    </CommandItem>
-                  ))}
-                </CommandGroup>
-              </>
-            )}
-          </CommandList>
-        </Command>
+        <div className="flex items-center border-b px-3">
+          <Search className="mr-2 h-4 w-4 shrink-0 opacity-50" />
+          <input
+            ref={inputRef}
+            className="flex h-9 w-full bg-transparent py-2 text-sm outline-none placeholder:text-muted-foreground"
+            placeholder="搜尋..."
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+          />
+        </div>
+        <div className="max-h-60 overflow-y-auto py-1">
+          {loading ? (
+            <div className="py-4 text-center text-sm text-muted-foreground">載入中...</div>
+          ) : filtered.length === 0 ? (
+            <div className="py-4 text-center text-sm text-muted-foreground">無符合結果</div>
+          ) : (
+            filtered.map(opt => (
+              <button
+                key={opt.value}
+                type="button"
+                className={cn(
+                  'flex w-full cursor-pointer items-center px-3 py-2 text-sm hover:bg-accent hover:text-accent-foreground',
+                  String(value) === String(opt.value) && 'bg-accent',
+                )}
+                onClick={() => handleSelect(opt)}
+              >
+                <Check
+                  className={cn(
+                    'mr-2 h-4 w-4 shrink-0',
+                    String(value) === String(opt.value) ? 'opacity-100' : 'opacity-0',
+                  )}
+                />
+                {opt.label}
+              </button>
+            ))
+          )}
+        </div>
       </PopoverContent>
     </Popover>
   );
