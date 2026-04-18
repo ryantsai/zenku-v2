@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react';
+import { RefreshCw } from 'lucide-react';
 import {
   BarChart, Bar, LineChart, Line, PieChart, Pie, Cell,
   XAxis, YAxis, Tooltip, ResponsiveContainer, Legend,
 } from 'recharts';
 import { runQuery } from '../../api';
 import type { DashboardWidget, ViewDefinition } from '../../types';
+import { Button } from '../ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Skeleton } from '../ui/skeleton';
 import { cn } from '../../lib/cn';
@@ -28,6 +30,7 @@ const CHART_COLORS = ['#6366f1', '#22c55e', '#f59e0b', '#ef4444', '#8b5cf6', '#0
 
 export function DashboardView({ view }: Props) {
   const widgets = view.widgets ?? [];
+  const [refreshKey, setRefreshKey] = useState(0);
 
   if (widgets.length === 0) {
     return (
@@ -39,11 +42,17 @@ export function DashboardView({ view }: Props) {
 
   return (
     <div className="h-full overflow-auto p-6">
-      <h2 className="mb-5 text-lg font-semibold">{view.name}</h2>
+      <div className="mb-5 flex items-center justify-between">
+        <h2 className="text-lg font-semibold">{view.name}</h2>
+        <Button variant="outline" size="sm" onClick={() => setRefreshKey(k => k + 1)}>
+          <RefreshCw className="mr-1.5 h-4 w-4" />
+          重新整理
+        </Button>
+      </div>
       <div className="grid grid-cols-12 gap-4">
         {widgets.map(widget => (
           <div key={widget.id} className={colSpanClass(widget.size)}>
-            <WidgetRenderer widget={widget} />
+            <WidgetRenderer widget={widget} refreshKey={refreshKey} />
           </div>
         ))}
       </div>
@@ -51,7 +60,7 @@ export function DashboardView({ view }: Props) {
   );
 }
 
-function WidgetRenderer({ widget }: { widget: DashboardWidget }) {
+function WidgetRenderer({ widget, refreshKey }: { widget: DashboardWidget; refreshKey: number }) {
   const [data, setData] = useState<Record<string, unknown>[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -61,7 +70,7 @@ function WidgetRenderer({ widget }: { widget: DashboardWidget }) {
       .then(rows => { if (!cancelled) setData(rows); })
       .catch(err => { if (!cancelled) setError(String(err)); });
     return () => { cancelled = true; };
-  }, [widget.query]);
+  }, [widget.query, refreshKey]);
 
   if (error) {
     return (
