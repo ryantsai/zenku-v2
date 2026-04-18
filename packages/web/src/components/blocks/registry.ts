@@ -6,6 +6,7 @@ import { DashboardView } from './DashboardView';
 import { KanbanView } from './KanbanView';
 import { CalendarView } from './CalendarView';
 import { GalleryView } from './GalleryView';
+import { FormOnlyView } from './FormOnlyView';
 
 // ─── Registry entry ───────────────────────────────────────────────────────────
 
@@ -40,6 +41,9 @@ export const VIEW_REGISTRY: Record<ViewType, ViewEntry> = {
   },
   gallery: {
     component: GalleryView,
+  },
+  'form-only': {
+    component: FormOnlyView,
   },
   // 新增 View type 只需在這裡加一個 entry ↓
 };

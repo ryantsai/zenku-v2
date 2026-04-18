@@ -13,6 +13,7 @@ import { RatingField, RatingReadonly } from './RatingField';
 import { ProgressField, ProgressReadonly } from './ProgressField';
 import { ColorField, ColorReadonly } from './ColorField';
 import { TimeField, TimeReadonly } from './TimeField';
+import { ImageField, ImageReadonly } from './ImageField';
 import type { FieldDef, FieldType } from '../../types';
 import { cn } from '../../lib/cn';
 
@@ -266,6 +267,14 @@ function TimeInputWrapper({ field, value, onChange }: FieldInputInnerProps) {
   return <TimeField field={field} value={value} onChange={onChange} />;
 }
 
+function ImageInputWrapper({ field, value, onChange, disabled }: FieldInputInnerProps) {
+  return <ImageField field={field} value={value} onChange={onChange} disabled={disabled} />;
+}
+
+function ImageReadonlyWrapper({ field, value }: FieldReadonlyProps) {
+  return <ImageReadonly field={field} value={value} />;
+}
+
 export const FIELD_REGISTRY: Record<FieldType, FieldEntry> = {
   text:     { input: TextInput,            readonly: TextReadonly },
   number:   { input: NumberInput,          readonly: TextReadonly },
@@ -283,7 +292,7 @@ export const FIELD_REGISTRY: Record<FieldType, FieldEntry> = {
   phone:    { input: PhoneInput,           readonly: PhoneReadonly },
   url:      { input: UrlInput,             readonly: UrlReadonly },
   file:     { input: FileFieldInput,       readonly: FileReadonly,    fullWidth: true },
-  image:    { input: FileFieldInput,       readonly: FileReadonly,    fullWidth: true },
+  image:    { input: ImageInputWrapper,     readonly: ImageReadonlyWrapper, fullWidth: true },
   rating:   { input: RatingInputWrapper,   readonly: RatingReadonly },
   progress: { input: ProgressInputWrapper, readonly: ProgressReadonly },
   color:    { input: ColorInputWrapper,    readonly: ColorReadonly },

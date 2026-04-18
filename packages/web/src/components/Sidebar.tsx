@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { NavLink } from 'react-router-dom';
-import { Database, BarChart3, Columns3, Calendar, FileText, Image, ChevronDown, ChevronRight } from 'lucide-react';
+import { Database, BarChart3, Columns3, Calendar, FileText, Image, ClipboardList, ChevronDown, ChevronRight } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { cn } from '../lib/cn';
 import { useViews } from '../contexts/ViewsContext';
@@ -19,6 +19,7 @@ const VIEW_ICONS: Record<ViewType, LucideIcon> = {
   'kanban':        Columns3,
   'calendar':      Calendar,
   'gallery':       Image,
+  'form-only':     ClipboardList,
 };
 
 function ViewNavLink({ view, collapsed }: { view: ViewDefinition; collapsed: boolean }) {

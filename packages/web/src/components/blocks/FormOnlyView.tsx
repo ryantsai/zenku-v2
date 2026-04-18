@@ -1,0 +1,75 @@
+import { useCallback, useEffect, useState } from 'react';
+import { Loader2 } from 'lucide-react';
+import { toast } from 'sonner';
+import { getTableData, createRow, updateRow } from '../../api';
+import type { ViewDefinition } from '../../types';
+import { FormView } from './FormView';
+
+interface Props {
+  view: ViewDefinition;
+}
+
+type RowData = Record<string, unknown>;
+
+export function FormOnlyView({ view }: Props) {
+  const [record, setRecord] = useState<RowData | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  const visibleFieldCount = view.form.fields.filter(f => !f.hidden_in_form).length;
+  const formColumns = view.form.columns ?? (visibleFieldCount >= 5 ? 2 : 1);
+
+  const loadRecord = useCallback(async () => {
+    setLoading(true);
+    try {
+      const result = await getTableData(view.table_name, { page: 1, limit: 1 });
+      if (result.rows.length > 0) {
+        setRecord(result.rows[0]);
+      } else {
+        // Auto-create an empty record if none exists
+        const newRow = await createRow(view.table_name, {});
+        setRecord(newRow);
+      }
+    } catch (err) {
+      toast.error('載入失敗', { description: String(err) });
+    } finally {
+      setLoading(false);
+    }
+  }, [view.table_name]);
+
+  useEffect(() => {
+    void loadRecord();
+  }, [loadRecord]);
+
+  const handleSave = async (data: Record<string, unknown>) => {
+    if (!record?.id) return;
+    try {
+      const updated = await updateRow(view.table_name, record.id, data);
+      setRecord(updated);
+      toast.success('儲存成功');
+    } catch (err) {
+      toast.error('儲存失敗', { description: String(err) });
+    }
+  };
+
+  return (
+    <div className="flex h-full flex-col">
+      <h2 className="border-b px-6 py-4 text-lg font-semibold">{view.name}</h2>
+
+      <div className="flex-1 overflow-auto px-6 py-4">
+        {loading ? (
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            載入中...
+          </div>
+        ) : record ? (
+          <FormView
+            fields={view.form.fields}
+            columns={formColumns}
+            initialValues={record}
+            onSubmit={handleSave}
+          />
+        ) : null}
+      </div>
+    </div>
+  );
+}

@@ -150,6 +150,7 @@ Type selection guide:
 - kanban: Kanban board with drag-drop, requires kanban (group_field, title_field)
 - calendar: Calendar view, requires calendar (date_field, title_field)
 - gallery: Gallery grid with image cards, requires gallery (image_field, title_field)
+- form-only: Single-record form (e.g., settings page); auto-creates record if table is empty
 
 Field type determines frontend rendering (for table/master-detail):
 - text/number/date/boolean/textarea: Basic input
@@ -340,7 +341,7 @@ When users say "statistics/kanban/calendar/gallery", directly create a view of t
                 type: 'object',
                 properties: {
                   id: { type: 'string' },
-                  type: { type: 'string', enum: ['stat_card', 'bar_chart', 'line_chart', 'pie_chart', 'mini_table'] },
+                  type: { type: 'string', enum: ['stat_card', 'bar_chart', 'line_chart', 'pie_chart', 'mini_table', 'trend_card'] },
                   title: { type: 'string', description: 'Widget title' },
                   query: { type: 'string', description: 'SELECT SQL (must be SELECT)' },
                   size: { type: 'string', enum: ['sm', 'md', 'lg', 'full'] },
