@@ -42,7 +42,7 @@ export const AI_MODELS: Record<AIProvider, ModelOption[]> = {
     { id: 'qwen/qwen3-coder-plus', label: 'qwen/qwen3-coder-plus' },
     { id: 'z-ai/glm-5.1', label: 'z-ai/glm-5.1' },
     { id: 'minimax/minimax-m2.7', label: 'minimax/minimax-m2.7' },
-    { id: 'moonshotai/kimi-k2.7', label: 'moonshotai/kimi-k2.7' },
+    
     { id: 'qwen/qwen3-coder:free', label: 'qwen/qwen3-coder (free)' },
     { id: 'google/gemma-3-27b-it:free', label: 'gemma-3-27b (free)' },
     { id: 'z-ai/glm-4.5-air:free', label: 'glm-4.5-air (free)' },
@@ -74,7 +74,7 @@ export const TOKEN_COSTS: Record<string, { input: number; output: number }> = {
   'qwen/qwen3-coder-plus':                    { input: 0.65, output: 3.25 },
   'z-ai/glm-5.1':                             { input: 0.95, output: 3.15 },
   'minimax/minimax-m2.7':                     { input: 0.30, output: 1.20 },
-  'moonshotai/kimi-k2.7':                     { input: 0,    output: 0    },
+  
 };
 
 export interface TokenUsage {
