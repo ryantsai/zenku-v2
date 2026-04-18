@@ -48,7 +48,7 @@
     "tool_process": "Updating {{label}}..."
   },
   "profile": {
-    "title": "Profile Settings",
+    "title": "Profile",
     "tab_basic": "Basic Info",
     "tab_password": "Change Password",
     "name": "Display Name",
