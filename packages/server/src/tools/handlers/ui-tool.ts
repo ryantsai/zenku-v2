@@ -151,6 +151,7 @@ Type selection guide:
 - calendar: Calendar view, requires calendar (date_field, title_field)
 - gallery: Gallery grid with image cards, requires gallery (image_field, title_field)
 - form-only: Single-record form (e.g., settings page); auto-creates record if table is empty
+- timeline: Vertical timeline sorted by date; requires timeline (date_field, title_field)
 
 Field type determines frontend rendering (for table/master-detail):
 - text/number/date/boolean/textarea: Basic input
@@ -387,6 +388,17 @@ When users say "statistics/kanban/calendar/gallery", directly create a view of t
                 subtitle_field: { type: 'string' },
               },
               required: ['image_field', 'title_field'],
+            },
+            timeline: {
+              type: 'object',
+              description: 'Settings for timeline type',
+              properties: {
+                date_field: { type: 'string' },
+                title_field: { type: 'string' },
+                description_field: { type: 'string' },
+                color_field: { type: 'string' },
+              },
+              required: ['date_field', 'title_field'],
             },
           },
         },

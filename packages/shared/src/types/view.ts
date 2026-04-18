@@ -4,10 +4,10 @@ import type { AppearanceCondition } from './appearance';
 
 // ===== View 類型 =====
 
-export type ViewType = 'table' | 'master-detail' | 'dashboard' | 'kanban' | 'calendar' | 'gallery' | 'form-only';
+export type ViewType = 'table' | 'master-detail' | 'dashboard' | 'kanban' | 'calendar' | 'gallery' | 'form-only' | 'timeline';
 
 /** Runtime 常數陣列（供 server 端 AI tool schema 使用） */
-export const VIEW_TYPES: ViewType[] = ['table', 'master-detail', 'dashboard', 'kanban', 'calendar', 'gallery', 'form-only'];
+export const VIEW_TYPES: ViewType[] = ['table', 'master-detail', 'dashboard', 'kanban', 'calendar', 'gallery', 'form-only', 'timeline'];
 
 // ===== View 定義 =====
 
@@ -34,6 +34,8 @@ export interface ViewDefinition {
   calendar?: CalendarConfig;
   /** gallery 設定 */
   gallery?: GalleryConfig;
+  /** timeline 設定 */
+  timeline?: TimelineConfig;
 
   /** 預設排序 */
   default_sort?: { field: string; direction: 'asc' | 'desc' };
@@ -166,6 +168,19 @@ export interface GalleryConfig {
   title_field: string;
   /** 副標題欄位 */
   subtitle_field?: string;
+}
+
+// ===== Timeline =====
+
+export interface TimelineConfig {
+  /** 日期欄位（用於排序與顯示） */
+  date_field: string;
+  /** 標題欄位 */
+  title_field: string;
+  /** 描述欄位 */
+  description_field?: string;
+  /** 顏色欄位（欄位值若為 hex 則直接用；否則作為類別自動對應顏色） */
+  color_field?: string;
 }
 
 // ===== 篩選 =====
