@@ -2,9 +2,9 @@ import type React from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import type { ColumnDef as TableColumnDef, PaginationState, SortingState } from '@tanstack/react-table';
+import type { ColumnDef as TableColumnDef, PaginationState, SortingState, VisibilityState } from '@tanstack/react-table';
 import { flexRender, getCoreRowModel, useReactTable } from '@tanstack/react-table';
-import { ArrowDown, ArrowUp, ArrowUpDown, Filter, Pencil, Plus, Search, Trash2 } from 'lucide-react';
+import { ArrowDown, ArrowUp, ArrowUpDown, Filter, Eye, Pencil, Plus, Search, Trash2 } from 'lucide-react';
 import { createRow, deleteRow, executeViewAction, getTableData, updateRow } from '../../api';
 import type { CustomViewAction, ViewDefinition } from '../../types';
 import { resolveAppearance } from '../../types';
@@ -50,6 +50,7 @@ export function TableView({ view, filters, onCreateData }: Props) {
   const [rowSelection, setRowSelection] = useState<Record<string, boolean>>({});
   const [advFilters, setAdvFilters] = useState<FilterCondition[]>([]);
   const [showFilterPanel, setShowFilterPanel] = useState(false);
+  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
 
   useEffect(() => {
     setPagination({ pageIndex: 0, pageSize: 20 });
@@ -166,6 +167,7 @@ export function TableView({ view, filters, onCreateData }: Props) {
         );
       },
       enableSorting: col.sortable !== false,
+      enableHiding: true,
       size: col.width ?? 180,
       minSize: 120,
       maxSize: 480,
@@ -242,10 +244,11 @@ export function TableView({ view, filters, onCreateData }: Props) {
   const table = useReactTable({
     data: rows,
     columns,
-    state: { sorting, pagination, rowSelection },
+    state: { sorting, pagination, rowSelection, columnVisibility },
     onSortingChange: setSorting,
     onPaginationChange: setPagination,
     onRowSelectionChange: setRowSelection,
+    onColumnVisibilityChange: setColumnVisibility,
     getCoreRowModel: getCoreRowModel(),
     manualSorting: true,
     manualPagination: true,
@@ -376,6 +379,7 @@ export function TableView({ view, filters, onCreateData }: Props) {
               <SelectItem value="100">{t('table.view.page_size_100')}</SelectItem>
             </SelectContent>
           </Select>
+          <ColumnVisibilityButton table={table} />
           {canCreate ? (
             <Button onClick={() => isMasterDetail ? navigate(`/view/${view.id}/new`) : setShowCreate(true)}>
               <Plus className="h-4 w-4" />
@@ -526,6 +530,39 @@ export function TableView({ view, filters, onCreateData }: Props) {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+    </div>
+  );
+}
+
+function ColumnVisibilityButton({ table }: { table: ReturnType<typeof useReactTable<any>> }) {
+  const [open, setOpen] = useState(false);
+  const allColumns = table.getAllColumns().filter(col => col.getCanHide());
+
+  return (
+    <div className="relative">
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={() => setOpen(!open)}
+      >
+        <Eye className="mr-1.5 h-4 w-4" />
+        欄位
+      </Button>
+      {open && (
+        <div className="absolute right-0 z-10 mt-1 rounded-md border bg-white p-2 shadow-md dark:bg-slate-950">
+          {allColumns.map(col => (
+            <label key={col.id} className="flex items-center gap-2 px-2 py-1 text-sm hover:bg-muted rounded cursor-pointer">
+              <input
+                type="checkbox"
+                checked={col.getIsVisible()}
+                onChange={col.getToggleVisibilityHandler()}
+                className="rounded"
+              />
+              {col.columnDef.header as string}
+            </label>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
