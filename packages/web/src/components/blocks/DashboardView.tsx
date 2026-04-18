@@ -7,6 +7,7 @@ import { runQuery } from '../../api';
 import type { DashboardWidget, ViewDefinition } from '../../types';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Skeleton } from '../ui/skeleton';
+import { cn } from '../../lib/cn';
 
 interface Props {
   view: ViewDefinition;
@@ -81,12 +82,13 @@ function WidgetRenderer({ widget }: { widget: DashboardWidget }) {
   }
 
   switch (widget.type) {
-    case 'stat_card':  return <StatCard title={widget.title} data={data} />;
-    case 'bar_chart':  return <BarChartWidget title={widget.title} data={data} config={widget.config} />;
-    case 'line_chart': return <LineChartWidget title={widget.title} data={data} config={widget.config} />;
-    case 'pie_chart':  return <PieChartWidget title={widget.title} data={data} config={widget.config} />;
-    case 'mini_table': return <MiniTableWidget title={widget.title} data={data} />;
-    default:           return null;
+    case 'stat_card':   return <StatCard title={widget.title} data={data} />;
+    case 'bar_chart':   return <BarChartWidget title={widget.title} data={data} config={widget.config} />;
+    case 'line_chart':  return <LineChartWidget title={widget.title} data={data} config={widget.config} />;
+    case 'pie_chart':   return <PieChartWidget title={widget.title} data={data} config={widget.config} />;
+    case 'mini_table':  return <MiniTableWidget title={widget.title} data={data} />;
+    case 'trend_card':  return <TrendCard widget={widget} data={data} />;
+    default:            return null;
   }
 }
 
@@ -191,6 +193,40 @@ function PieChartWidget({
             <Legend />
           </PieChart>
         </ResponsiveContainer>
+      </CardContent>
+    </Card>
+  );
+}
+
+// ===== Trend Card =====
+
+function TrendCard({ widget, data }: { widget: DashboardWidget; data: Record<string, unknown>[] }) {
+  const row = data[0];
+  if (!row) {
+    return (
+      <Card className="h-full">
+        <CardContent className="pt-6 text-sm text-muted-foreground">無資料</CardContent>
+      </Card>
+    );
+  }
+  const curr = Number(row.current_value ?? 0);
+  const prev = Number(row.previous_value ?? 0);
+  const delta = prev === 0 ? null : ((curr - prev) / Math.abs(prev)) * 100;
+  const isUp = delta !== null && delta >= 0;
+
+  return (
+    <Card className="h-full">
+      <CardHeader className="pb-1">
+        <CardTitle className="text-sm font-medium text-muted-foreground">{widget.title}</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <p className="text-3xl font-bold tracking-tight">{curr.toLocaleString('zh-TW')}</p>
+        {delta !== null && (
+          <p className={cn('mt-1 text-sm font-medium', isUp ? 'text-emerald-600' : 'text-rose-600')}>
+            {isUp ? '▲' : '▼'} {Math.abs(delta).toFixed(1)}%
+          </p>
+        )}
+        {row.label != null && <p className="mt-1 text-xs text-muted-foreground">{String(row.label)}</p>}
       </CardContent>
     </Card>
   );
