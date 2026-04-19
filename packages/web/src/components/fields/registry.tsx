@@ -259,8 +259,8 @@ function ProgressInputWrapper({ field, value, onChange }: FieldInputInnerProps) 
   return <ProgressField field={field} value={value} onChange={onChange} />;
 }
 
-function ColorInputWrapper({ field, value, onChange }: FieldInputInnerProps) {
-  return <ColorField field={field} value={value} onChange={onChange} />;
+function ColorInputWrapper({ value, onChange }: FieldInputInnerProps) {
+  return <ColorField value={value} onChange={onChange} />;
 }
 
 function TimeInputWrapper({ field, value, onChange }: FieldInputInnerProps) {

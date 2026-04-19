@@ -187,7 +187,6 @@ export function executeBefore(
   for (const rule of rules) {
     const condition = rule.condition ? JSON.parse(rule.condition) as RuleCondition : null;
     const conditionMatch = evaluateCondition(condition, table, currentData, oldData);
-    console.log(`[RuleEngine] ${triggerType} on ${table} — rule "${rule.name}" condition match: ${conditionMatch}`);
     if (!conditionMatch) continue;
 
     const actions = JSON.parse(rule.actions) as RuleAction[];
@@ -398,7 +397,6 @@ export async function executeAfter(
               ...(Object.values(updates) as (string | number | bigint | null)[]),
               ...(whereValues as (string | number | bigint | null)[]),
             );
-            console.log(`[RuleEngine] update_record — updated "${act.target_table}" ${JSON.stringify(updates)}`);
           } else {
             // INSERT: combine where-key values + record_data values
             const insertRecord: Record<string, unknown> = { ...updates };
@@ -410,7 +408,6 @@ export async function executeAfter(
             db.prepare(
               `INSERT INTO "${act.target_table}" (${cols}) VALUES (${placeholders})`
             ).run(...(Object.values(insertRecord) as (string | number | bigint | null)[]));
-            console.log(`[RuleEngine] update_record — record not found, inserted into "${act.target_table}" ${JSON.stringify(insertRecord)}`);
           }
           break;
         }
@@ -432,7 +429,6 @@ export async function executeAfter(
             `SELECT * FROM "${act.via_table}" WHERE "${act.via_foreign_key}" = ?`
           ).all(data.id as string | number | bigint) as Record<string, unknown>[];
 
-          let updatedCount = 0;
           for (const viaRecord of viaRecords) {
             // Resolve WHERE clause using via_table fields
             const whereEntries = Object.entries(act.where);
@@ -479,12 +475,8 @@ export async function executeAfter(
               db.prepare(
                 `INSERT INTO "${act.target_table}" (${cols}) VALUES (${placeholders})`
               ).run(...(Object.values(insertRecord) as (string | number | bigint | null)[]));
-              console.log(`[RuleEngine] update_related_records — record not found, inserted into "${act.target_table}" ${JSON.stringify(insertRecord)}`);
             }
-            updatedCount++;
           }
-
-          console.log(`[RuleEngine] update_related_records — processed ${updatedCount} records in "${act.target_table}" via "${act.via_table}"`);
           break;
         }
 

@@ -1,9 +1,7 @@
 import { Copy, Check } from 'lucide-react';
 import { useState } from 'react';
-import type { FieldDef } from '../../types';
 
 interface Props {
-  field: FieldDef;
   value: unknown;
   onChange: (value: unknown) => void;
   readonly?: boolean;
@@ -60,5 +58,5 @@ export function ColorField({ value, onChange, readonly }: Props) {
 }
 
 export function ColorReadonly({ value }: { value: unknown }) {
-  return <ColorField field={{} as FieldDef} value={value} onChange={() => {}} readonly />;
+  return <ColorField value={value} onChange={() => {}} readonly />;
 }
