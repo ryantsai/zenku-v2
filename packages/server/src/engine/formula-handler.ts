@@ -3,16 +3,16 @@ import { getDb } from '../db';
 import { ViewDefinition } from '../types';
 
 /**
- * 根據 View 定義中的公式，重新計算資料物件中的 Computed Fields
- * @param tableName 資料表名稱
- * @param data 目前的資料物件
- * @returns 包含計算結果的新資料物件
+ * Recalculate the computed fields in the data object based on the formula defined in the View.
+ * @param tableName Table name
+ * @param data      Current data object
+ * @returns New data object with computed results
  */
 export function recalculateComputedFields(tableName: string, data: Record<string, any>): Record<string, any> {
   const db = getDb();
   
-  // 1. 尋找與此 table 關聯的 View 定義
-  // 優先尋找類型為 'master-detail' 或 'table' 的 View
+  // 1. Find the View definition associated with this table
+  // Prefer views of type 'master-detail' or 'table'
   const viewRow = db.prepare(`
     SELECT definition FROM _zenku_views 
     WHERE table_name = ? 
@@ -31,32 +31,32 @@ export function recalculateComputedFields(tableName: string, data: Record<string
 
     const result = { ...data };
     
-    // 2. 進行計算
+    // 2. Perform calculations
     for (const field of computedFields) {
       if (!field.computed) continue;
       
       try {
-        // 準備依賴欄位的值
+        // Prepare dependency field values
         const depValues: Record<string, number> = {};
         const deps = field.computed.dependencies || [];
-        
+
         let allDepsPresent = true;
         for (const dep of deps) {
           const val = result[dep];
           if (val === undefined || val === null) {
-            // 如果依賴項缺失且有預設值或公式允許，則設為 0，否則跳過此欄位計算
+            // If a dependency is missing and the formula allows it, default to 0; otherwise skip this field
             depValues[dep] = 0;
           } else {
             depValues[dep] = typeof val === 'number' ? val : parseFloat(String(val)) || 0;
           }
         }
 
-        // 計算公式
+        // Evaluate the formula
         const computedVal = evaluateFormula(field.computed.formula, depValues);
         result[field.key] = computedVal;
       } catch (err) {
         console.warn(`[FormulaHandler] Error calculating field "${field.key}" in table "${tableName}":`, err);
-        // 計算失敗則維持原樣或設為 null
+        // Leave the value as-is on calculation failure
       }
     }
 

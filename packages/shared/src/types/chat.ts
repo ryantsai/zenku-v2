@@ -1,7 +1,7 @@
 import type { AIProvider, TokenUsage } from './ai-provider';
 import type { AgentName } from './agent';
 
-// ===== 對話 Session =====
+// ===== Chat Session =====
 
 export interface ChatSession {
   id: string;
@@ -18,7 +18,7 @@ export interface ChatSession {
   message_count: number;
 }
 
-// ===== 單則訊息 =====
+// ===== Individual Message =====
 
 export interface ChatMessageRecord {
   id: string;
@@ -32,13 +32,13 @@ export interface ChatMessageRecord {
   model?: string;
   usage?: TokenUsage;
   latency_ms?: number;
-  /** 思考鏈原文 */
+  /** Raw chain-of-thought content */
   thinking?: string;
 
   tool_events?: ToolEventRecord[];
 }
 
-// ===== 工具使用記錄 =====
+// ===== Tool Usage Records =====
 
 export interface ToolEventRecord {
   id: string;
@@ -57,7 +57,7 @@ export interface ToolEventRecord {
   latency_ms: number;
 }
 
-// ===== 管理者統計 =====
+// ===== Admin Usage Statistics =====
 
 export interface UsageStats {
   period: string;
@@ -85,7 +85,7 @@ export interface UsageStats {
   }>;
 }
 
-// ===== SSE 串流 =====
+// ===== SSE Stream =====
 
 export type SSEChunk =
   | { type: 'text'; content: string }
@@ -96,7 +96,7 @@ export type SSEChunk =
   | { type: 'done'; session_id?: string | null }
   | { type: 'error'; message: string };
 
-// ===== 前端用的對話訊息（含 UI 狀態） =====
+// ===== Frontend chat message (includes UI state) =====
 
 export interface ChatMessageAttachment {
   filename: string;

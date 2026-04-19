@@ -57,7 +57,7 @@ export const AI_MODELS: Record<AIProvider, ModelOption[]> = {
   ],
 };
 
-/** 每 1M tokens 的 USD 價格 */
+/** USD price per 1M tokens */
 export const TOKEN_COSTS: Record<string, { input: number; output: number }> = {
   'claude-sonnet-4-6':         { input: 3,    output: 15   },
   'claude-haiku-4-5-20251001': { input: 0.8,  output: 4    },

@@ -54,7 +54,7 @@ export function UserMenu() {
                   className="flex w-full items-center gap-2 px-3 py-2 text-sm hover:bg-accent"
                 >
                   <Settings size={14} />
-                  {t('admin.panel.title', { defaultValue: '系統設定' })}
+                  {t('admin.panel.title', { defaultValue: 'System Settings' })}
                 </button>
               )}
               <button

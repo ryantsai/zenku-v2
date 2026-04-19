@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { getTableData, updateRow } from '../../api';
 import type { ViewDefinition } from '../../types';
@@ -33,10 +34,11 @@ function formatDate(value: unknown): string {
   if (!value) return '';
   const d = new Date(String(value));
   if (isNaN(d.getTime())) return String(value);
-  return d.toLocaleDateString('zh-TW', { year: 'numeric', month: 'short', day: 'numeric' });
+  return d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
 }
 
 export function TimelineView({ view }: Props) {
+  const { t } = useTranslation();
   const timeline = view.timeline;
   const [rows, setRows] = useState<RowData[]>([]);
   const [loading, setLoading] = useState(true);
@@ -52,7 +54,7 @@ export function TimelineView({ view }: Props) {
       });
       setRows(result.rows);
     } catch (err) {
-      toast.error('載入失敗', { description: String(err) });
+      toast.error(t('common_toast.load_failed'), { description: String(err) });
     } finally {
       setLoading(false);
     }
@@ -65,20 +67,20 @@ export function TimelineView({ view }: Props) {
     if (id === undefined || id === null) return;
     try {
       await updateRow(view.table_name, id, data);
-      toast.success('更新成功');
+      toast.success(t('common_toast.update_success'));
       setEditingRow(null);
       void fetchRows();
     } catch (err) {
-      toast.error('更新失敗', { description: String(err) });
+      toast.error(t('common_toast.update_failed'), { description: String(err) });
     }
   };
 
   if (!timeline) {
-    return <div className="flex h-full items-center justify-center text-sm text-muted-foreground">Timeline 設定缺失</div>;
+    return <div className="flex h-full items-center justify-center text-sm text-muted-foreground">Timeline configuration is missing</div>;
   }
 
   if (loading) {
-    return <div className="flex h-full items-center justify-center text-sm text-muted-foreground">載入中...</div>;
+    return <div className="flex h-full items-center justify-center text-sm text-muted-foreground">{t('common.loading')}</div>;
   }
 
   const { date_field, title_field, description_field, color_field } = timeline;
@@ -92,7 +94,7 @@ export function TimelineView({ view }: Props) {
     <div className="flex h-full flex-col overflow-hidden">
       <div className="flex-1 overflow-auto px-6 py-6">
         {rows.length === 0 ? (
-          <div className="flex h-full items-center justify-center text-sm text-muted-foreground">無資料</div>
+          <div className="flex h-full items-center justify-center text-sm text-muted-foreground">{t('common.no_data')}</div>
         ) : (
           <ol className="relative ml-4 border-l border-muted">
             {rows.map((row, idx) => {
@@ -135,8 +137,8 @@ export function TimelineView({ view }: Props) {
       <Dialog open={Boolean(editingRow)} onOpenChange={open => (!open ? setEditingRow(null) : null)}>
         <DialogContent className={dialogWidthClass}>
           <DialogHeader>
-            <DialogTitle>編輯 {view.name}</DialogTitle>
-            <DialogDescription>更新資料後按下儲存。</DialogDescription>
+            <DialogTitle>{t('table.view.edit_dialog_title', { name: view.name })}</DialogTitle>
+            <DialogDescription>{t('table.view.edit_dialog_desc')}</DialogDescription>
           </DialogHeader>
           {editingRow && (
             <FormView

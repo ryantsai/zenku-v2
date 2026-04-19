@@ -34,7 +34,7 @@ function serializeMultiselect(data: Record<string, unknown>, msColumns: string[]
 // Generic CRUD for user tables
 // ──────────────────────────────────────────────
 
-/** 關聯欄位選項端點 */
+/** Relation field options endpoint */
 router.get('/:table/options', requireAuth, (req, res) => {
   const table = p(req.params.table);
   if (table.startsWith('_zenku_')) {
@@ -81,7 +81,7 @@ router.get('/:table/options', requireAuth, (req, res) => {
   }
 });
 
-/** 取得單筆資料 */
+/** Fetch a single record */
 router.get('/:table/:id', requireAuth, (req, res) => {
   const table = p(req.params.table), id = p(req.params.id);
   if (!isSafeFieldName(table)) {
@@ -120,7 +120,7 @@ router.get('/:table/:id', requireAuth, (req, res) => {
   }
 });
 
-/** 取得分頁/篩選列表 */
+/** Fetch a paginated / filtered list */
 router.get('/:table', requireAuth, (req, res) => {
   const table = p(req.params.table);
   if (!isSafeFieldName(table)) {
@@ -249,7 +249,7 @@ router.get('/:table', requireAuth, (req, res) => {
   }
 });
 
-/** 新增資料 */
+/** Create a new record */
 router.post('/:table', requireAuth, async (req, res) => {
   const table = p(req.params.table);
   if (!isSafeFieldName(table)) {
@@ -273,7 +273,7 @@ router.post('/:table', requireAuth, async (req, res) => {
       res.status(400).json({ error: 'ERROR_RULE_VALIDATION', params: { details: beforeResult.errors.join('; ') } });
       return;
     }
-    // 自動計算公式欄位
+    // Auto-calculate formula fields
     const finalData = recalculateComputedFields(table, beforeResult.data);
 
     const keys = Object.keys(finalData);
@@ -295,7 +295,7 @@ router.post('/:table', requireAuth, async (req, res) => {
   }
 });
 
-/** 更新資料 */
+/** Update a record */
 router.put('/:table/:id', requireAuth, async (req, res) => {
   const table = p(req.params.table), id = p(req.params.id);
   if (!isSafeFieldName(table)) {
@@ -321,7 +321,7 @@ router.put('/:table/:id', requireAuth, async (req, res) => {
       res.status(400).json({ error: 'ERROR_RULE_VALIDATION', params: { details: beforeResult.errors.join('; ') } });
       return;
     }
-    // 自動計算公式欄位
+    // Auto-calculate formula fields
     const finalData = recalculateComputedFields(table, beforeResult.data);
 
     const keys = Object.keys(finalData);
@@ -341,7 +341,7 @@ router.put('/:table/:id', requireAuth, async (req, res) => {
   }
 });
 
-/** 刪除資料 */
+/** Delete a record */
 router.delete('/:table/:id', requireAuth, async (req, res) => {
   const table = p(req.params.table), id = p(req.params.id);
   if (!isSafeFieldName(table)) {

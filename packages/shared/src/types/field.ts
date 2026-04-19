@@ -1,117 +1,117 @@
 /**
- * 欄位型別 — Zenku 最核心的型別定義
- * 所有 View、Form、Table 都依賴此定義
+ * Field types — the most fundamental type definitions in Zenku
+ * All Views, Forms, and Tables depend on these definitions
  */
 
 import type { AppearanceRule } from './appearance';
 
-// ===== 欄位類型 =====
+// ===== Field Types =====
 
-/** Phase 1（現有）基礎型別 */
+/** Phase 1 (existing) basic types */
 export type BasicFieldType = 'text' | 'number' | 'select' | 'multiselect' | 'boolean' | 'date' | 'datetime' | 'textarea' | 'rating' | 'progress' | 'color' | 'time';
 
-/** Phase 2 擴充型別 */
+/** Phase 2 extended types */
 export type ExtendedFieldType = 'relation' | 'currency' | 'phone' | 'email' | 'url' | 'enum' | 'richtext';
 
-/** Phase 4 檔案型別 */
+/** Phase 4 file types */
 export type FileFieldType = 'image' | 'file';
 
-/** 所有欄位型別 */
+/** All field types */
 export type FieldType = BasicFieldType | ExtendedFieldType | FileFieldType;
 
-/** Runtime 常數陣列（供 server 端 AI tool schema 使用） */
+/** Runtime constant array (used by server-side AI tool schema) */
 export const FIELD_TYPES: FieldType[] = [
   'text', 'number', 'select', 'multiselect', 'boolean', 'date', 'datetime', 'textarea', 'rating', 'progress', 'color', 'time',
   'relation', 'currency', 'phone', 'email', 'url', 'enum', 'richtext',
   'image', 'file',
 ];
 
-// ===== 關聯定義 =====
+// ===== Relation Definition =====
 
 export interface RelationDef {
-  /** 關聯表名 */
+  /** Related table name */
   table: string;
-  /** 值欄位（通常 'id'） */
+  /** Value field (typically 'id') */
   value_field: string;
-  /** 顯示欄位（如 'name'） */
+  /** Display field (e.g. 'name') */
   display_field: string;
-  /** 複合顯示格式，如 '{name} ({phone})' */
+  /** Composite display format, e.g. '{name} ({phone})' */
   display_format?: string;
 }
 
-// ===== 動態來源 =====
+// ===== Dynamic Source =====
 
 export interface SourceDef {
-  /** 來源表名 */
+  /** Source table name */
   table: string;
-  /** 選項值欄位 */
+  /** Option value field */
   value_field: string;
-  /** 選項顯示欄位 */
+  /** Option display field */
   display_field: string;
 }
 
-// ===== 計算欄位 =====
+// ===== Computed Field =====
 
 export interface ComputedDef {
-  /** 公式，如 'quantity * unit_price' */
+  /** Formula, e.g. 'quantity * unit_price' */
   formula: string;
-  /** 依賴的欄位名，如 ['quantity', 'unit_price'] */
+  /** Dependent field names, e.g. ['quantity', 'unit_price'] */
   dependencies: string[];
-  /** 顯示格式 */
+  /** Display format */
   format?: 'currency' | 'number' | 'percent';
 }
 
-// ===== 驗證規則 =====
+// ===== Validation Rules =====
 
 export interface ValidationDef {
   min?: number;
   max?: number;
-  /** 正規表達式 */
+  /** Regular expression */
   pattern?: string;
-  /** 驗證失敗訊息 */
+  /** Validation failure message */
   message?: string;
 }
 
-// ===== 欄位定義 =====
+// ===== Field Definition =====
 
 export interface FieldDef {
-  /** DB 欄位名 */
+  /** Database field name */
   key: string;
-  /** 顯示名稱 */
+  /** Display label */
   label: string;
-  /** 欄位類型 */
+  /** Field type */
   type: FieldType;
-  /** 是否必填 */
+  /** Whether the field is required */
   required?: boolean;
-  /** 輸入提示文字 */
+  /** Input placeholder text */
   placeholder?: string;
 
-  /** select 靜態選項 */
+  /** Static select options */
   options?: string[];
-  /** select 動態來源（取代 options） */
+  /** Dynamic select source (replaces options) */
   source?: SourceDef;
-  /** relation 關聯定義 */
+  /** Relation field definition */
   relation?: RelationDef;
-  /** 計算欄位定義 */
+  /** Computed field definition */
   computed?: ComputedDef;
 
-  /** 在列表中隱藏 */
+  /** Hide in the table list */
   hidden_in_table?: boolean;
-  /** 在表單中隱藏 */
+  /** Hide in the form */
   hidden_in_form?: boolean;
-  /** 列表欄寬（px） */
+  /** Table column width (px) */
   width?: number;
 
-  /** 驗證規則 */
+  /** Validation rules */
   validation?: ValidationDef;
 
-  /** 條件外觀規則（Client-side 即時求值） */
+  /** Conditional appearance rules (evaluated client-side in real time) */
   appearance?: AppearanceRule[];
 
-  /** file / image 欄位：允許的 MIME，如 "image/*,application/pdf" */
+  /** file / image field: allowed MIME types, e.g. "image/*,application/pdf" */
   accept?: string;
-  /** file / image 欄位：是否允許多檔 */
+  /** file / image field: whether multiple files are allowed */
   multiple?: boolean;
-  /** file / image 欄位：單檔最大 MB */
+  /** file / image field: maximum file size in MB */
   max_size_mb?: number;
 }

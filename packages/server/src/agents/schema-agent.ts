@@ -3,7 +3,7 @@ import type { AgentResult } from '../types';
 
 interface ReferenceDef {
   table: string;
-  column?: string; // 預設 'id'
+  column?: string; // default 'id'
 }
 
 interface ColumnInput {

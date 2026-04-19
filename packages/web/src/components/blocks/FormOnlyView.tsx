@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { getTableData, createRow, updateRow } from '../../api';
@@ -12,6 +13,7 @@ interface Props {
 type RowData = Record<string, unknown>;
 
 export function FormOnlyView({ view }: Props) {
+  const { t } = useTranslation();
   const [record, setRecord] = useState<RowData | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -30,7 +32,7 @@ export function FormOnlyView({ view }: Props) {
         setRecord(newRow);
       }
     } catch (err) {
-      toast.error('載入失敗', { description: String(err) });
+      toast.error(t('common_toast.load_failed'), { description: String(err) });
     } finally {
       setLoading(false);
     }
@@ -45,9 +47,9 @@ export function FormOnlyView({ view }: Props) {
     try {
       const updated = await updateRow(view.table_name, record.id, data);
       setRecord(updated);
-      toast.success('儲存成功');
+      toast.success(t('common_toast.save_success'));
     } catch (err) {
-      toast.error('儲存失敗', { description: String(err) });
+      toast.error(t('common_toast.save_failed'), { description: String(err) });
     }
   };
 
@@ -59,7 +61,7 @@ export function FormOnlyView({ view }: Props) {
         {loading ? (
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <Loader2 className="h-4 w-4 animate-spin" />
-            載入中...
+            {t('common.loading')}
           </div>
         ) : record ? (
           <FormView

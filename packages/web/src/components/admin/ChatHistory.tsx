@@ -242,7 +242,7 @@ export function ChatHistory() {
           ) : (
             <div className="flex h-full flex-col items-center justify-center gap-3 text-muted-foreground">
               <MessageSquare className="h-10 w-10 opacity-20" />
-              <p className="text-sm">{t('admin.chat.select_session_hint', { defaultValue: '點擊左側對話查看詳情' })}</p>
+              <p className="text-sm">{t('admin.chat.select_session_hint', { defaultValue: 'Click a conversation on the left to view details' })}</p>
             </div>
           )}
         </div>

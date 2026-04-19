@@ -15,7 +15,7 @@ export function runTestAgent(input: AssessInput): AgentResult {
   const { table_name, change_type, details } = input;
   const db = getDb();
 
-  // 1. 受影響的 views
+  // 1. Affected views
   const allViews = getAllViews();
   const affectedViews = allViews.filter(v => {
     try {
@@ -28,10 +28,10 @@ export function runTestAgent(input: AssessInput): AgentResult {
     }
   });
 
-  // 2. 受影響的 rules
+  // 2. Affected rules
   const affectedRules = getAllRules().filter(r => r.table_name === table_name);
 
-  // 3. 資料筆數
+  // 3. Row count
   let rowCount = 0;
   try {
     const result = db.prepare(`SELECT COUNT(*) as count FROM "${table_name}"`).get() as { count: number } | undefined;
@@ -40,7 +40,7 @@ export function runTestAgent(input: AssessInput): AgentResult {
     // table might not exist
   }
 
-  // 4. 被引用的外鍵（哪些表引用此表）
+  // 4. Referencing foreign keys (which tables reference this table)
   const allTables = (db.prepare(
     `SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name NOT LIKE '_zenku_%'`
   ).all() as unknown as { name: string }[]).map(r => r.name).filter(t => t !== table_name);
@@ -53,7 +53,7 @@ export function runTestAgent(input: AssessInput): AgentResult {
     }
   }
 
-  // 5. 具體影響分析
+  // 5. Detailed impact analysis
   const impacts: string[] = [];
 
   if (change_type === 'drop_table') {

@@ -40,7 +40,7 @@ export function MasterDetailCreateView({ view }: Props) {
     setMasterValues(prev => ({ ...prev, [field.key]: value }));
     if (field.required && !field.computed) {
       const empty = value === null || value === undefined || String(value ?? '').trim() === '';
-      setMasterErrors(prev => ({ ...prev, [field.key]: empty ? `${field.label} 為必填` : null }));
+      setMasterErrors(prev => ({ ...prev, [field.key]: empty ? t('master_detail.required_error', { label: field.label }) : null }));
     }
   };
 
@@ -65,7 +65,7 @@ export function MasterDetailCreateView({ view }: Props) {
       if (f.required) {
         const v = masterValues[f.key];
         const empty = v === null || v === undefined || String(v ?? '').trim() === '';
-        errors[f.key] = empty ? `${f.label} 為必填` : null;
+        errors[f.key] = empty ? t('master_detail.required_error', { label: f.label }) : null;
       }
     }
     setMasterErrors(errors);
@@ -109,15 +109,15 @@ export function MasterDetailCreateView({ view }: Props) {
           disabled={saving}
         >
           <ArrowLeft className="h-4 w-4" />
-          返回列表
+          {t('common.back_to_list')}
         </Button>
-        <span className="text-sm font-medium">新增 {view.name}</span>
+        <span className="text-sm font-medium">{t('master_detail.add_title', { name: view.name })}</span>
       </div>
 
       <div className="flex-1 divide-y overflow-auto">
         {/* Master form */}
         <div className="px-6 py-5">
-          <h3 className="mb-4 text-sm font-semibold text-muted-foreground">主檔資料</h3>
+          <h3 className="mb-4 text-sm font-semibold text-muted-foreground">{t('master_detail.main_record')}</h3>
           {(() => {
             const cols = view.form.columns ?? 2;
             return (
@@ -134,7 +134,7 @@ export function MasterDetailCreateView({ view }: Props) {
                       <Label htmlFor={field.key}>
                         {field.label}
                         {field.required && !field.computed ? ' *' : ''}
-                        {field.computed ? <span className="ml-1 text-xs text-muted-foreground">（自動計算）</span> : null}
+                        {field.computed ? <span className="ml-1 text-xs text-muted-foreground">{t('form.auto_calculated')}</span> : null}
                       </Label>
                       <FieldInput
                         field={field}
@@ -166,14 +166,14 @@ export function MasterDetailCreateView({ view }: Props) {
       {/* Footer */}
       <div className="shrink-0 border-t bg-card px-6 py-4">
         <div className="flex items-center justify-between">
-          <p className="text-xs text-muted-foreground">主檔與所有待寫入明細將一併儲存</p>
+          <p className="text-xs text-muted-foreground">{t('master_detail.save_all_hint')}</p>
           <div className="flex gap-2">
             <Button variant="outline" onClick={() => navigate(`/view/${view.id}`)} disabled={saving}>
-              取消
+              {t('common.cancel')}
             </Button>
             <Button onClick={handleSaveAll} disabled={saving}>
               {saving ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : null}
-              {saving ? '儲存中...' : '全部儲存'}
+              {saving ? t('common.saving') : t('master_detail.save_all')}
             </Button>
           </div>
         </div>
@@ -193,6 +193,7 @@ function DraftDetailSection({
   onAdd: (data: RowData) => void;
   onRemove: (index: number) => void;
 }) {
+  const { t } = useTranslation();
   const [showAdd, setShowAdd] = useState(false);
   const dv = detailView.view;
   // Exclude FK field from the add form
@@ -209,12 +210,12 @@ function DraftDetailSection({
         <h3 className="text-sm font-semibold text-muted-foreground">{detailView.tab_label}</h3>
         <Button size="sm" variant="outline" onClick={() => setShowAdd(true)}>
           <Plus className="mr-1 h-3.5 w-3.5" />
-          新增明細
+          {t('master_detail.add_detail')}
         </Button>
       </div>
 
       {rows.length === 0 ? (
-        <p className="text-sm text-muted-foreground">尚無明細，點擊「新增明細」加入。</p>
+        <p className="text-sm text-muted-foreground">{t('master_detail.no_details')}</p>
       ) : (
         <Table>
           <TableHeader>
@@ -224,7 +225,7 @@ function DraftDetailSection({
               ))}
               <TableHead className="w-28">
                 <span className="inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
-                  待寫入
+                  {t('master_detail.pending_badge')}
                 </span>
               </TableHead>
             </TableRow>
@@ -240,7 +241,7 @@ function DraftDetailSection({
                   </TableCell>
                 ))}
                 <TableCell>
-                  <Button variant="ghost" size="icon" onClick={() => onRemove(i)} aria-label="移除">
+                  <Button variant="ghost" size="icon" onClick={() => onRemove(i)} aria-label={t('common.delete')}>
                     <Trash2 className="h-4 w-4 text-destructive" />
                   </Button>
                 </TableCell>
@@ -253,10 +254,8 @@ function DraftDetailSection({
       <Dialog open={showAdd} onOpenChange={setShowAdd}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>新增 {detailView.tab_label}</DialogTitle>
-            <DialogDescription>
-              填入明細資料後加入清單。主檔儲存時一併寫入。
-            </DialogDescription>
+            <DialogTitle>{t('table.view.create_dialog_title', { name: detailView.tab_label })}</DialogTitle>
+            <DialogDescription>{t('master_detail.new_detail_desc')}</DialogDescription>
           </DialogHeader>
           <FormView fields={formFields} onSubmit={handleAdd} onCancel={() => setShowAdd(false)} />
         </DialogContent>

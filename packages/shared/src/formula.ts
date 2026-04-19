@@ -1,7 +1,7 @@
 /**
- * 安全的公式計算引擎（不使用 eval）
- * 支援：數字、四則運算 (+ - * /)、括號、欄位引用
- * 範例：'quantity * unit_price'、'(price - discount) * quantity'
+ * Safe formula evaluation engine (no eval)
+ * Supports: numbers, arithmetic operators (+ - * /), parentheses, field references
+ * Examples: 'quantity * unit_price', '(price - discount) * quantity'
  */
 
 // ===== Tokenizer =====
@@ -20,13 +20,13 @@ function tokenize(formula: string): Token[] {
   while (i < formula.length) {
     const ch = formula[i];
 
-    // 空白跳過
+    // Skip whitespace
     if (/\s/.test(ch)) {
       i++;
       continue;
     }
 
-    // 數字（含小數）
+    // Number (including decimals)
     if (/[0-9.]/.test(ch)) {
       let num = '';
       while (i < formula.length && /[0-9.]/.test(formula[i])) {
@@ -36,14 +36,14 @@ function tokenize(formula: string): Token[] {
       continue;
     }
 
-    // 運算子
+    // Operator
     if ('+-*/'.includes(ch)) {
       tokens.push({ type: 'op', value: ch });
       i++;
       continue;
     }
 
-    // 括號
+    // Parentheses
     if (ch === '(') {
       tokens.push({ type: 'lparen', value: '(' });
       i++;
@@ -55,7 +55,7 @@ function tokenize(formula: string): Token[] {
       continue;
     }
 
-    // 欄位名（字母、底線、數字開頭不可）
+    // Field name (letters and underscores; cannot start with a digit)
     if (/[a-zA-Z_]/.test(ch)) {
       let field = '';
       while (i < formula.length && /[a-zA-Z0-9_]/.test(formula[i])) {
@@ -65,14 +65,14 @@ function tokenize(formula: string): Token[] {
       continue;
     }
 
-    throw new Error(`公式中有無法識別的字元：'${ch}'（位置 ${i}）`);
+    throw new Error(`Unrecognized character in formula: '${ch}' (position ${i})`);
   }
 
   return tokens;
 }
 
 // ===== Parser (recursive descent) =====
-// 文法：
+// Grammar:
 //   expr   → term (('+' | '-') term)*
 //   term   → factor (('*' | '/') factor)*
 //   factor → NUMBER | FIELD | '(' expr ')'
@@ -115,7 +115,7 @@ function parse(tokens: Token[]): ASTNode {
 
   function parseFactor(): ASTNode {
     const token = peek();
-    if (!token) throw new Error('公式不完整');
+    if (!token) throw new Error('Incomplete formula');
 
     if (token.type === 'number') {
       consume();
@@ -132,17 +132,17 @@ function parse(tokens: Token[]): ASTNode {
       const node = parseExpr();
       const rparen = consume();
       if (!rparen || rparen.type !== 'rparen') {
-        throw new Error('公式缺少右括號');
+        throw new Error('Formula is missing a closing parenthesis');
       }
       return node;
     }
 
-    throw new Error(`公式中有非預期的 token：'${token.value}'`);
+    throw new Error(`Unexpected token in formula: '${token.value}'`);
   }
 
   const ast = parseExpr();
   if (pos < tokens.length) {
-    throw new Error(`公式在位置 ${pos} 之後有多餘的內容：'${tokens[pos].value}'`);
+    throw new Error(`Unexpected content after position ${pos} in formula: '${tokens[pos].value}'`);
   }
   return ast;
 }
@@ -156,7 +156,7 @@ function evaluate(node: ASTNode, values: Record<string, number>): number {
     case 'field': {
       const val = values[node.name];
       if (val === undefined) {
-        throw new Error(`公式引用了不存在的欄位：'${node.name}'`);
+        throw new Error(`Formula references a non-existent field: '${node.name}'`);
       }
       return val;
     }
@@ -168,22 +168,22 @@ function evaluate(node: ASTNode, values: Record<string, number>): number {
         case '-': return left - right;
         case '*': return left * right;
         case '/':
-          if (right === 0) return 0; // 除以零回傳 0，不拋錯
+          if (right === 0) return 0; // Division by zero returns 0 instead of throwing
           return left / right;
         default:
-          throw new Error(`不支援的運算子：'${node.op}'`);
+          throw new Error(`Unsupported operator: '${node.op}'`);
       }
     }
   }
 }
 
-// ===== 公開 API =====
+// ===== Public API =====
 
 /**
- * 計算公式的值
- * @param formula 公式字串，如 'quantity * unit_price'
- * @param values 欄位值對照表，如 { quantity: 5, unit_price: 100 }
- * @returns 計算結果
+ * Evaluate a formula expression
+ * @param formula Formula string, e.g. 'quantity * unit_price'
+ * @param values  Field value map, e.g. { quantity: 5, unit_price: 100 }
+ * @returns Computed result
  */
 export function evaluateFormula(formula: string, values: Record<string, number>): number {
   const tokens = tokenize(formula);
@@ -192,9 +192,9 @@ export function evaluateFormula(formula: string, values: Record<string, number>)
 }
 
 /**
- * 驗證公式是否合法
- * @param formula 公式字串
- * @param availableFields 可用的欄位名列表
+ * Validate whether a formula is legal
+ * @param formula         Formula string
+ * @param availableFields List of available field names
  */
 export function validateFormula(
   formula: string,
@@ -204,11 +204,11 @@ export function validateFormula(
     const tokens = tokenize(formula);
     const ast = parse(tokens);
 
-    // 檢查所有引用的欄位是否存在
+    // Check that all referenced fields exist
     const used = extractDependenciesFromAST(ast);
     for (const field of used) {
       if (!availableFields.includes(field)) {
-        return { valid: false, error: `欄位 '${field}' 不存在` };
+        return { valid: false, error: `Field '${field}' does not exist` };
       }
     }
 
@@ -219,7 +219,7 @@ export function validateFormula(
 }
 
 /**
- * 從公式中提取所有依賴的欄位名
+ * Extract all field names referenced in a formula
  */
 export function extractDependencies(formula: string): string[] {
   const tokens = tokenize(formula);

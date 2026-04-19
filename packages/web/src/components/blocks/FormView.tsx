@@ -1,5 +1,6 @@
 import type React from 'react';
 import { useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Loader2, Pencil } from 'lucide-react';
 import type { FieldDef, FieldType } from '../../types';
 import type { AppearanceEffect } from '../../types';
@@ -16,7 +17,7 @@ interface Props {
   fields: FieldDef[];
   initialValues?: Record<string, unknown>;
   mode?: FormMode;
-  /** 表單欄數（預設 1）。textarea / computed 欄位永遠佔滿整行 */
+  /** Number of form columns (default 1). textarea / computed fields always span the full row */
   columns?: 1 | 2 | 3;
   onSubmit?: (data: Record<string, unknown>) => Promise<void>;
   onCancel?: () => void;
@@ -29,12 +30,13 @@ function isFullWidth(field: FieldDef): boolean {
 type ErrorMap = Record<string, string | null>;
 
 export function FormView({ fields, initialValues = {}, mode = 'create', columns = 1, onSubmit, onCancel }: Props) {
-  // 初始化包含所有非靜態隱藏欄位的值（含條件隱藏欄位，確保其值仍追蹤）
+  const { t } = useTranslation();
+  // Initialize values for all non-statically-hidden fields (including conditionally hidden fields, to keep tracking their values)
   const allFormFields = useMemo(() => fields.filter(f => !f.hidden_in_form), [fields]);
 
   const [values, setValues] = useState<Record<string, unknown>>(() => {
     const init: Record<string, unknown> = {};
-    // 先複製所有 __display 欄位（relation 顯示用）
+    // First copy all __display fields (used for relation display)
     for (const [key, val] of Object.entries(initialValues)) {
       if (key.endsWith('__display')) init[key] = val;
     }
@@ -49,8 +51,8 @@ export function FormView({ fields, initialValues = {}, mode = 'create', columns 
 
   const isViewMode = currentMode === 'view';
 
-  // ─── Conditional Appearance ─────────────────��───────────────────────────────
-  // 每當 values 改變就重新求值所有欄位的外觀效果
+  // ─── Conditional Appearance ──────────────────────────────────────────────────
+  // Re-evaluate appearance effects for all fields whenever values change
   const fieldAppearance = useMemo(() => {
     const map = new Map<string, AppearanceEffect>();
     for (const field of allFormFields) {
@@ -62,7 +64,7 @@ export function FormView({ fields, initialValues = {}, mode = 'create', columns 
     return map;
   }, [allFormFields, values]);
 
-  // 可見欄位：排除靜態隱藏 + 條件隱藏
+  // Visible fields: exclude statically hidden + conditionally hidden
   const visibleFields = useMemo(
     () => allFormFields.filter(f => {
       const app = fieldAppearance.get(f.key);
@@ -76,27 +78,27 @@ export function FormView({ fields, initialValues = {}, mode = 'create', columns 
   const validateField = (field: FieldDef, value: unknown): string | null => {
     if (field.computed) return null;
     const app = fieldAppearance.get(field.key);
-    // 欄位若被條件隱藏，不驗證
+    // If the field is conditionally hidden, skip validation
     if (app?.visibility === 'hidden') return null;
-    // 必填：原始必填 OR 條件外觀要求必填
+    // Required: originally required OR required by conditional appearance
     const isRequired = field.required || app?.required;
     const stringValue = String(value ?? '').trim();
     if (isRequired && (value === null || value === undefined || stringValue === '')) {
-      return `${field.label} 為必填`;
+      return t('form.required_error', { label: field.label });
     }
     if (!field.validation) return null;
     if (typeof value === 'number') {
       if (field.validation.min !== undefined && value < field.validation.min) {
-        return field.validation.message ?? `${field.label} 不可小於 ${field.validation.min}`;
+        return field.validation.message ?? t('form.min_error', { label: field.label, min: field.validation.min });
       }
       if (field.validation.max !== undefined && value > field.validation.max) {
-        return field.validation.message ?? `${field.label} 不可大於 ${field.validation.max}`;
+        return field.validation.message ?? t('form.max_error', { label: field.label, max: field.validation.max });
       }
     }
     if (field.validation.pattern && stringValue) {
       const regex = new RegExp(field.validation.pattern);
       if (!regex.test(stringValue)) {
-        return field.validation.message ?? `${field.label} 格式不正確`;
+        return field.validation.message ?? t('form.pattern_error', { label: field.label });
       }
     }
     return null;
@@ -152,11 +154,11 @@ export function FormView({ fields, initialValues = {}, mode = 'create', columns 
           {isViewMode ? (
             <Button type="button" size="sm" variant="outline" onClick={() => setCurrentMode('edit')}>
               <Pencil className="mr-1 h-3.5 w-3.5" />
-              編輯
+              {t('form.edit_btn')}
             </Button>
           ) : (
             <Button type="button" size="sm" variant="ghost" onClick={() => setCurrentMode('view')}>
-              取消編輯
+              {t('form.cancel_edit_btn')}
             </Button>
           )}
         </div>
@@ -181,7 +183,7 @@ export function FormView({ fields, initialValues = {}, mode = 'create', columns 
                   ? <span className="ml-0.5 text-destructive">*</span>
                   : null}
                 {field.computed
-                  ? <span className="ml-1 text-xs text-muted-foreground">（自動計算）</span>
+                  ? <span className="ml-1 text-xs text-muted-foreground">{t('form.auto_calculated')}</span>
                   : null}
               </Label>
               {isViewMode ? (
@@ -207,17 +209,17 @@ export function FormView({ fields, initialValues = {}, mode = 'create', columns 
         <div className="flex justify-end gap-2 pt-2">
           {onCancel && (
             <Button type="button" variant="outline" onClick={onCancel} disabled={submitting}>
-              取消
+              {t('common.cancel')}
             </Button>
           )}
           {mode === 'view' && (
             <Button type="button" variant="ghost" onClick={() => setCurrentMode('view')} disabled={submitting}>
-              取消
+              {t('common.cancel')}
             </Button>
           )}
           <Button type="submit" disabled={submitting}>
             {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-            {submitting ? '儲存中...' : '儲存'}
+            {submitting ? t('common.saving') : t('common.save')}
           </Button>
         </div>
       )}

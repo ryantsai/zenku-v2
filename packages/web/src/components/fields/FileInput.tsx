@@ -80,7 +80,7 @@ export function FileRow({
       <button
         onClick={() => void downloadFile(file.id, file.filename)}
         className="text-muted-foreground hover:text-foreground"
-        title="下載"
+        title="Download"
       >
         <Download size={13} />
       </button>
@@ -112,7 +112,7 @@ export function FileReadonlyList({ value }: { value: unknown }) {
       {files.map(f => <FileRow key={f.id} file={f} />)}
       {files.length === 0 && ids.length > 0 && (
         <div className="flex items-center gap-1 text-xs text-muted-foreground">
-          <Loader2 size={12} className="animate-spin" /> 載入中...
+          <Loader2 size={12} className="animate-spin" /> Loading...
         </div>
       )}
     </div>
@@ -148,7 +148,7 @@ export function FileInput({ field, value, onChange, disabled }: Props) {
 
     const tooLarge = picked.filter(f => f.size > maxMb * 1024 * 1024);
     if (tooLarge.length > 0) {
-      alert(`檔案超過 ${maxMb} MB：${tooLarge.map(f => f.name).join(', ')}`);
+      alert(`File exceeds ${maxMb} MB: ${tooLarge.map(f => f.name).join(', ')}`);
       return;
     }
 
@@ -160,7 +160,7 @@ export function FileInput({ field, value, onChange, disabled }: Props) {
       const allIds = [...existingIds, ...updated.map(f => f.id)];
       onChange(allIds.length > 0 ? JSON.stringify(allIds) : '');
     } catch (err) {
-      alert(`上傳失敗：${String(err)}`);
+      alert(`Upload failed: ${String(err)}`);
     } finally {
       setUploading(false);
     }
@@ -186,7 +186,7 @@ export function FileInput({ field, value, onChange, disabled }: Props) {
       {/* Loading placeholder for ids not yet fetched */}
       {existingIds.length > existingFiles.length && (
         <div className="flex items-center gap-1 text-xs text-muted-foreground">
-          <Loader2 size={12} className="animate-spin" /> 載入中...
+          <Loader2 size={12} className="animate-spin" /> Loading...
         </div>
       )}
 
@@ -209,10 +209,10 @@ export function FileInput({ field, value, onChange, disabled }: Props) {
             className="gap-1.5"
           >
             {uploading ? <Loader2 size={13} className="animate-spin" /> : <Paperclip size={13} />}
-            {field.type === 'image' ? '上傳圖片' : '上傳檔案'}
+            {field.type === 'image' ? 'Upload image' : 'Upload file'}
           </Button>
           {allFiles.length === 0 && !uploading && (
-            <p className="mt-1 text-xs text-muted-foreground">最大 {maxMb} MB</p>
+            <p className="mt-1 text-xs text-muted-foreground">Max {maxMb} MB</p>
           )}
         </div>
       )}

@@ -307,7 +307,7 @@ export async function executeManual(
           break;
 
         case 'notify':
-          console.log(`[RuleEngine/manual] 通知 — 規則「${rule.name}」：${act.text ?? ''}`);
+          console.log(`[RuleEngine/manual] Notify — rule "${rule.name}": ${act.text ?? ''}`);
           break;
       }
     } catch (err) {
@@ -398,7 +398,7 @@ export async function executeAfter(
               ...(Object.values(updates) as (string | number | bigint | null)[]),
               ...(whereValues as (string | number | bigint | null)[]),
             );
-            console.log(`[RuleEngine] update_record — 已更新 "${act.target_table}" ${JSON.stringify(updates)}`);
+            console.log(`[RuleEngine] update_record — updated "${act.target_table}" ${JSON.stringify(updates)}`);
           } else {
             // INSERT: combine where-key values + record_data values
             const insertRecord: Record<string, unknown> = { ...updates };
@@ -410,7 +410,7 @@ export async function executeAfter(
             db.prepare(
               `INSERT INTO "${act.target_table}" (${cols}) VALUES (${placeholders})`
             ).run(...(Object.values(insertRecord) as (string | number | bigint | null)[]));
-            console.log(`[RuleEngine] update_record — 找不到記錄，已新增至 "${act.target_table}" ${JSON.stringify(insertRecord)}`);
+            console.log(`[RuleEngine] update_record — record not found, inserted into "${act.target_table}" ${JSON.stringify(insertRecord)}`);
           }
           break;
         }
@@ -479,12 +479,12 @@ export async function executeAfter(
               db.prepare(
                 `INSERT INTO "${act.target_table}" (${cols}) VALUES (${placeholders})`
               ).run(...(Object.values(insertRecord) as (string | number | bigint | null)[]));
-              console.log(`[RuleEngine] update_related_records — 找不到記錄，已新增至 "${act.target_table}" ${JSON.stringify(insertRecord)}`);
+              console.log(`[RuleEngine] update_related_records — record not found, inserted into "${act.target_table}" ${JSON.stringify(insertRecord)}`);
             }
             updatedCount++;
           }
 
-          console.log(`[RuleEngine] update_related_records — 已處理 ${updatedCount} 筆 "${act.target_table}" via "${act.via_table}"`);
+          console.log(`[RuleEngine] update_related_records — processed ${updatedCount} records in "${act.target_table}" via "${act.via_table}"`);
           break;
         }
 
@@ -503,7 +503,7 @@ export async function executeAfter(
           break;
 
         case 'notify':
-          console.log(`[RuleEngine] 通知 — 規則「${rule.name}」：${act.text ?? ''}`);
+          console.log(`[RuleEngine] Notify — rule "${rule.name}": ${act.text ?? ''}`);
           break;
       }
     }

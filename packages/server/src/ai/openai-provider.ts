@@ -108,7 +108,7 @@ export class OpenAIProvider implements AIProvider {
             };
           }
           // document or text fallback
-          return { type: 'text' as const, text: b.text ?? `[附件: 格式 ${b.source?.media_type ?? 'unknown'} 不支援]` };
+          return { type: 'text' as const, text: b.text ?? `[Attachment: format ${b.source?.media_type ?? 'unknown'} is not supported]` };
         });
         if (msg.content) parts.push({ type: 'text' as const, text: msg.content });
         result.push({ role: 'user' as const, content: parts });

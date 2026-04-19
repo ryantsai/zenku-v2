@@ -71,7 +71,7 @@ export function MultiSelectField({ field, value, onChange }: Props) {
     opt.label.toLowerCase().includes(search.toLowerCase())
   );
 
-  const displayLabel = selected.length === 0 ? (field.placeholder || '選擇選項...') : `已選 ${selected.length} 個`;
+  const displayLabel = selected.length === 0 ? (field.placeholder || 'Select options...') : `${selected.length} selected`;
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -101,7 +101,7 @@ export function MultiSelectField({ field, value, onChange }: Props) {
             <Search className="pointer-events-none absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input
               ref={inputRef}
-              placeholder="搜尋..."
+              placeholder="Search..."
               value={search}
               onChange={e => setSearch(e.target.value)}
               className="pl-8 h-8 text-sm"
@@ -109,9 +109,9 @@ export function MultiSelectField({ field, value, onChange }: Props) {
           </div>
           <div className="space-y-1 max-h-64 overflow-auto">
             {loading ? (
-              <div className="px-2 py-1 text-sm text-muted-foreground">載入中...</div>
+              <div className="px-2 py-1 text-sm text-muted-foreground">Loading...</div>
             ) : filtered.length === 0 ? (
-              <div className="px-2 py-1 text-sm text-muted-foreground">無結果</div>
+              <div className="px-2 py-1 text-sm text-muted-foreground">No results</div>
             ) : (
               filtered.map(opt => (
                 <button

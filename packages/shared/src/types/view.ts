@@ -2,122 +2,122 @@ import type { ColumnDef } from './column';
 import type { FieldDef } from './field';
 import type { AppearanceCondition } from './appearance';
 
-// ===== View 類型 =====
+// ===== View Types =====
 
 export type ViewType = 'table' | 'master-detail' | 'dashboard' | 'kanban' | 'calendar' | 'gallery' | 'form-only' | 'timeline';
 
-/** Runtime 常數陣列（供 server 端 AI tool schema 使用） */
+/** Runtime constant array (used by server-side AI tool schema) */
 export const VIEW_TYPES: ViewType[] = ['table', 'master-detail', 'dashboard', 'kanban', 'calendar', 'gallery', 'form-only', 'timeline'];
 
-// ===== View 定義 =====
+// ===== View Definition =====
 
 export interface ViewDefinition {
   id: string;
   name: string;
   table_name: string;
   type: ViewType;
-  /** Sidebar 圖示（lucide icon name） */
+  /** Sidebar icon (lucide icon name) */
   icon?: string;
-  /** Sidebar 群組名稱，相同 group 的 view 會歸到同一個群組 */
+  /** Sidebar group name; views with the same group are grouped together */
   group?: string;
   columns: ColumnDef[];
   form: { fields: FieldDef[]; columns?: 1 | 2 | 3 };
   actions: ViewAction[];
 
-  /** master-detail 的明細定義 */
+  /** Detail view definitions for master-detail type */
   detail_views?: DetailViewDef[];
-  /** dashboard 的 widget 定義 */
+  /** Widget definitions for dashboard type */
   widgets?: DashboardWidget[];
-  /** kanban 設定 */
+  /** Kanban settings */
   kanban?: KanbanConfig;
-  /** calendar 設定 */
+  /** Calendar settings */
   calendar?: CalendarConfig;
-  /** gallery 設定 */
+  /** Gallery settings */
   gallery?: GalleryConfig;
-  /** timeline 設定 */
+  /** Timeline settings */
   timeline?: TimelineConfig;
 
-  /** 預設排序 */
+  /** Default sort */
   default_sort?: { field: string; direction: 'asc' | 'desc' };
-  /** 預設篩選 */
+  /** Default filters */
   default_filters?: Filter[];
 }
 
 // ===== ViewAction =====
 
-/** 內建 CRUD 動作（字串格式，向下相容） */
+/** Built-in CRUD actions (string format, backward compatible) */
 export type BuiltinAction = 'create' | 'edit' | 'delete' | 'export';
 
-/** 自訂動作執行行為 */
+/** Custom action execution behavior */
 export type ActionBehavior =
   | {
-      /** 直接修改當前記錄的欄位值 */
+      /** Directly modify a field value on the current record */
       type: 'set_field';
       field: string;
       value: string;
     }
   | {
-      /** 觸發一條 trigger_type='manual' 的業務規則 */
+      /** Trigger a business rule with trigger_type='manual' */
       type: 'trigger_rule';
       rule_id: string;
     }
   | {
-      /** 呼叫外部 Webhook */
+      /** Call an external Webhook */
       type: 'webhook';
       url: string;
       method?: 'GET' | 'POST';
-      /** JSON 樣板，可用 {{field}} 插入記錄欄位值 */
+      /** JSON template; use {{field}} to inject record field values */
       payload?: string;
     }
   | {
-      /** 跳轉到另一個 View */
+      /** Navigate to another View */
       type: 'navigate';
       view_id: string;
       filter_field?: string;
       filter_value_from?: string;
     }
   | {
-      /** 在另一張表建立關聯記錄 */
+      /** Create a related record in another table */
       type: 'create_related';
       table: string;
       field_mapping: Record<string, string>;
     };
 
-/** 自訂動作按鈕定義 */
+/** Custom action button definition */
 export interface CustomViewAction {
-  /** 唯一識別碼（英文 underscore） */
+  /** Unique identifier (lowercase underscore) */
   id: string;
-  /** 按鈕文字 */
+  /** Button label */
   label: string;
-  /** Lucide icon 名稱，如 "check", "truck", "x-circle" */
+  /** Lucide icon name, e.g. "check", "truck", "x-circle" */
   icon?: string;
-  /** 按鈕樣式 */
+  /** Button variant */
   variant?: 'default' | 'outline' | 'secondary' | 'destructive' | 'warning';
-  /** 出現在哪個情境：record = 詳情頁, list = 列表列, both = 兩者皆有 */
+  /** Where the button appears: record = detail page, list = table row, both = both */
   context?: 'record' | 'list' | 'both';
-  /** 顯示條件 */
+  /** Visibility condition */
   visible_when?: AppearanceCondition;
-  /** 啟用條件（不滿足時按鈕 disabled） */
+  /** Enable condition (button is disabled when not met) */
   enabled_when?: AppearanceCondition;
-  /** 執行行為 */
+  /** Execution behavior */
   behavior: ActionBehavior;
-  /** 執行前彈出確認框 */
+  /** Show a confirmation dialog before executing */
   confirm?: { title: string; description: string };
 }
 
-/** ViewDefinition.actions 型別（字串 = 內建；物件 = 自訂） */
+/** ViewDefinition.actions type (string = built-in; object = custom) */
 export type ViewAction = BuiltinAction | CustomViewAction;
 
 // ===== Master-Detail =====
 
 export interface DetailViewDef {
-  /** 明細表名 */
+  /** Detail table name */
   table_name: string;
-  /** 明細表中指向主表的外鍵欄位 */
+  /** Foreign key field in the detail table pointing to the master table */
   foreign_key: string;
-  /** Tab 標籤名 */
+  /** Tab label */
   tab_label: string;
-  /** 明細的 view 定義 */
+  /** View definition for the detail */
   view: ViewDefinition;
 }
 
@@ -131,7 +131,7 @@ export interface DashboardWidget {
   query: string;
   size: 'sm' | 'md' | 'lg' | 'full';
   position: { row: number; col: number; rowSpan?: number; colSpan?: number };
-  /** 圖表特有設定（x_key, y_key, color 等） */
+  /** Chart-specific settings (x_key, y_key, color, etc.) */
   config?: Record<string, unknown>;
 }
 
@@ -140,50 +140,50 @@ export type WidgetType = 'stat_card' | 'bar_chart' | 'line_chart' | 'pie_chart' 
 // ===== Kanban =====
 
 export interface KanbanConfig {
-  /** 分組欄位（如 'status'） */
+  /** Group field (e.g. 'status') */
   group_field: string;
-  /** 卡片標題欄位 */
+  /** Card title field */
   title_field: string;
-  /** 卡片描述欄位 */
+  /** Card description field */
   description_field?: string;
-  /** 欄位背景色（用 group_field 的值決定欄位背景色） */
+  /** Column background color map (keyed by group_field value) */
   column_color_map?: Record<string, string>;
 }
 
 // ===== Calendar =====
 
 export interface CalendarConfig {
-  /** 日期欄位 */
+  /** Date field */
   date_field: string;
-  /** 標題欄位 */
+  /** Title field */
   title_field: string;
-  /** 顏色欄位（用哪個欄位的值決定顏色） */
+  /** Color field (which field value determines the color) */
   color_field?: string;
 }
 
 export interface GalleryConfig {
-  /** 圖片欄位 */
+  /** Image field */
   image_field: string;
-  /** 標題欄位 */
+  /** Title field */
   title_field: string;
-  /** 副標題欄位 */
+  /** Subtitle field */
   subtitle_field?: string;
 }
 
 // ===== Timeline =====
 
 export interface TimelineConfig {
-  /** 日期欄位（用於排序與顯示） */
+  /** Date field (used for sorting and display) */
   date_field: string;
-  /** 標題欄位 */
+  /** Title field */
   title_field: string;
-  /** 描述欄位 */
+  /** Description field */
   description_field?: string;
-  /** 顏色欄位（欄位值若為 hex 則直接用；否則作為類別自動對應顏色） */
+  /** Color field (if the value is a hex string it is used directly; otherwise treated as a category and auto-mapped to a color) */
   color_field?: string;
 }
 
-// ===== 篩選 =====
+// ===== Filters =====
 
 export interface Filter {
   field: string;

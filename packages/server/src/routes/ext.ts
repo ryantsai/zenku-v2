@@ -197,7 +197,7 @@ router.patch('/data/:table/:id', requireApiKey('write:*'), async (req, res) => {
 
     writeJournal({
       agent: 'ext_api', type: 'data_change',
-      description: `API Key 回填 ${table} #${id}`,
+      description: `API Key write-back to ${table} #${id}`,
       diff: { before: oldData, after: updated },
       user_request: 'api_key_patch',
       reversible: true,
@@ -212,8 +212,8 @@ router.patch('/data/:table/:id', requireApiKey('write:*'), async (req, res) => {
 });
 
 // ──────────────────────────────────────────────
-// POST /webhook/callback — n8n → Zenku 回填
-// (取代舊的 /api/webhook/callback)
+// POST /webhook/callback — n8n → Zenku write-back
+// (replaces the old /api/webhook/callback)
 // ──────────────────────────────────────────────
 router.post('/webhook/callback', requireApiKey('webhook:callback'), async (req, res) => {
   const { table, record_id, updates } = req.body as {
@@ -252,7 +252,7 @@ router.post('/webhook/callback', requireApiKey('webhook:callback'), async (req, 
 
     writeJournal({
       agent: 'webhook', type: 'data_change',
-      description: `Webhook 回呼更新 ${table} #${String(rid)}`,
+      description: `Webhook callback updated ${table} #${String(rid)}`,
       diff: { before: oldData ?? null, after: updates },
       user_request: 'webhook_callback',
       reversible: true,

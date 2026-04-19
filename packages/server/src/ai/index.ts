@@ -29,13 +29,13 @@ export function createProvider(name: AIProviderName): AIProvider {
     }
     case 'openai': {
       const key = process.env.OPENAI_API_KEY;
-      if (!key) throw new Error('OPENAI_API_KEY 未設定');
+      if (!key) throw new Error('OPENAI_API_KEY is not set');
       provider = new OpenAIProvider(key);
       break;
     }
     case 'gemini': {
       const key = process.env.GEMINI_API_KEY;
-      if (!key) throw new Error('GEMINI_API_KEY 未設定');
+      if (!key) throw new Error('GEMINI_API_KEY is not set');
       provider = new GeminiProvider(key);
       break;
     }
@@ -51,7 +51,7 @@ export function createProvider(name: AIProviderName): AIProvider {
       break;
     }
     default:
-      throw new Error(`不支援的 AI provider：${name as string}`);
+      throw new Error(`Unsupported AI provider: ${name as string}`);
   }
 
   _cache.set(name, provider);

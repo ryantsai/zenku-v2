@@ -75,7 +75,7 @@ Condition field supports FK paths (cross-table conditions):
                   via_table: { type: 'string', description: 'Intermediate detail table for update_related_records (e.g., purchase_order_items)' },
                   via_foreign_key: { type: 'string', description: 'FK field in detail table pointing to source table (e.g., purchase_order_id)' },
                   url: { type: 'string', description: 'webhook URL' },
-                  method: { type: 'string', description: 'webhook HTTP 方法，預設 POST' },
+                  method: { type: 'string', description: 'webhook HTTP method, default POST' },
                   text: { type: 'string', description: 'Notification text' },
                 },
                 required: ['type'],

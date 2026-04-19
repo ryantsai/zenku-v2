@@ -25,7 +25,7 @@ function formatDateTime(val: unknown): string {
   if (!val) return '-';
   const d = new Date(String(val));
   if (isNaN(d.getTime())) return String(val);
-  return d.toLocaleString('zh-TW', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
+  return d.toLocaleString(undefined, { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
 }
 
 export function MasterDetailView({ view, recordId }: Props) {
@@ -71,11 +71,11 @@ export function MasterDetailView({ view, recordId }: Props) {
     }
     try {
       const result = await executeViewAction(view.id, action.id, recordId);
-      toast.success(action.label + ' 執行成功');
+      toast.success(action.label + ' executed successfully');
       if (result.updated) setRecord(result.updated);
       else void fetchRecord();
     } catch (error) {
-      toast.error(action.label + ' 執行失敗', { description: String(error) });
+      toast.error(action.label + ' failed', { description: String(error) });
     }
   };
 
@@ -105,7 +105,7 @@ export function MasterDetailView({ view, recordId }: Props) {
           className="gap-1.5 text-muted-foreground"
         >
           <ArrowLeft className="h-4 w-4" />
-          返回列表
+          {t('common.back_to_list')}
         </Button>
         <span className="text-muted-foreground">/</span>
         <span className="text-sm font-medium">{view.name}</span>
@@ -143,9 +143,9 @@ export function MasterDetailView({ view, recordId }: Props) {
             <AlertDialogDescription>{confirmAction?.confirm?.description}</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>取消</AlertDialogCancel>
+            <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
             <AlertDialogAction onClick={() => { if (confirmAction) { void handleCustomAction(confirmAction); setConfirmAction(null); } }}>
-              確認
+              {t('common.confirm')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -178,7 +178,7 @@ export function MasterDetailView({ view, recordId }: Props) {
                   onSubmit={handleUpdate}
                 />
               ) : (
-                <p className="text-sm text-muted-foreground">找不到資料</p>
+                <p className="text-sm text-muted-foreground">{t('master_detail.record_not_found')}</p>
               )}
             </div>
 
@@ -186,7 +186,7 @@ export function MasterDetailView({ view, recordId }: Props) {
             <div className="col-span-1">
               <Card>
                 <CardHeader className="pb-3">
-                  <CardTitle className="text-sm font-medium">資訊摘要</CardTitle>
+                  <CardTitle className="text-sm font-medium">{t('master_detail.summary')}</CardTitle>
                 </CardHeader>
                 <CardContent>
                   {loading ? (
@@ -200,11 +200,11 @@ export function MasterDetailView({ view, recordId }: Props) {
                         <dd className="mt-0.5 font-mono text-xs">{recordId}</dd>
                       </div>
                       <div>
-                        <dt className="text-xs font-medium text-muted-foreground">建立時間</dt>
+                        <dt className="text-xs font-medium text-muted-foreground">{t('master_detail.created_at')}</dt>
                         <dd className="mt-0.5">{formatDateTime(record?.created_at)}</dd>
                       </div>
                       <div>
-                        <dt className="text-xs font-medium text-muted-foreground">最後更新</dt>
+                        <dt className="text-xs font-medium text-muted-foreground">{t('master_detail.last_updated')}</dt>
                         <dd className="mt-0.5">{formatDateTime(record?.updated_at)}</dd>
                       </div>
                     </dl>
@@ -230,7 +230,7 @@ function DetailCard({ detailView, masterId }: { detailView: DetailViewDef; maste
     <Card>
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
         <CardTitle className="text-sm font-medium">{detailView.tab_label}</CardTitle>
-        {/* TableView 內建新增按鈕，這裡不重複加 */}
+        {/* TableView has a built-in Add button; no need to add another here */}
       </CardHeader>
       <CardContent className="p-0">
         <TableView

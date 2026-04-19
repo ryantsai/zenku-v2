@@ -8,8 +8,12 @@
     "no_pages": "尚無頁面",
     "ok": "確定",
     "cancel": "取消",
+    "confirm": "確認",
     "save": "儲存",
+    "saving": "儲存中...",
+    "add": "新增",
     "delete": "刪除",
+    "back_to_list": "返回列表",
     "loading": "載入中...",
     "error": "發生錯誤",
     "success": "成功",
@@ -459,6 +463,35 @@
     "toast_toggle_failed": "切換失敗",
     "toast_delete_failed": "刪除失敗",
     "operator_contains": "包含"
+  },
+  "calendar": {
+    "today": "今天",
+    "more_events": "+{{count}} 更多",
+    "weekdays": ["日", "一", "二", "三", "四", "五", "六"]
+  },
+  "form": {
+    "edit_btn": "編輯",
+    "cancel_edit_btn": "取消編輯",
+    "auto_calculated": "（自動計算）",
+    "required_error": "{{label}} 為必填",
+    "min_error": "{{label}} 不可小於 {{min}}",
+    "max_error": "{{label}} 不可大於 {{max}}",
+    "pattern_error": "{{label}} 格式不正確"
+  },
+  "master_detail": {
+    "main_record": "主檔資料",
+    "add_title": "新增 {{name}}",
+    "save_all": "全部儲存",
+    "save_all_hint": "主檔與所有待寫入明細將一併儲存。",
+    "add_detail": "新增明細",
+    "no_details": "尚無明細，點擊「新增明細」加入。",
+    "pending_badge": "待寫入",
+    "new_detail_desc": "填入明細資料後加入清單。主檔儲存時一併寫入。",
+    "required_error": "{{label}} 為必填",
+    "record_not_found": "找不到記錄",
+    "summary": "摘要",
+    "created_at": "建立時間",
+    "last_updated": "最後更新"
   },
   "common_toast": {
     "load_failed": "載入失敗",

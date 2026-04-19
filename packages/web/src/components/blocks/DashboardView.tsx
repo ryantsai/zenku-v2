@@ -35,7 +35,7 @@ export function DashboardView({ view }: Props) {
   if (widgets.length === 0) {
     return (
       <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
-        此 Dashboard 尚無 widget
+        This dashboard has no widgets yet
       </div>
     );
   }
@@ -46,7 +46,7 @@ export function DashboardView({ view }: Props) {
         <h2 className="text-lg font-semibold">{view.name}</h2>
         <Button variant="outline" size="sm" onClick={() => setRefreshKey(k => k + 1)}>
           <RefreshCw className="mr-1.5 h-4 w-4" />
-          重新整理
+          Refresh
         </Button>
       </div>
       <div className="grid grid-cols-12 gap-4">
@@ -107,7 +107,7 @@ function StatCard({ title, data }: { title: string; data: Record<string, unknown
   const row = data[0] ?? {};
   const value = row.value ?? row.count ?? row.total ?? Object.values(row)[0] ?? 0;
   const num = Number(value);
-  const display = Number.isFinite(num) ? num.toLocaleString('zh-TW') : String(value);
+  const display = Number.isFinite(num) ? num.toLocaleString() : String(value);
 
   return (
     <Card>
@@ -214,7 +214,7 @@ function TrendCard({ widget, data }: { widget: DashboardWidget; data: Record<str
   if (!row) {
     return (
       <Card className="h-full">
-        <CardContent className="pt-6 text-sm text-muted-foreground">無資料</CardContent>
+        <CardContent className="pt-6 text-sm text-muted-foreground">No data</CardContent>
       </Card>
     );
   }
@@ -229,7 +229,7 @@ function TrendCard({ widget, data }: { widget: DashboardWidget; data: Record<str
         <CardTitle className="text-sm font-medium text-muted-foreground">{widget.title}</CardTitle>
       </CardHeader>
       <CardContent>
-        <p className="text-3xl font-bold tracking-tight">{curr.toLocaleString('zh-TW')}</p>
+        <p className="text-3xl font-bold tracking-tight">{curr.toLocaleString()}</p>
         {delta !== null && (
           <p className={cn('mt-1 text-sm font-medium', isUp ? 'text-emerald-600' : 'text-rose-600')}>
             {isUp ? '▲' : '▼'} {Math.abs(delta).toFixed(1)}%
@@ -248,7 +248,7 @@ function MiniTableWidget({ title, data }: { title: string; data: Record<string, 
     return (
       <Card>
         <CardHeader><CardTitle className="text-sm">{title}</CardTitle></CardHeader>
-        <CardContent><p className="text-xs text-muted-foreground">無資料</p></CardContent>
+        <CardContent><p className="text-xs text-muted-foreground">No data</p></CardContent>
       </Card>
     );
   }

@@ -63,7 +63,7 @@ export function GalleryView({ view }: Props) {
   }, [view.id]);
 
   if (!gallery) {
-    return <div className="flex h-full items-center justify-center text-sm text-muted-foreground">Gallery 設定缺失</div>;
+    return <div className="flex h-full items-center justify-center text-sm text-muted-foreground">Gallery configuration is missing</div>;
   }
 
   const handleUpdate = async (data: Record<string, unknown>) => {
@@ -117,7 +117,7 @@ export function GalleryView({ view }: Props) {
             <Input
               value={searchInput}
               onChange={e => setSearchInput(e.target.value)}
-              placeholder="搜尋..."
+              placeholder={t('table.view.search_placeholder')}
               className="pl-8"
             />
           </div>
@@ -125,7 +125,7 @@ export function GalleryView({ view }: Props) {
         {canCreate && (
           <Button onClick={() => setShowCreate(true)}>
             <Plus className="h-4 w-4" />
-            新增
+            {t('table.view.create_button')}
           </Button>
         )}
       </div>
@@ -133,9 +133,9 @@ export function GalleryView({ view }: Props) {
       {/* Gallery Grid */}
       <div className="flex-1 overflow-auto">
         {loading ? (
-          <div className="flex h-full items-center justify-center text-muted-foreground">載入中...</div>
+          <div className="flex h-full items-center justify-center text-muted-foreground">{t('common.loading')}</div>
         ) : rows.length === 0 ? (
-          <div className="flex h-full items-center justify-center text-muted-foreground">無資料</div>
+          <div className="flex h-full items-center justify-center text-muted-foreground">{t('common.no_data')}</div>
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 p-6">
             {rows.map(row => {
@@ -184,7 +184,7 @@ export function GalleryView({ view }: Props) {
             <ChevronLeft className="h-4 w-4" />
           </Button>
           <span className="text-sm text-muted-foreground min-w-max">
-            第 {currentPage} / {totalPages} 頁
+            {t('table.view.page_info', { current: currentPage, total: totalPages })}
           </span>
           <Button
             variant="outline"
@@ -202,8 +202,8 @@ export function GalleryView({ view }: Props) {
       <Dialog open={Boolean(editingRow)} onOpenChange={open => (!open ? setEditingRow(null) : null)}>
         <DialogContent className={dialogWidthClass}>
           <DialogHeader>
-            <DialogTitle>編輯 {view.name}</DialogTitle>
-            <DialogDescription>更新資料後按下儲存。</DialogDescription>
+            <DialogTitle>{t('table.view.edit_dialog_title', { name: view.name })}</DialogTitle>
+            <DialogDescription>{t('table.view.edit_dialog_desc')}</DialogDescription>
           </DialogHeader>
           {editingRow && (
             <FormView
@@ -222,8 +222,8 @@ export function GalleryView({ view }: Props) {
         <Dialog open={showCreate} onOpenChange={setShowCreate}>
           <DialogContent className={dialogWidthClass}>
             <DialogHeader>
-              <DialogTitle>新增 {view.name}</DialogTitle>
-              <DialogDescription>填寫資料後按下儲存。</DialogDescription>
+              <DialogTitle>{t('table.view.create_dialog_title', { name: view.name })}</DialogTitle>
+              <DialogDescription>{t('table.view.create_dialog_desc')}</DialogDescription>
             </DialogHeader>
             <FormView
               fields={view.form.fields}

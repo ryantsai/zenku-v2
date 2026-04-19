@@ -12,11 +12,11 @@ import { TimelineView } from './TimelineView';
 // ─── Registry entry ───────────────────────────────────────────────────────────
 
 export interface ViewEntry {
-  /** 主列表頁（或唯一頁面） */
+  /** Main list page (or the only page) */
   component: React.ComponentType<{ view: ViewDefinition }>;
-  /** 詳情頁（/:recordId） */
+  /** Detail page (/:recordId) */
   detailComponent?: React.ComponentType<{ view: ViewDefinition; recordId: string }>;
-  /** 新增頁（/new） */
+  /** Create page (/new) */
   createComponent?: React.ComponentType<{ view: ViewDefinition }>;
 }
 
@@ -49,5 +49,5 @@ export const VIEW_REGISTRY: Record<ViewType, ViewEntry> = {
   timeline: {
     component: TimelineView,
   },
-  // 新增 View type 只需在這裡加一個 entry ↓
+  // To add a new View type, just add one entry here ↓
 };

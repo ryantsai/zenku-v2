@@ -13,7 +13,7 @@ function formatValue(value: number, format?: string): string {
   if (!isFinite(value)) return '';
   switch (format) {
     case 'currency':
-      return `$${value.toLocaleString('zh-TW', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
+      return `$${value.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
     case 'percent':
       return `${(value * 100).toFixed(1)}%`;
     default:
@@ -23,11 +23,11 @@ function formatValue(value: number, format?: string): string {
 
 export function ComputedField({ field, formValues, onChange }: Props) {
   const computed = field.computed!;
-  // 用 ref 追蹤 onChange，避免 effect 依賴它
+  // Use a ref to track onChange and avoid adding it as an effect dependency
   const onChangeRef = useRef(onChange);
   onChangeRef.current = onChange;
 
-  // 依賴的值序列化為字串，只在值真正改變時重算
+  // Serialize dependency values to a string so the effect only re-runs when values actually change
   const depValuesKey = computed.dependencies
     .map(d => String(formValues[d] ?? ''))
     .join('|');
@@ -41,12 +41,12 @@ export function ComputedField({ field, formValues, onChange }: Props) {
       const result = evaluateFormula(computed.formula, depValues);
       onChangeRef.current(result);
     } catch {
-      // 公式錯誤時不更新
+      // Do not update on formula error
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [depValuesKey, computed.formula]);
 
-  // 計算顯示值
+  // Calculate display value
   let displayValue = '';
   try {
     const depValues: Record<string, number> = {};
@@ -64,7 +64,7 @@ export function ComputedField({ field, formValues, onChange }: Props) {
       value={displayValue}
       disabled
       className="bg-muted/50 text-muted-foreground"
-      placeholder="自動計算"
+      placeholder="Auto-calculated"
     />
   );
 }

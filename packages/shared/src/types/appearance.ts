@@ -1,47 +1,47 @@
 /**
- * Conditional Appearance — 條件外觀型別定義
- * 讓 UI 元件依據表單/列資料的即時狀態動態改變呈現方式
+ * Conditional Appearance — type definitions for conditional appearance rules
+ * Allows UI components to dynamically change their presentation based on real-time form/row data
  */
 
-// ===== 條件 =====
+// ===== Conditions =====
 
-/** 葉節點條件（單一欄位判斷） */
+/** Leaf condition (single field evaluation) */
 export interface LeafCondition {
   field: string;
   operator: 'eq' | 'neq' | 'gt' | 'lt' | 'gte' | 'lte' | 'contains';
   value?: unknown;
 }
 
-/** 複合條件（AND / OR 組合），或單一葉節點 */
+/** Compound condition (AND / OR combination), or a single leaf node */
 export type AppearanceCondition =
   | { logic: 'and'; conditions: AppearanceCondition[] }
   | { logic: 'or';  conditions: AppearanceCondition[] }
   | LeafCondition;
 
-// ===== 效果 =====
+// ===== Effects =====
 
 export interface AppearanceEffect {
-  /** 隱藏或顯示欄位 */
+  /** Hide or show the field */
   visibility?: 'hidden' | 'visible';
-  /** false = 欄位停用（唯讀） */
+  /** false = field is disabled (read-only) */
   enabled?: boolean;
-  /** true = 欄位在此條件下為必填 */
+  /** true = field is required when this condition is met */
   required?: boolean;
-  /** 文字顏色（CSS color，如 "#dc2626"） */
+  /** Text color (CSS color, e.g. "#dc2626") */
   text_color?: string;
-  /** 背景色（CSS color） */
+  /** Background color (CSS color) */
   bg_color?: string;
-  /** 字體粗細 */
+  /** Font weight */
   font_weight?: 'normal' | 'bold';
 }
 
-// ===== 規則 =====
+// ===== Rules =====
 
 export interface AppearanceRule {
-  /** 觸發條件 */
+  /** Trigger condition */
   when: AppearanceCondition;
-  /** 條件成立時套用的效果 */
+  /** Effect to apply when the condition is true */
   apply: AppearanceEffect;
-  /** false = 此規則停用（不求值），預設 true */
+  /** false = this rule is disabled (not evaluated); default true */
   enabled?: boolean;
 }

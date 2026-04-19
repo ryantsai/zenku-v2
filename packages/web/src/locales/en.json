@@ -8,8 +8,12 @@
     "no_pages": "No pages yet",
     "ok": "OK",
     "cancel": "Cancel",
+    "confirm": "Confirm",
     "save": "Save",
+    "saving": "Saving...",
+    "add": "Add",
     "delete": "Delete",
+    "back_to_list": "Back to list",
     "loading": "Loading...",
     "error": "Error occurred",
     "success": "Success",
@@ -453,6 +457,35 @@
     "toast_toggle_failed": "Toggle failed",
     "toast_delete_failed": "Delete failed",
     "operator_contains": "contains"
+  },
+  "calendar": {
+    "today": "Today",
+    "more_events": "+{{count}} more",
+    "weekdays": ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
+  },
+  "form": {
+    "edit_btn": "Edit",
+    "cancel_edit_btn": "Cancel editing",
+    "auto_calculated": "(auto-calculated)",
+    "required_error": "{{label}} is required",
+    "min_error": "{{label}} must be at least {{min}}",
+    "max_error": "{{label}} must be at most {{max}}",
+    "pattern_error": "{{label}} format is invalid"
+  },
+  "master_detail": {
+    "main_record": "Main record",
+    "add_title": "Add {{name}}",
+    "save_all": "Save all",
+    "save_all_hint": "The master record and all pending detail rows will be saved together.",
+    "add_detail": "Add detail",
+    "no_details": "No details yet. Click \"Add detail\" to add one.",
+    "pending_badge": "Pending",
+    "new_detail_desc": "Enter the detail data to add to the list. It will be saved together with the main record.",
+    "required_error": "{{label}} is required",
+    "record_not_found": "Record not found",
+    "summary": "Summary",
+    "created_at": "Created at",
+    "last_updated": "Last updated"
   },
   "common_toast": {
     "load_failed": "Failed to load",

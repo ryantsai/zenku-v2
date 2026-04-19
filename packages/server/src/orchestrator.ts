@@ -105,20 +105,20 @@ Destructive Schema Changes (drop_column, rename_column, change_type, drop_table)
 2. Report impact to user.
 3. Proceed with manage_schema only after user confirmation.
 
-Conditional Appearance (動態 UI 呈現):
+Conditional Appearance (Dynamic UI rendering):
 Use appearance[] on form fields to change how a field looks or behaves based on other field values. This is evaluated client-side in real time — no extra server calls.
 
 Common patterns:
-1. Show a field only when another field has a specific value ("統編欄位只在公司戶時顯示"):
+1. Show a field only when another field has a specific value (e.g., "tax ID field only visible for company accounts"):
    appearance: [{ when: { field: "customer_type", operator: "neq", value: "company" }, apply: { visibility: "hidden" } }]
 
-2. Make all fields read-only after a status is set ("已完成後全部唯讀"):
+2. Make all fields read-only after a status is set (e.g., "all fields read-only after completed"):
    On each editable field: appearance: [{ when: { field: "status", operator: "eq", value: "completed" }, apply: { enabled: false } }]
 
-3. Highlight a value in red when it exceeds a threshold ("金額超過10000標紅"):
+3. Highlight a value in red when it exceeds a threshold (e.g., "highlight amount in red when over 10000"):
    appearance: [{ when: { field: "amount", operator: "gt", value: 10000 }, apply: { text_color: "#dc2626", font_weight: "bold" } }]
 
-4. Make a field required conditionally ("選擇信用卡時才必填卡號"):
+4. Make a field required conditionally (e.g., "card number required only when credit card is selected"):
    appearance: [{ when: { field: "payment_method", operator: "eq", value: "credit_card" }, apply: { required: true } }]
 
 5. Multiple rules on same field (later rules override earlier when both match):
@@ -165,30 +165,30 @@ context rules:
 
 Common patterns:
 - Status transition with confirmation: set_field + confirm { title, description } + visible_when condition
-- "核准" button visible only when status=pending: visible_when: { field: 'status', operator: 'eq', value: 'pending' }
+- "Approve" button visible only when status=pending: visible_when: { field: 'status', operator: 'eq', value: 'pending' }
 - Notify external system after user action: webhook
 - Jump to related view: navigate with filter_field + filter_value_from
 
-Example — "核准訂單" button on a master-detail record form:
+Example — "Approve Order" button on a master-detail record form:
 {
   id: 'approve',
-  label: '核准',
+  label: 'Approve',
   variant: 'default',
   context: 'record',
   visible_when: { field: 'status', operator: 'eq', value: 'pending' },
   behavior: { type: 'set_field', field: 'status', value: 'approved' },
-  confirm: { title: '確認核准', description: '核准後將通知採購部門，此操作無法復原。' }
+  confirm: { title: 'Confirm Approval', description: 'Approving will notify the purchasing department. This action cannot be undone.' }
 }
 
-Example — "出貨" button that creates a shipment record:
+Example — "Ship" button that creates a shipment record:
 {
   id: 'ship',
-  label: '出貨',
+  label: 'Ship',
   variant: 'outline',
   context: 'record',
   visible_when: { field: 'status', operator: 'eq', value: 'approved' },
   behavior: { type: 'create_related', table: 'shipments', field_mapping: { order_id: 'id', status: 'shipped' } },
-  confirm: { title: '建立出貨記錄', description: '將為此訂單建立出貨記錄。' }
+  confirm: { title: 'Create Shipment Record', description: 'A shipment record will be created for this order.' }
 }
 
 Field Type Guide:
@@ -274,7 +274,7 @@ export async function* chat(
       if (isPdf) {
         return { type: 'document' as const, source: { type: 'base64' as const, media_type: a.mime_type, data: a.data } };
       }
-      return { type: 'text' as const, text: `[附件: ${a.filename}，格式 ${a.mime_type} 不支援 AI 分析]` };
+      return { type: 'text' as const, text: `[Attachment: ${a.filename}, format ${a.mime_type} is not supported for AI analysis]` };
     });
   }
   const currentMessages: LLMMessage[] = [

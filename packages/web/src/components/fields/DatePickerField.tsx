@@ -21,7 +21,7 @@ export function DatePickerField({ value, onChange, placeholder, disabled, includ
   const minutes = isValidDate ? String(dateValue.getMinutes()).padStart(2, '0') : '00';
 
   const displayFormat = includeTime ? 'yyyy/MM/dd HH:mm' : 'yyyy/MM/dd';
-  const displayValue = isValidDate ? format(dateValue, displayFormat) : (placeholder ?? (includeTime ? '選擇日期與時間' : '選擇日期'));
+  const displayValue = isValidDate ? format(dateValue, displayFormat) : (placeholder ?? (includeTime ? 'Select date and time' : 'Select date'));
 
   const handleDateSelect = (date: Date | undefined) => {
     if (date) {
@@ -69,7 +69,7 @@ export function DatePickerField({ value, onChange, placeholder, disabled, includ
           {includeTime && (
             <div className="mt-3 flex gap-2 border-t pt-3">
               <div className="flex-1">
-                <label className="block text-xs font-medium mb-1">時</label>
+                <label className="block text-xs font-medium mb-1">Hour</label>
                 <input
                   type="number"
                   min="0"
@@ -80,7 +80,7 @@ export function DatePickerField({ value, onChange, placeholder, disabled, includ
                 />
               </div>
               <div className="flex-1">
-                <label className="block text-xs font-medium mb-1">分</label>
+                <label className="block text-xs font-medium mb-1">Minute</label>
                 <input
                   type="number"
                   min="0"

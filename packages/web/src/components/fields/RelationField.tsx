@@ -77,7 +77,7 @@ export function RelationField({ field, value, onChange }: Props) {
           className="w-full justify-between font-normal"
         >
           <span className={cn('truncate', !displayValue && 'text-muted-foreground')}>
-            {displayValue || field.placeholder || '請選擇...'}
+            {displayValue || field.placeholder || 'Please select...'}
           </span>
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
@@ -88,16 +88,16 @@ export function RelationField({ field, value, onChange }: Props) {
           <input
             ref={inputRef}
             className="flex h-9 w-full bg-transparent py-2 text-sm outline-none placeholder:text-muted-foreground"
-            placeholder="搜尋..."
+            placeholder="Search..."
             value={search}
             onChange={e => setSearch(e.target.value)}
           />
         </div>
         <div className="max-h-60 overflow-y-auto py-1">
           {loading ? (
-            <div className="py-4 text-center text-sm text-muted-foreground">載入中...</div>
+            <div className="py-4 text-center text-sm text-muted-foreground">Loading...</div>
           ) : filtered.length === 0 ? (
-            <div className="py-4 text-center text-sm text-muted-foreground">無符合結果</div>
+            <div className="py-4 text-center text-sm text-muted-foreground">No matching results</div>
           ) : (
             filtered.map(opt => (
               <button

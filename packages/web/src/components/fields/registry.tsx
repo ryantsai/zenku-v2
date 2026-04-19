@@ -41,7 +41,7 @@ export interface FieldReadonlyProps {
 export interface FieldEntry {
   input: React.ComponentType<FieldInputInnerProps>;
   readonly: React.ComponentType<FieldReadonlyProps>;
-  /** 在多欄表單中強制佔滿整行 */
+  /** Force full row span in multi-column forms */
   fullWidth?: boolean;
 }
 
@@ -94,7 +94,7 @@ function BooleanInput({ field, value, onChange, disabled }: FieldInputInnerProps
         onCheckedChange={checked => onChange(checked === true)}
         disabled={disabled}
       />
-      <Label htmlFor={field.key} className="cursor-pointer font-normal">是</Label>
+      <Label htmlFor={field.key} className="cursor-pointer font-normal">Yes</Label>
     </div>
   );
 }
@@ -104,7 +104,7 @@ function SelectInput({ field, value, onChange, disabled }: FieldInputInnerProps)
   return (
     <Select value={String(value ?? '')} onValueChange={v => onChange(v)} disabled={disabled}>
       <SelectTrigger id={field.key}>
-        <SelectValue placeholder={field.placeholder ?? '請選擇...'} />
+        <SelectValue placeholder={field.placeholder ?? 'Please select...'} />
       </SelectTrigger>
       <SelectContent>
         {(field.options ?? []).map(opt => (
@@ -183,7 +183,7 @@ export function TextReadonly({ value, textStyle, bgClass, bgStyle }: FieldReadon
 
 function BooleanReadonly({ value, textStyle, bgClass, bgStyle }: FieldReadonlyProps) {
   if (value === null || value === undefined) return <EmptyValue />;
-  return <p className={cn('py-1 text-sm', bgClass)} style={{ ...textStyle, ...bgStyle }}>{Boolean(value) ? '是' : '否'}</p>;
+  return <p className={cn('py-1 text-sm', bgClass)} style={{ ...textStyle, ...bgStyle }}>{Boolean(value) ? 'Yes' : 'No'}</p>;
 }
 
 function CurrencyReadonly({ value, textStyle, bgClass, bgStyle }: FieldReadonlyProps) {
@@ -192,7 +192,7 @@ function CurrencyReadonly({ value, textStyle, bgClass, bgStyle }: FieldReadonlyP
   return (
     <p className={cn('py-1 text-sm', bgClass)} style={{ ...textStyle, ...bgStyle }}>
       {isFinite(num)
-        ? `$${num.toLocaleString('zh-TW', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`
+        ? `$${num.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`
         : String(value)}
     </p>
   );

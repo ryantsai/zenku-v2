@@ -163,7 +163,7 @@ router.patch('/admin/views/:id/field-prop', requireAdmin, (req, res) => {
     if (!def.appearance[field]) def.appearance[field] = {};
     def.appearance[field][prop] = value;
   } else {
-    // 預設更新 columns 內部的屬性
+    // Default: update the property inside columns
     const col = (def.columns || []).find((c: any) => c.key === field);
     if (col) col[prop] = value;
     const formField = (def.form?.fields || []).find((f: any) => f.key === field);

@@ -15,7 +15,6 @@ interface Props {
 
 type RowData = Record<string, unknown>;
 
-const WEEKDAYS = ['日', '一', '二', '三', '四', '五', '六'];
 
 // Colour palette for color_field values
 const EVENT_COLORS = [
@@ -34,7 +33,8 @@ function getColorClass(colorValue: string | undefined, colorMap: Map<string, num
 }
 
 export function CalendarView({ view }: Props) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const weekdays = t('calendar.weekdays', { returnObjects: true }) as string[];
   const calendar = view.calendar;
   const [rows, setRows] = useState<RowData[]>([]);
   const [loading, setLoading] = useState(true);
@@ -89,7 +89,7 @@ export function CalendarView({ view }: Props) {
   useEffect(() => { void fetchRows(); }, [fetchRows]);
 
   if (!calendar) {
-    return <div className="flex h-full items-center justify-center text-sm text-muted-foreground">Calendar 設定缺失</div>;
+    return <div className="flex h-full items-center justify-center text-sm text-muted-foreground">Calendar configuration is missing</div>;
   }
 
   const { date_field, title_field, color_field } = calendar;
@@ -118,7 +118,7 @@ export function CalendarView({ view }: Props) {
   const today = new Date();
   const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
 
-  const monthLabel = `${current.year} 年 ${current.month + 1} 月`;
+  const monthLabel = new Date(current.year, current.month, 1).toLocaleString(i18n.language, { year: 'numeric', month: 'long' });
 
   const prevMonth = () => setCurrent(c => {
     const m = c.month - 1;
@@ -144,7 +144,7 @@ export function CalendarView({ view }: Props) {
         {/* Calendar header */}
         <div className="flex shrink-0 items-center justify-between border-b px-5 py-3">
           <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" onClick={goToday}>今天</Button>
+            <Button variant="outline" size="sm" onClick={goToday}>{t('calendar.today')}</Button>
             <Button variant="ghost" size="icon" className="h-7 w-7" onClick={prevMonth}>
               <ChevronLeft className="h-4 w-4" />
             </Button>
@@ -153,12 +153,12 @@ export function CalendarView({ view }: Props) {
             </Button>
             <span className="text-sm font-semibold">{monthLabel}</span>
           </div>
-          {loading && <span className="text-xs text-muted-foreground">載入中...</span>}
+          {loading && <span className="text-xs text-muted-foreground">{t('common.loading')}</span>}
         </div>
 
         {/* Weekday headers */}
         <div className="grid shrink-0 grid-cols-7 border-b">
-          {WEEKDAYS.map(day => (
+          {weekdays.map(day => (
             <div key={day} className="py-2 text-center text-xs font-medium text-muted-foreground">
               {day}
             </div>
@@ -216,7 +216,7 @@ export function CalendarView({ view }: Props) {
                     );
                   })}
                   {events.length > 3 && (
-                    <div className="px-1 text-xs text-muted-foreground">+{events.length - 3} 更多</div>
+                    <div className="px-1 text-xs text-muted-foreground">{t('calendar.more_events', { count: events.length - 3 })}</div>
                   )}
                 </div>
               </div>
@@ -228,8 +228,8 @@ export function CalendarView({ view }: Props) {
       <Dialog open={Boolean(editingRow)} onOpenChange={open => (!open ? setEditingRow(null) : null)}>
         <DialogContent className={dialogWidthClass}>
           <DialogHeader>
-            <DialogTitle>編輯 {view.name}</DialogTitle>
-            <DialogDescription>更新資料後按下儲存。</DialogDescription>
+            <DialogTitle>{t('table.view.edit_dialog_title', { name: view.name })}</DialogTitle>
+            <DialogDescription>{t('table.view.edit_dialog_desc')}</DialogDescription>
           </DialogHeader>
           {editingRow ? (
             <FormView
@@ -246,8 +246,8 @@ export function CalendarView({ view }: Props) {
       <Dialog open={showCreate} onOpenChange={setShowCreate}>
         <DialogContent className={dialogWidthClass}>
           <DialogHeader>
-            <DialogTitle>新增 {view.name}</DialogTitle>
-            <DialogDescription>填寫資料後按下儲存。</DialogDescription>
+            <DialogTitle>{t('table.view.create_dialog_title', { name: view.name })}</DialogTitle>
+            <DialogDescription>{t('table.view.create_dialog_desc')}</DialogDescription>
           </DialogHeader>
           <FormView
             fields={view.form.fields}

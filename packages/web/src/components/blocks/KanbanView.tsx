@@ -82,7 +82,7 @@ export function KanbanView({ view }: Props) {
   useEffect(() => { void fetchRows(); }, [fetchRows]);
 
   if (!kanban) {
-    return <div className="flex h-full items-center justify-center text-sm text-muted-foreground">Kanban 設定缺失</div>;
+    return <div className="flex h-full items-center justify-center text-sm text-muted-foreground">Kanban configuration is missing</div>;
   }
 
   // Derive groups from field options or distinct values in data
@@ -148,7 +148,7 @@ export function KanbanView({ view }: Props) {
   };
 
   if (loading) {
-    return <div className="flex h-full items-center justify-center text-sm text-muted-foreground">載入中...</div>;
+    return <div className="flex h-full items-center justify-center text-sm text-muted-foreground">{t('common.loading')}</div>;
   }
 
   // Calculate dialog width based on form columns
@@ -185,8 +185,8 @@ export function KanbanView({ view }: Props) {
       <Dialog open={Boolean(editingRow)} onOpenChange={open => (!open ? setEditingRow(null) : null)}>
         <DialogContent className={dialogWidthClass}>
           <DialogHeader>
-            <DialogTitle>編輯 {view.name}</DialogTitle>
-            <DialogDescription>更新資料後按下儲存。</DialogDescription>
+            <DialogTitle>{t('table.view.edit_dialog_title', { name: view.name })}</DialogTitle>
+            <DialogDescription>{t('table.view.edit_dialog_desc')}</DialogDescription>
           </DialogHeader>
           {editingRow ? (
             <FormView
@@ -203,8 +203,8 @@ export function KanbanView({ view }: Props) {
       <Dialog open={showCreate} onOpenChange={setShowCreate}>
         <DialogContent className={dialogWidthClass}>
           <DialogHeader>
-            <DialogTitle>新增 {view.name}</DialogTitle>
-            <DialogDescription>填寫資料後按下儲存。</DialogDescription>
+            <DialogTitle>{t('table.view.create_dialog_title', { name: view.name })}</DialogTitle>
+            <DialogDescription>{t('table.view.create_dialog_desc')}</DialogDescription>
           </DialogHeader>
           <FormView
             fields={view.form.fields}
@@ -231,6 +231,7 @@ function KanbanColumn({
   onAddRow?: () => void;
   columnColor?: string;
 }) {
+  const { t } = useTranslation();
   const { setNodeRef, isOver } = useDroppable({ id: group });
   const bgStyle = columnColor ? { backgroundColor: columnColor, opacity: 0.08 } : {};
 
@@ -271,7 +272,7 @@ function KanbanColumn({
             onClick={onAddRow}
           >
             <Plus className="mr-2 h-4 w-4" />
-            新增
+            {t('common.add')}
           </Button>
         </div>
       )}

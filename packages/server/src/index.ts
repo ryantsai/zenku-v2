@@ -69,11 +69,11 @@ app.post('/api/webhook/callback', authenticateWebhook, (req, res) => {
   };
 
   if (!table || !record_id || !updates || typeof updates !== 'object') {
-    res.status(400).json({ error: '缺少必要欄位：table, record_id, updates' });
+    res.status(400).json({ error: 'Missing required fields: table, record_id, updates' });
     return;
   }
   if (String(table).startsWith('_zenku_')) {
-    res.status(403).json({ error: '不允許修改系統表' });
+    res.status(403).json({ error: 'Modifying system tables is not allowed' });
     return;
   }
 
@@ -89,7 +89,7 @@ app.post('/api/webhook/callback', authenticateWebhook, (req, res) => {
     writeJournal({
       agent: 'logic',
       type: 'rule_change',
-      description: `Webhook 回呼更新 ${table} #${String(record_id)}`,
+      description: `Webhook callback updated ${table} #${String(record_id)}`,
       diff: { before: null, after: updates },
       user_request: 'webhook callback',
       reversible: false,

@@ -100,7 +100,7 @@ export class GeminiProvider implements AIProvider {
           if ((b.type === 'image' || b.type === 'document') && b.source) {
             return { inlineData: { mimeType: b.source.media_type, data: b.source.data } };
           }
-          return { text: b.text ?? `[附件: 格式 ${b.source?.media_type ?? 'unknown'} 不支援]` };
+          return { text: b.text ?? `[Attachment: format ${b.source?.media_type ?? 'unknown'} is not supported]` };
         });
         if (msg.content) parts.push({ text: msg.content });
         result.push({ role: 'user', parts });

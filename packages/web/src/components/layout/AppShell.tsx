@@ -132,7 +132,7 @@ function AppBar({
 
   return (
     <header className="flex h-11 shrink-0 items-center border-b bg-card px-2 gap-1">
-      {/* 左側：sidebar toggle + logo */}
+      {/* Left: sidebar toggle + logo */}
       <div className="flex items-center gap-1">
         {showPanelToggles && (
           <Button
@@ -154,7 +154,7 @@ function AppBar({
         </div>
       </div>
 
-      {/* 中間：breadcrumb */}
+      {/* Center: breadcrumb */}
       {viewName && (
         <div className="flex items-center gap-1 text-sm text-muted-foreground">
           <ChevronRight className="h-3.5 w-3.5" />
@@ -162,7 +162,7 @@ function AppBar({
         </div>
       )}
 
-      {/* 右側：theme toggle + chat toggle */}
+      {/* Right: theme toggle + chat toggle */}
       <div className="ml-auto flex items-center gap-1">
         <ThemeToggle />
         {showPanelToggles && (

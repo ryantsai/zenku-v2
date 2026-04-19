@@ -1,14 +1,14 @@
 /**
- * Conditional Appearance — Client-side 條件求值
- * 在 Client 端即時求值，不需要 server round-trip
+ * Conditional Appearance — Client-side condition evaluation
+ * Evaluated in real time on the client without a server round-trip
  */
 
 import type { AppearanceCondition, AppearanceEffect, AppearanceRule } from './types/appearance';
 
 /**
- * 對一個 AppearanceCondition 求值
- * @param condition 條件（可為複合 AND/OR 或單一葉節點）
- * @param record    目前的表單值或列資料
+ * Evaluate a single AppearanceCondition
+ * @param condition Condition (may be a compound AND/OR or a single leaf node)
+ * @param record    Current form values or row data
  */
 /**
  * Resolve dynamic value tokens in appearance conditions.
@@ -64,8 +64,8 @@ export function evaluateAppearanceCondition(
 }
 
 /**
- * 將一組 AppearanceRule 對指定資料求值，合併出最終效果
- * 陣列後面的規則可覆蓋前面的規則（後規則優先）
+ * Evaluate a set of AppearanceRules against the given data and merge the final effect.
+ * Later rules in the array override earlier ones (last rule wins).
  */
 export function resolveAppearance(
   rules: AppearanceRule[],
@@ -73,7 +73,7 @@ export function resolveAppearance(
 ): AppearanceEffect {
   let effect: AppearanceEffect = {};
   for (const rule of rules) {
-    if (rule.enabled === false) continue;  // 跳過停用的規則
+    if (rule.enabled === false) continue;  // Skip disabled rules
     if (evaluateAppearanceCondition(rule.when, record)) {
       effect = { ...effect, ...rule.apply };
     }

@@ -24,7 +24,7 @@ export function FieldInput({ field, value, formValues, onChange, appearance }: F
   if (appearance?.text_color)  wrapperStyle.color      = appearance.text_color;
   if (appearance?.font_weight) wrapperStyle.fontWeight = appearance.font_weight;
 
-  // 計算欄位優先（不論 type）
+  // Computed fields take priority (regardless of type)
   if (field.computed) {
     const el = <ComputedField field={field} formValues={formValues} onChange={onChange} />;
     return hasWrapper

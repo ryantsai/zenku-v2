@@ -29,7 +29,7 @@ export function DynamicSelectField({ field, value, onChange }: Props) {
   return (
     <Select value={String(value ?? '')} onValueChange={v => onChange(v)}>
       <SelectTrigger>
-        <SelectValue placeholder={field.placeholder ?? '請選擇...'} />
+        <SelectValue placeholder={field.placeholder ?? 'Please select...'} />
       </SelectTrigger>
       <SelectContent>
         {options.map(opt => (

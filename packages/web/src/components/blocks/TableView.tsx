@@ -518,7 +518,7 @@ export function TableView({ view, filters, onCreateData }: Props) {
             <AlertDialogDescription>{confirmListAction?.action.confirm?.description}</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>取消</AlertDialogCancel>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={() => {
               if (confirmListAction) {
                 void handleListCustomAction(confirmListAction.action, confirmListAction.row);
@@ -546,7 +546,7 @@ function ColumnVisibilityButton({ table }: { table: ReturnType<typeof useReactTa
         onClick={() => setOpen(!open)}
       >
         <Eye className="mr-1.5 h-4 w-4" />
-        欄位
+        Columns
       </Button>
       {open && (
         <div className="absolute right-0 z-10 mt-1 rounded-md border bg-white p-2 shadow-md dark:bg-slate-950">
@@ -604,7 +604,7 @@ function CellValue({
     case 'currency': {
       const num = Number(value);
       return wrap(
-        <span>{isFinite(num) ? `$${num.toLocaleString('zh-TW', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}` : String(value)}</span>
+        <span>{isFinite(num) ? `$${num.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })}` : String(value)}</span>
       );
     }
 

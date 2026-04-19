@@ -463,15 +463,15 @@ router.get('/admin/api-keys/scopes', requireAdmin, (_req, res) => {
   const tables = getUserTables();
   const actions = ['read', 'write'];
   const scopes: { value: string; label: string; group: string }[] = [
-    { value: 'read:*', label: '讀取所有資料表', group: '全域' },
-    { value: 'write:*', label: '寫入所有資料表', group: '全域' },
-    { value: 'webhook:callback', label: 'Webhook 回呼', group: '全域' },
+    { value: 'read:*', label: 'Read all tables', group: 'Global' },
+    { value: 'write:*', label: 'Write all tables', group: 'Global' },
+    { value: 'webhook:callback', label: 'Webhook callback', group: 'Global' },
   ];
   for (const table of tables) {
     for (const action of actions) {
       scopes.push({
         value: `${action}:${table}`,
-        label: `${action === 'read' ? '讀取' : '寫入'} ${table}`,
+        label: `${action === 'read' ? 'Read' : 'Write'} ${table}`,
         group: table,
       });
     }

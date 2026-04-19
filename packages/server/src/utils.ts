@@ -1,16 +1,16 @@
 import { getAllViews } from './db';
 
 /**
- * 安全欄位名驗證
- * 僅允許英文字母、數字與下底線，且首字不能為數字。
+ * Safe field name validation
+ * Only allows ASCII letters, digits, and underscores; cannot start with a digit.
  */
 export function isSafeFieldName(name: string): boolean {
   return /^[a-zA-Z_][a-zA-Z0-9_]*$/.test(name);
 }
 
 /**
- * 標準化請求參數
- * Express 5 的端點參數可能是 string | string[]，統一轉為 string。
+ * Normalize request parameters.
+ * Express 5 route parameters may be string | string[]; always return a plain string.
  */
 export function p(v: string | string[] | undefined): string {
   if (v === undefined) return '';
@@ -18,7 +18,7 @@ export function p(v: string | string[] | undefined): string {
 }
 
 /**
- * 從視圖定義中提取 multiselect 欄位鍵名（供序列化/反序列化使用）
+ * Extract multiselect field keys from view definitions (used for serialization/deserialization).
  */
 export function getMultiselectColumns(tableName: string): string[] {
   const views = getAllViews();
@@ -55,7 +55,7 @@ export function getMultiselectColumns(tableName: string): string[] {
 }
 
 /**
- * 關聯欄位定義介面
+ * Relation column definition interface
  */
 export interface RelationColumnDef {
   key: string;
@@ -63,15 +63,15 @@ export interface RelationColumnDef {
 }
 
 /**
- * 從視圖定義中提取關聯欄位 (供 SQL JOIN 使用)
+ * Extract relation columns from view definitions (used for SQL JOINs).
  */
 export function getRelationColumns(tableName: string): RelationColumnDef[] {
   const views = getAllViews();
   
-  // 先查找直接對應的 view
+  // First look for a view that directly maps to this table
   let view = views.find(v => v.table_name === tableName);
-  
-  // 如果找不到，查找該表是否在某個 master-detail view 的 detail_views 中
+
+  // If not found, check whether the table appears in a master-detail view's detail_views
   if (!view) {
     for (const v of views) {
       try {

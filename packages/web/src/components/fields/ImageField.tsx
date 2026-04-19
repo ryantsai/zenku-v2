@@ -66,7 +66,7 @@ export function ImageField({ field, value, onChange, readonly, disabled }: Props
 
     const tooLarge = picked.filter(f => f.size > maxMb * 1024 * 1024);
     if (tooLarge.length > 0) {
-      alert(`檔案超過 ${maxMb} MB：${tooLarge.map(f => f.name).join(', ')}`);
+      alert(`File exceeds ${maxMb} MB: ${tooLarge.map(f => f.name).join(', ')}`);
       return;
     }
 
@@ -76,7 +76,7 @@ export function ImageField({ field, value, onChange, readonly, disabled }: Props
       const allIds = field.multiple === false ? uploaded.map(f => f.id) : [...ids, ...uploaded.map(f => f.id)];
       onChange(allIds.length > 0 ? JSON.stringify(allIds) : '');
     } catch (err) {
-      alert(`上傳失敗：${String(err)}`);
+      alert(`Upload failed: ${String(err)}`);
     } finally {
       setUploading(false);
     }
@@ -147,10 +147,10 @@ export function ImageField({ field, value, onChange, readonly, disabled }: Props
             className="gap-1.5"
           >
             {uploading ? <Loader2 size={13} className="animate-spin" /> : <Plus size={13} />}
-            上傳圖片
+            Upload image
           </Button>
           {ids.length === 0 && !uploading && (
-            <p className="mt-1 text-xs text-muted-foreground">最大 {maxMb} MB</p>
+            <p className="mt-1 text-xs text-muted-foreground">Max {maxMb} MB</p>
           )}
         </div>
       )}
