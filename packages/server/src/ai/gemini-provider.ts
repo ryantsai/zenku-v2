@@ -61,7 +61,7 @@ export class GeminiProvider implements AIProvider {
     return {
       name: t.name,
       description: t.description,
-      parameters: t.input_schema as Record<string, unknown>,
+      parameters: sanitizeSchema(t.input_schema) as Record<string, unknown>,
     };
   }
 
@@ -117,4 +117,36 @@ export class GeminiProvider implements AIProvider {
 function safeJsonParse(s: string): Record<string, unknown> {
   try { return JSON.parse(s) as Record<string, unknown>; }
   catch { return { raw: s }; }
+}
+
+/**
+ * Recursively sanitizes JSON Schema for Gemini.
+ * Gemini requires all enum values to be strings.
+ */
+function sanitizeSchema(schema: any): any {
+  if (!schema || typeof schema !== 'object') return schema;
+
+  const newSchema = { ...schema };
+
+  // Convert enum to string array if it exists
+  if (Array.isArray(newSchema.enum)) {
+    newSchema.enum = newSchema.enum.map((v: any) => String(v));
+  }
+
+  // Recursively sanitize properties
+  if (newSchema.properties) {
+    newSchema.properties = Object.fromEntries(
+      Object.entries(newSchema.properties).map(([k, v]) => [
+        k,
+        sanitizeSchema(v),
+      ])
+    );
+  }
+
+  // Recursively sanitize items for arrays
+  if (newSchema.items) {
+    newSchema.items = sanitizeSchema(newSchema.items);
+  }
+
+  return newSchema;
 }

@@ -217,9 +217,9 @@ When users say "statistics/kanban/calendar/gallery", directly create a view of t
               type: 'object',
               properties: {
                 columns: {
-                  type: 'number',
-                  enum: [1, 2, 3],
-                  description: 'Form column count (default 1; suggest 2 for master-detail main form, use 3 for 8+ fields)',
+                  type: 'string',
+                  enum: ['1', '2', '3'],
+                  description: 'Form column count (default "1"; suggest "2" for master-detail main form, use "3" for 8+ fields)',
                 },
                 fields: {
                   type: 'array',
