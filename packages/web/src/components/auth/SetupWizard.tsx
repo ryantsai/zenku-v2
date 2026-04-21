@@ -1,6 +1,34 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import i18n from '../../i18n';
 import type { AuthUser } from '../../contexts/AuthContext';
+
+const LANGUAGES = [
+  { code: 'zh-TW', label: '中文' },
+  { code: 'en',    label: 'EN' },
+];
+
+function LangToggle() {
+  const { i18n: i } = useTranslation();
+  return (
+    <div className="flex gap-1">
+      {LANGUAGES.map(({ code, label }) => (
+        <button
+          key={code}
+          type="button"
+          onClick={() => { void i18n.changeLanguage(code); }}
+          className={`rounded px-2 py-1 text-xs font-medium transition ${
+            i.language === code
+              ? 'bg-primary/10 text-primary'
+              : 'text-muted-foreground hover:text-foreground'
+          }`}
+        >
+          {label}
+        </button>
+      ))}
+    </div>
+  );
+}
 
 interface Props {
   onAuth: (user: AuthUser, token: string) => void;
@@ -335,6 +363,9 @@ export function SetupWizard({ onAuth }: Props) {
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
+      <div className="absolute right-4 top-4">
+        <LangToggle />
+      </div>
       <div className="w-full max-w-md">
         <Logo />
         <StepIndicator current={step} total={2} />
