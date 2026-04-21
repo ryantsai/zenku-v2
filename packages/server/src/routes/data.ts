@@ -20,6 +20,10 @@ function parseMultiselect(row: Record<string, unknown>, msColumns: string[]): Re
   return result;
 }
 
+function escapeLike(s: string): string {
+  return s.replaceAll('\\', '\\\\').replaceAll('%', '\\%').replaceAll('_', '\\_');
+}
+
 function serializeMultiselect(data: Record<string, unknown>, msColumns: string[]): Record<string, unknown> {
   const result = { ...data };
   for (const key of msColumns) {
@@ -64,7 +68,7 @@ router.get('/:table/options', requireAuth, (req, res) => {
     }
 
     if (search) {
-      const escaped = search.replaceAll('\\', '\\\\').replaceAll('%', '\\%').replaceAll('_', '\\_');
+      const escaped = escapeLike(search);
       const rows = db.prepare(
         `SELECT "${valueField}" as value, "${displayField}" as label FROM "${table}" WHERE "${displayField}" LIKE ? ESCAPE '\\' ORDER BY "${displayField}" LIMIT 50`
       ).all(`%${escaped}%`);
@@ -166,7 +170,7 @@ router.get('/:table', requireAuth, (req, res) => {
     }
 
     const search = String(req.query.search ?? '').trim();
-    const escapedSearch = search.replaceAll('\\', '\\\\').replaceAll('%', '\\%').replaceAll('_', '\\_');
+    const escapedSearch = escapeLike(search);
 
     const whereParts: string[] = [];
     const whereParams: unknown[] = [];
@@ -196,11 +200,11 @@ router.get('/:table', requireAuth, (req, res) => {
             case 'lt':           whereParts.push(`${col} < ?`);           whereParams.push(f.value); break;
             case 'lte':          whereParts.push(`${col} <= ?`);          whereParams.push(f.value); break;
             case 'contains': {
-              const esc = String(f.value).replaceAll('\\', '\\\\').replaceAll('%', '\\%').replaceAll('_', '\\_');
+              const esc = escapeLike(String(f.value));
               whereParts.push(`${col} LIKE ? ESCAPE '\\'`); whereParams.push(`%${esc}%`); break;
             }
             case 'not_contains': {
-              const esc = String(f.value).replaceAll('\\', '\\\\').replaceAll('%', '\\%').replaceAll('_', '\\_');
+              const esc = escapeLike(String(f.value));
               whereParts.push(`${col} NOT LIKE ? ESCAPE '\\'`); whereParams.push(`%${esc}%`); break;
             }
             case 'is_empty':     whereParts.push(`(${col} IS NULL OR ${col} = '')`); break;
@@ -278,7 +282,7 @@ router.post('/:table', requireAuth, async (req, res) => {
 
     const keys = Object.keys(finalData);
     const placeholders = keys.map(() => '?').join(', ');
-    const values = Object.values(finalData);
+    const values = Object.values(finalData).map(v => typeof v === 'boolean' ? (v ? 1 : 0) : v);
 
     const result = db.prepare(
       `INSERT INTO "${table}" (${keys.map(k => `"${k}"`).join(', ')}) VALUES (${placeholders})`
@@ -291,7 +295,13 @@ router.post('/:table', requireAuth, async (req, res) => {
       console.error('[RuleEngine] after_insert error:', err)
     );
   } catch (err) {
-    res.status(400).json({ error: 'ERROR_INTERNAL_SERVER', params: { detail: String(err) } });
+    const msg = String(err);
+    const notNull = msg.match(/NOT NULL constraint failed: \w+\.(\w+)/);
+    if (notNull) {
+      res.status(400).json({ error: 'ERROR_RULE_VALIDATION', params: { details: `"${notNull[1]}" is required` } });
+    } else {
+      res.status(400).json({ error: 'ERROR_INTERNAL_SERVER', params: { detail: msg } });
+    }
   }
 });
 
@@ -326,7 +336,7 @@ router.put('/:table/:id', requireAuth, async (req, res) => {
 
     const keys = Object.keys(finalData);
     const setClause = keys.map(k => `"${k}" = ?`).join(', ');
-    const values = [...Object.values(finalData), id];
+    const values = [...Object.values(finalData).map(v => typeof v === 'boolean' ? (v ? 1 : 0) : v), id];
 
     db.prepare(`UPDATE "${table}" SET ${setClause} WHERE id = ?`).run(...(values as any[]));
 
@@ -337,7 +347,13 @@ router.put('/:table/:id', requireAuth, async (req, res) => {
       console.error('[RuleEngine] after_update error:', err)
     );
   } catch (err) {
-    res.status(400).json({ error: 'ERROR_INTERNAL_SERVER', params: { detail: String(err) } });
+    const msg = String(err);
+    const notNull = msg.match(/NOT NULL constraint failed: \w+\.(\w+)/);
+    if (notNull) {
+      res.status(400).json({ error: 'ERROR_RULE_VALIDATION', params: { details: `"${notNull[1]}" is required` } });
+    } else {
+      res.status(400).json({ error: 'ERROR_INTERNAL_SERVER', params: { detail: msg } });
+    }
   }
 });
 

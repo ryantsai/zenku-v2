@@ -71,11 +71,11 @@ export function MasterDetailView({ view, recordId }: Props) {
     }
     try {
       const result = await executeViewAction(view.id, action.id, recordId);
-      toast.success(action.label + ' executed successfully');
+      toast.success(t('table.view.toast_action_success', { action: action.label }));
       if (result.updated) setRecord(result.updated);
       else void fetchRecord();
     } catch (error) {
-      toast.error(action.label + ' failed', { description: String(error) });
+      toast.error(t('table.view.toast_action_failed', { action: action.label }), { description: String(error) });
     }
   };
 
@@ -92,7 +92,7 @@ export function MasterDetailView({ view, recordId }: Props) {
     .filter((a): a is CustomViewAction => typeof a === 'object')
     .filter(a => !a.context || a.context === 'record' || a.context === 'both');
 
-  const formColumns = view.form.columns ?? 2;
+  const formColumns = (view.form.columns ?? 2) as 1 | 2 | 3 | 4;
 
   return (
     <div className="flex h-full flex-col">

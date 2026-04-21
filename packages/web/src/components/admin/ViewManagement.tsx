@@ -40,6 +40,7 @@ const VIEW_TYPE_COLOR: Record<string, string> = {
   'dashboard': 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300',
   'kanban': 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300',
   'calendar': 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300',
+  'gallery': 'bg-pink-100 text-pink-700 dark:bg-pink-900/30 dark:text-pink-300',
 };
 const FIELD_TYPE_COLOR: Record<string, string> = {
   text: 'bg-gray-100 text-gray-600', number: 'bg-blue-50 text-blue-600',
@@ -1025,6 +1026,7 @@ export function ViewManagement() {
     'dashboard': t('admin.views.type_dashboard'), 
     'kanban': t('admin.views.type_kanban'), 
     'calendar': t('admin.views.type_calendar'),
+    'gallery': t('admin.views.type_gallery'),
   };
 
   const fetchViews = async () => {

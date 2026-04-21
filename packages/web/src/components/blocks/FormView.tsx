@@ -18,7 +18,7 @@ interface Props {
   initialValues?: Record<string, unknown>;
   mode?: FormMode;
   /** Number of form columns (default 1). textarea / computed fields always span the full row */
-  columns?: 1 | 2 | 3;
+  columns?: 1 | 2 | 3 | 4;
   onSubmit?: (data: Record<string, unknown>) => Promise<void>;
   onCancel?: () => void;
 }
@@ -143,6 +143,7 @@ export function FormView({ fields, initialValues = {}, mode = 'create', columns 
     'grid gap-x-6 gap-y-4',
     columns === 2 && 'grid-cols-2',
     columns === 3 && 'grid-cols-3',
+    columns === 4 && 'grid-cols-4',
     columns === 1 && 'grid-cols-1',
   );
 

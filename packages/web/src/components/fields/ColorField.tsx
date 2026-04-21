@@ -9,7 +9,7 @@ interface Props {
 
 export function ColorField({ value, onChange, readonly }: Props) {
   const [copied, setCopied] = useState(false);
-  const hex = String(value ?? '#000000');
+  const hex = String(value || '#000000');
 
   const handleCopy = () => {
     navigator.clipboard.writeText(hex);

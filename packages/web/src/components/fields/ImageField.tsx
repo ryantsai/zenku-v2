@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Loader2, Plus, X, ZoomIn } from 'lucide-react';
 import { Button } from '../ui/button';
-import { Dialog, DialogContent } from '../ui/dialog';
+import { Dialog, DialogContent, DialogTitle, DialogDescription } from '../ui/dialog';
 import type { FieldDef } from '../../types';
 import { uploadFiles, deleteFile, getFileUrl, getFileMeta, type FileUploadResult } from '../../api';
 
@@ -158,6 +158,8 @@ export function ImageField({ field, value, onChange, readonly, disabled }: Props
       {/* Lightbox */}
       <Dialog open={lightboxId !== null} onOpenChange={open => !open && setLightboxId(null)}>
         <DialogContent className="max-w-4xl p-2">
+          <DialogTitle className="sr-only">Image Preview</DialogTitle>
+          <DialogDescription className="sr-only">Image preview lightbox</DialogDescription>
           {lightboxId && (
             <AuthImage
               id={lightboxId}

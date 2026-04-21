@@ -50,7 +50,8 @@
     },
     "message_count": "{{count}} 則",
     "tool_updating": "更新{{label}}中...",
-    "tool_process": "更新{{label}}中..."
+    "tool_process": "更新{{label}}中...",
+    "tool_done": "{{label}}完成"
   },
   "profile": {
     "title": "個人設定",
@@ -187,6 +188,7 @@
       "type_dashboard": "儀表板",
       "type_kanban": "看板模式",
       "type_calendar": "行事曆",
+      "type_gallery": "圖庫",
       "badge_field_count": "{{count}} 欄位",
       "badge_column_count": "{{count}} 欄位",
       "badge_rule_count": "{{count}} 規則",
@@ -570,7 +572,8 @@
       "toast_batch_delete_failed": "批次刪除失敗",
       "toast_id_not_found": "找不到資料識別碼",
       "toast_action_success": "{{action}} 執行成功",
-      "toast_action_failed": "{{action}} 執行失敗"
+      "toast_action_failed": "{{action}} 執行失敗",
+      "column_visibility_button": "欄位"
     }
   }
 }

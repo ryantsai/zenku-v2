@@ -3,7 +3,7 @@ import { createOrUpdateView } from '../tools/view-tools';
 import type { ViewDefinition, AgentResult } from '../types';
 
 interface UiInput {
-  action: 'create_view' | 'update_view' | 'get_view';
+  action: 'create_view' | 'update_view' | 'get_view' | 'delete_view';
   view?: ViewDefinition;
   view_id?: string;
 }
@@ -17,6 +17,15 @@ export function runUiAgent(input: UiInput, userRequest: string): AgentResult {
     if (!row) return { success: false, message: `View "${id}" not found` };
     const def = JSON.parse(row.definition) as ViewDefinition;
     return { success: true, message: `View definition for "${id}"`, data: def };
+  }
+
+  if (input.action === 'delete_view') {
+    const id = input.view_id;
+    if (!id) return { success: false, message: 'delete_view requires view_id' };
+    const db = getDb();
+    const result = db.prepare('DELETE FROM _zenku_views WHERE id = ?').run(id);
+    if (result.changes === 0) return { success: false, message: `View "${id}" not found` };
+    return { success: true, message: `View "${id}" deleted` };
   }
 
   if (!input.view) return { success: false, message: 'create_view / update_view requires view' };

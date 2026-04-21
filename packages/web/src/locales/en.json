@@ -49,7 +49,8 @@
       "assess_impact": "Impact Assessment"
     },
     "message_count": "{{count}} messages",
-    "tool_process": "Updating {{label}}..."
+    "tool_process": "Updating {{label}}...",
+    "tool_done": "{{label}} complete"
   },
   "profile": {
     "title": "Profile",
@@ -181,6 +182,7 @@
       "type_dashboard": "Dashboard",
       "type_kanban": "Kanban",
       "type_calendar": "Calendar",
+      "type_gallery": "Gallery",
       "badge_field_count": "{{count}} fields",
       "badge_column_count": "{{count}} fields",
       "badge_rule_count": "{{count}} rules",
@@ -564,7 +566,8 @@
       "toast_batch_delete_failed": "Batch delete failed",
       "toast_id_not_found": "Record ID not found",
       "toast_action_success": "{{action}} executed successfully",
-      "toast_action_failed": "{{action}} execution failed"
+      "toast_action_failed": "{{action}} execution failed",
+      "column_visibility_button": "Columns"
     }
   }
 }

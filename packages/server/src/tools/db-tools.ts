@@ -46,6 +46,9 @@ export function createTable(
     return { success: false, message: `Table ${tableName} already exists` };
   }
 
+  const RESERVED = new Set(['id', 'created_at', 'updated_at']);
+  columns = columns.filter(col => !RESERVED.has(col.name.toLowerCase()));
+
   const colDefs = columns.map(col => {
     const type = col.type.toUpperCase();
     if (!ALLOWED_TYPES.has(type)) {

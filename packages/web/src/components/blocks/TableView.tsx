@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next';
 import type { ColumnDef as TableColumnDef, PaginationState, SortingState, VisibilityState } from '@tanstack/react-table';
 import { flexRender, getCoreRowModel, useReactTable } from '@tanstack/react-table';
 import { ArrowDown, ArrowUp, ArrowUpDown, Filter, Eye, Pencil, Plus, Search, Trash2 } from 'lucide-react';
-import { createRow, deleteRow, executeViewAction, getTableData, updateRow } from '../../api';
+import { ApiError, createRow, deleteRow, executeViewAction, getTableData, updateRow } from '../../api';
 import type { CustomViewAction, ViewDefinition } from '../../types';
 import { resolveAppearance } from '../../types';
 import { evaluateAppearanceCondition } from '@zenku/shared';
@@ -177,14 +177,12 @@ export function TableView({ view, filters, onCreateData }: Props) {
       return dataColumns;
     }
 
-    const customActionsForCol = listCustomActions; // captured in closure
-
     const actionsColumn: TableColumnDef<RowData> = {
       id: '_actions',
       header: t('table.view.actions_col'),
       cell: ({ row }) => {
         const data = row.original;
-        const visibleCustom = customActionsForCol.filter(
+        const visibleCustom = listCustomActions.filter(
           a => !a.visible_when || evaluateAppearanceCondition(a.visible_when, data)
         );
         return (
@@ -270,7 +268,10 @@ export function TableView({ view, filters, onCreateData }: Props) {
       setShowCreate(false);
       void fetchRows();
     } catch (error) {
-      toast.error(t('table.view.toast_create_failed'), { description: String(error) });
+      const desc = error instanceof ApiError
+        ? (error.params?.details || error.params?.detail || error.code)
+        : String(error);
+      toast.error(t('table.view.toast_create_failed'), { description: desc });
     }
   };
 
@@ -287,7 +288,10 @@ export function TableView({ view, filters, onCreateData }: Props) {
       setEditingRow(null);
       void fetchRows();
     } catch (error) {
-      toast.error(t('table.view.toast_update_failed'), { description: String(error) });
+      const desc = error instanceof ApiError
+        ? (error.params?.details || error.params?.detail || error.code)
+        : String(error);
+      toast.error(t('table.view.toast_update_failed'), { description: desc });
     }
   };
 
@@ -325,9 +329,9 @@ export function TableView({ view, filters, onCreateData }: Props) {
   };
 
   const visibleFieldCount = view.form.fields.filter(f => !f.hidden_in_form).length;
-  const formColumns = view.form.columns ?? (visibleFieldCount >= 5 ? 2 : 1);
+  const formColumns = (view.form.columns ?? (visibleFieldCount >= 5 ? 2 : 1)) as 1 | 2 | 3 | 4;
   const dialogWidthClass =
-    formColumns === 3 ? 'max-w-4xl' : formColumns === 2 ? 'max-w-2xl' : 'max-w-lg';
+    formColumns === 4 ? 'max-w-6xl' : formColumns === 3 ? 'max-w-4xl' : formColumns === 2 ? 'max-w-2xl' : 'max-w-lg';
 
   return (
     <div className="flex h-full flex-col">
@@ -476,7 +480,9 @@ export function TableView({ view, filters, onCreateData }: Props) {
             <DialogTitle>{t('table.view.create_dialog_title', { name: view.name })}</DialogTitle>
             <DialogDescription>{t('table.view.create_dialog_desc')}</DialogDescription>
           </DialogHeader>
-          <FormView fields={view.form.fields} columns={formColumns} onSubmit={handleCreate} onCancel={() => setShowCreate(false)} />
+          <div className="flex-1 min-h-0 overflow-y-auto -mx-6 px-6">
+            <FormView fields={view.form.fields} columns={formColumns} onSubmit={handleCreate} onCancel={() => setShowCreate(false)} />
+          </div>
         </DialogContent>
       </Dialog>
 
@@ -487,13 +493,15 @@ export function TableView({ view, filters, onCreateData }: Props) {
             <DialogDescription>{t('table.view.edit_dialog_desc')}</DialogDescription>
           </DialogHeader>
           {editingRow ? (
-            <FormView
-              fields={view.form.fields}
-              columns={formColumns}
-              initialValues={editingRow}
-              onSubmit={handleUpdate}
-              onCancel={() => setEditingRow(null)}
-            />
+            <div className="flex-1 min-h-0 overflow-y-auto -mx-6 px-6">
+              <FormView
+                fields={view.form.fields}
+                columns={formColumns}
+                initialValues={editingRow}
+                onSubmit={handleUpdate}
+                onCancel={() => setEditingRow(null)}
+              />
+            </div>
           ) : null}
         </DialogContent>
       </Dialog>
@@ -518,7 +526,7 @@ export function TableView({ view, filters, onCreateData }: Props) {
             <AlertDialogDescription>{confirmListAction?.action.confirm?.description}</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
             <AlertDialogAction onClick={() => {
               if (confirmListAction) {
                 void handleListCustomAction(confirmListAction.action, confirmListAction.row);
@@ -536,6 +544,7 @@ export function TableView({ view, filters, onCreateData }: Props) {
 
 function ColumnVisibilityButton({ table }: { table: ReturnType<typeof useReactTable<any>> }) {
   const [open, setOpen] = useState(false);
+  const { t } = useTranslation();
   const allColumns = table.getAllColumns().filter(col => col.getCanHide());
 
   return (
@@ -546,10 +555,10 @@ function ColumnVisibilityButton({ table }: { table: ReturnType<typeof useReactTa
         onClick={() => setOpen(!open)}
       >
         <Eye className="mr-1.5 h-4 w-4" />
-        Columns
+        {t('table.view.column_visibility_button')}
       </Button>
       {open && (
-        <div className="absolute right-0 z-10 mt-1 rounded-md border bg-white p-2 shadow-md dark:bg-slate-950">
+        <div className="absolute right-0 z-20 mt-1 w-max min-w-36 rounded-md border bg-white p-2 shadow-md dark:bg-slate-950">
           {allColumns.map(col => (
             <label key={col.id} className="flex items-center gap-2 px-2 py-1 text-sm hover:bg-muted rounded cursor-pointer">
               <input
@@ -558,7 +567,7 @@ function ColumnVisibilityButton({ table }: { table: ReturnType<typeof useReactTa
                 onChange={col.getToggleVisibilityHandler()}
                 className="rounded"
               />
-              {col.columnDef.header as string}
+              {typeof col.columnDef.header === 'function' ? col.id : col.columnDef.header as string}
             </label>
           ))}
         </div>
@@ -623,6 +632,39 @@ function CellValue({
 
     case 'enum':
       return <span className="inline-flex items-center rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">{String(value)}</span>;
+
+    case 'progress': {
+      const pct = Math.min(100, Math.max(0, Number(value)));
+      return (
+        <div className="flex items-center gap-2 min-w-[80px]">
+          <div className="h-1.5 flex-1 rounded-full bg-muted overflow-hidden">
+            <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${pct}%` }} />
+          </div>
+          <span className="shrink-0 text-xs tabular-nums text-muted-foreground">{pct}%</span>
+        </div>
+      );
+    }
+
+    case 'rating': {
+      const rating = Math.min(5, Math.max(0, Math.round(Number(value))));
+      return (
+        <span className="inline-flex gap-0.5">
+          {Array.from({ length: 5 }, (_, i) => (
+            <span key={i} className={i < rating ? 'text-amber-400' : 'text-muted-foreground/30'}>★</span>
+          ))}
+        </span>
+      );
+    }
+
+    case 'color': {
+      const hex = String(value);
+      return (
+        <span className="inline-flex items-center gap-1.5">
+          <span className="h-4 w-4 shrink-0 rounded-sm border border-border" style={{ backgroundColor: hex }} />
+          <span className="text-xs text-muted-foreground">{hex}</span>
+        </span>
+      );
+    }
 
     case 'file':
     case 'image': {

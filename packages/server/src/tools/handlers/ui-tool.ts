@@ -160,9 +160,9 @@ Field type determines frontend rendering (for table/master-detail):
 - currency: Currency amount (with thousand separators)
 - computed: Only set in form.fields, use number type in columns
 
-form.columns controls form column count:
-- General table view default is 1 (optional or 1)
-- master-detail with many main fields suggest 2; use 3 when fields exceed 8
+form.columns controls form column count (integer 1/2/3):
+- Always set explicitly when fields >= 5, otherwise form becomes a single long column
+- Use 2 for most multi-field forms; use 3 when fields exceed 8
 
 group controls sidebar grouping:
 - Omit for ungrouped views (shown at top)
@@ -174,8 +174,8 @@ When users say "statistics/kanban/calendar/gallery", directly create a view of t
       properties: {
         action: {
           type: 'string',
-          enum: ['create_view', 'update_view', 'get_view'],
-          description: 'get_view: fetch the full current definition of a view (use before update_view to preserve existing fields/actions)',
+          enum: ['create_view', 'update_view', 'get_view', 'delete_view'],
+          description: 'get_view: fetch full definition before update_view. delete_view: remove a view by view_id (does NOT drop the table).',
         },
         view_id: {
           type: 'string',
@@ -217,9 +217,9 @@ When users say "statistics/kanban/calendar/gallery", directly create a view of t
               type: 'object',
               properties: {
                 columns: {
-                  type: 'string',
-                  enum: ['1', '2', '3'],
-                  description: 'Form column count (default "1"; suggest "2" for master-detail main form, use "3" for 8+ fields)',
+                  type: 'integer',
+                  enum: [1, 2, 3, 4],
+                  description: 'Form column count. Always set explicitly when fields >= 5. Use 2 for most multi-field forms; 3 for 8+ fields; 4 for demo/showcase views with many field types.',
                 },
                 fields: {
                   type: 'array',
@@ -403,7 +403,7 @@ When users say "statistics/kanban/calendar/gallery", directly create a view of t
           },
         },
       },
-      required: ['action', 'view'],
+      required: ['action'],
     },
   },
   execute: async (input: any, userMessage?: string) => {

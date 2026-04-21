@@ -257,7 +257,9 @@ function DraftDetailSection({
             <DialogTitle>{t('table.view.create_dialog_title', { name: detailView.tab_label })}</DialogTitle>
             <DialogDescription>{t('master_detail.new_detail_desc')}</DialogDescription>
           </DialogHeader>
-          <FormView fields={formFields} onSubmit={handleAdd} onCancel={() => setShowAdd(false)} />
+          <div className="flex-1 min-h-0 overflow-y-auto -mx-6 px-6">
+            <FormView fields={formFields} onSubmit={handleAdd} onCancel={() => setShowAdd(false)} />
+          </div>
         </DialogContent>
       </Dialog>
     </div>

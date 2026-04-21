@@ -9,25 +9,15 @@ import { ALL_TOOLS, dispatchTool } from './tools/registry';
 import type { ToolDefinition } from './ai';
 import type { ViewDefinition, LLMMessage, ToolResult, AIProvider as AIProviderName } from './types';
 
-// Tool schemas and dispatching logic have been extracted to /tools/handlers
 
 
 
+export interface SystemPromptParts {
+  static: string;
+  dynamic: string;
+}
 
-
-
-function buildSystemPrompt(userLanguage: string = 'zh-TW'): string {
-  const tables = getUserTables();
-  const views = getAllViews();
-
-  const tableListStr = tables.length > 0
-    ? tables.map(t => `- ${t}`).join('\n')
-    : '(No tables yet)';
-
-  const viewStr = views.length > 0
-    ? views.map(v => `- ${v.name} (Source Table: ${v.table_name})`).join('\n')
-    : '(No interfaces yet)';
-
+function buildStaticPrompt(userLanguage: string = 'zh-TW'): string {
   return `You are the Zenku Orchestrator. Users describe their needs, and you build the application.
 
 Available Tools:
@@ -48,6 +38,7 @@ Critical Rules:
 6. Identity: View ID should usually match its table_name.
 7. Modifying an existing view: ALWAYS call manage_ui (get_view) first to retrieve the current definition, then apply your changes and call update_view with the COMPLETE modified definition. Never write a partial definition — it will overwrite and lose existing fields, columns, and actions.
 8. Unknown Schema: If you need to query or modify a table but don't know its column definitions, you MUST call get_table_schema(action: 'get_schema', table_name: '...') first. Never guess column names.
+9. Required Fields: Any schema column with required: true MUST also have required: true on the corresponding form.fields entry. Omitting this causes NOT NULL constraint errors on insert.
 
 Relation Guidance (e.g., "Orders link to Customers"):
 1. manage_schema: Field uses INTEGER + references: { table: 'customers' }.
@@ -109,30 +100,22 @@ Conditional Appearance (Dynamic UI rendering):
 Use appearance[] on form fields to change how a field looks or behaves based on other field values. This is evaluated client-side in real time — no extra server calls.
 
 Common patterns:
-1. Show a field only when another field has a specific value (e.g., "tax ID field only visible for company accounts"):
+1. Show a field only when another field has a specific value:
    appearance: [{ when: { field: "customer_type", operator: "neq", value: "company" }, apply: { visibility: "hidden" } }]
-
-2. Make all fields read-only after a status is set (e.g., "all fields read-only after completed"):
-   On each editable field: appearance: [{ when: { field: "status", operator: "eq", value: "completed" }, apply: { enabled: false } }]
-
-3. Highlight a value in red when it exceeds a threshold (e.g., "highlight amount in red when over 10000"):
+2. Make fields read-only after a status is set:
+   appearance: [{ when: { field: "status", operator: "eq", value: "completed" }, apply: { enabled: false } }]
+3. Highlight value by threshold:
    appearance: [{ when: { field: "amount", operator: "gt", value: 10000 }, apply: { text_color: "#dc2626", font_weight: "bold" } }]
-
-4. Make a field required conditionally (e.g., "card number required only when credit card is selected"):
+4. Conditionally required:
    appearance: [{ when: { field: "payment_method", operator: "eq", value: "credit_card" }, apply: { required: true } }]
-
-5. Multiple rules on same field (later rules override earlier when both match):
-   appearance: [
-     { when: { field: "score", operator: "gte", value: 80 }, apply: { text_color: "#16a34a" } },
-     { when: { field: "score", operator: "lt", value: 60 }, apply: { text_color: "#dc2626" } }
-   ]
+5. Multiple rules (later rules override earlier when both match).
 
 Important constraints:
 - appearance[] only works in form.fields (not columns).
 - The "field" in "when" must be a key that exists in the same form.
 - For permanent hiding, use hidden_in_form: true instead of appearance[].
-- For cross-table conditions (e.g., check customer tier), use Business Rules (manage_rules) instead — appearance only accesses current form values.
-- To remove a conditional appearance rule, call manage_ui (update_view) and omit the appearance property from that field.
+- For cross-table conditions, use Business Rules (manage_rules) instead.
+- To remove a conditional appearance rule, call update_view and omit the appearance property from that field.
 
 Custom ViewActions:
 To add a custom action to an existing view, always follow this sequence:
@@ -140,56 +123,21 @@ To add a custom action to an existing view, always follow this sequence:
 2. Add the new action object into definition.actions[]
 3. manage_ui({ action: 'update_view', view: { ...full modified definition } })
 
-Add custom buttons to record forms or table rows via the actions array. Mix built-in strings with custom objects.
-
 behavior types:
-1. set_field — Change a field value on the record. Best for status transitions.
-   { type: 'set_field', field: 'status', value: 'approved' }
+1. set_field — { type: 'set_field', field: 'status', value: 'approved' }
+2. trigger_rule — { type: 'trigger_rule', rule_id: '<rule_id>' }
+3. webhook — { type: 'webhook', url: 'https://...', method: 'POST', payload: '{"id":"{{id}}"}' }
+4. navigate — { type: 'navigate', view_id: 'orders', filter_field: 'customer_id', filter_value_from: 'id' }
+5. create_related — { type: 'create_related', table: 'shipments', field_mapping: { order_id: 'id', status: 'pending' } }
 
-2. trigger_rule — Execute a business rule with trigger_type='manual'. (Phase 4.2, coming soon)
-   { type: 'trigger_rule', rule_id: '<rule_id>' }
+context rules: 'record' (default) | 'list' | 'both'
+Use visible_when, confirm { title, description } for status transitions.
 
-3. webhook — Call an external URL with record data. Use {{field}} in payload to inject record field values.
-   { type: 'webhook', url: 'https://...', method: 'POST', payload: '{"id":"{{id}}","status":"{{status}}"}' }
-
-4. navigate — Navigate to another View (client-side only). Optionally pass a filter from the current record.
-   { type: 'navigate', view_id: 'orders', filter_field: 'customer_id', filter_value_from: 'id' }
-
-5. create_related — Insert a new record in another table. field_mapping keys are target fields; values are source field names (from current record) or literals.
-   { type: 'create_related', table: 'shipments', field_mapping: { order_id: 'id', status: 'pending' } }
-
-context rules:
-- 'record' (default): button appears in the detail form header (MasterDetailView)
-- 'list': button appears in each table row's actions column
-- 'both': appears in both places
-
-Common patterns:
-- Status transition with confirmation: set_field + confirm { title, description } + visible_when condition
-- "Approve" button visible only when status=pending: visible_when: { field: 'status', operator: 'eq', value: 'pending' }
-- Notify external system after user action: webhook
-- Jump to related view: navigate with filter_field + filter_value_from
-
-Example — "Approve Order" button on a master-detail record form:
-{
-  id: 'approve',
-  label: 'Approve',
-  variant: 'default',
-  context: 'record',
-  visible_when: { field: 'status', operator: 'eq', value: 'pending' },
-  behavior: { type: 'set_field', field: 'status', value: 'approved' },
-  confirm: { title: 'Confirm Approval', description: 'Approving will notify the purchasing department. This action cannot be undone.' }
-}
-
-Example — "Ship" button that creates a shipment record:
-{
-  id: 'ship',
-  label: 'Ship',
-  variant: 'outline',
-  context: 'record',
-  visible_when: { field: 'status', operator: 'eq', value: 'approved' },
-  behavior: { type: 'create_related', table: 'shipments', field_mapping: { order_id: 'id', status: 'shipped' } },
-  confirm: { title: 'Create Shipment Record', description: 'A shipment record will be created for this order.' }
-}
+Form Layout:
+- form.columns: 1 | 2 | 3 | 4. Controls how many columns the form renders.
+- Default fallback: 2 if visible fields >= 5, otherwise 1.
+- Always set explicitly when creating a view with many fields (>= 5) to avoid a single long column.
+- Use 3 for 8+ fields; use 4 for showcase/demo views with many field types.
 
 Field Type Guide:
 - Currency -> schema: REAL, ui type: currency.
@@ -197,24 +145,44 @@ Field Type Guide:
 - Email -> schema: TEXT, ui type: email.
 - URL -> schema: TEXT, ui type: url.
 - Status/Category (Fixed) -> schema: TEXT, ui type: select + options.
-- Status/Category (Dynamic) -> schema: TEXT, ui type: select + source.
+- Status/Category (Dynamic) -> schema: TEXT, ui type: select + source.`;
+}
 
-Current Database (Tables):
+function buildDynamicContext(): string {
+  const tables = getUserTables();
+  const views = getAllViews();
+  const rules = getAllRules();
+
+  const tableListStr = tables.length > 0
+    ? tables.map(t => `- ${t}`).join('\n')
+    : '(No tables yet)';
+
+  const viewStr = views.length > 0
+    ? views.map(v => `- ${v.name} (Source Table: ${v.table_name})`).join('\n')
+    : '(No interfaces yet)';
+
+  const rulesStr = rules.length > 0
+    ? rules.map(r => `- ${r.name} (${r.trigger_type} on ${r.table_name})${r.enabled ? '' : ' (Disabled)'}`).join('\n')
+    : '(No rules defined)';
+
+  return `Current Database (Tables):
 ${tableListStr}
 
 Current Interfaces:
 ${viewStr}
 
 Current Rules:
-${(() => {
-  const rules = getAllRules();
-  return rules.length > 0
-    ? rules.map(r => `- ${r.name} (${r.trigger_type} on ${r.table_name})${r.enabled ? '' : ' (Disabled)'}`).join('\n')
-    : '(No rules defined)';
-})()}
+${rulesStr}
 
 Recent Operations (for undo reference):
 ${buildJournalContext()}`;
+}
+
+function buildSystemPrompt(userLanguage: string = 'zh-TW'): SystemPromptParts {
+  return {
+    static: buildStaticPrompt(userLanguage),
+    dynamic: buildDynamicContext(),
+  };
 }
 
 // ===== Tool dispatch =====
@@ -283,13 +251,14 @@ export async function* chat(
   ];
 
   const userLanguage = userId ? getUserLanguage(userId) : 'zh-TW';
+  const { static: staticPrompt } = buildSystemPrompt(userLanguage);
 
   let continueLoop = true;
 
   while (continueLoop) {
     const response = await provider.chat({
       model,
-      system: buildSystemPrompt(userLanguage),
+      system: `${staticPrompt}\n\n${buildDynamicContext()}`,
       messages: currentMessages,
       tools,
       maxTokens: 4096,

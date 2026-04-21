@@ -653,11 +653,18 @@ function ToolEventBadge({ event }: { event: ToolEvent }) {
   }
 
   if (event.type === 'tool_result') {
+    const { t } = useTranslation();
     const ok = event.result?.success;
+    const label = t(`chat.tool_labels.${event.tool}`, { defaultValue: event.tool });
     return (
-      <div className="flex items-center gap-1.5 text-xs">
-        {ok ? <CheckCircle size={11} /> : <XCircle size={11} />}
-        <Badge variant={ok ? 'secondary' : 'destructive'}>{event.result?.message}</Badge>
+      <div className="flex items-start gap-1.5 text-xs text-muted-foreground">
+        {ok
+          ? <CheckCircle size={11} className="mt-0.5 shrink-0 text-green-500" />
+          : <XCircle size={11} className="mt-0.5 shrink-0 text-destructive" />
+        }
+        <span className={ok ? '' : 'text-destructive'}>
+          {ok ? t('chat.tool_done', { label }) : event.result?.message}
+        </span>
       </div>
     );
   }
