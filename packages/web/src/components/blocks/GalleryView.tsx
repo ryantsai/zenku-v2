@@ -4,6 +4,7 @@ import type { PaginationState } from '@tanstack/react-table';
 import { ChevronLeft, ChevronRight, Plus, Search } from 'lucide-react';
 import { getTableData, updateRow, createRow } from '../../api';
 import type { ViewDefinition } from '../../types';
+import { AuthImage } from '../fields/ImageField';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '../ui/dialog';
@@ -97,14 +98,19 @@ export function GalleryView({ view }: Props) {
   const totalPages = Math.max(1, Math.ceil(total / pagination.pageSize));
   const currentPage = pagination.pageIndex + 1;
 
-  const getImageUrl = (imageVal: unknown): string | null => {
-    if (!imageVal) return null;
-    if (Array.isArray(imageVal)) {
-      const firstItem = imageVal[0];
-      return firstItem ? String(firstItem) : null;
+  const parseImageValue = (imageVal: unknown): { type: 'id'; value: string } | { type: 'url'; value: string } | null => {
+    if (!imageVal || imageVal === '') return null;
+    let candidate: string | null = null;
+    try {
+      const parsed = typeof imageVal === 'string' ? JSON.parse(imageVal) : imageVal;
+      if (Array.isArray(parsed) && parsed[0]) candidate = String(parsed[0]);
+    } catch { /* ignore */ }
+    if (!candidate && typeof imageVal === 'string') candidate = imageVal;
+    if (!candidate) return null;
+    if (candidate.startsWith('http://') || candidate.startsWith('https://') || candidate.startsWith('/')) {
+      return { type: 'url', value: candidate };
     }
-    const strVal = String(imageVal);
-    return strVal ? strVal : null;
+    return { type: 'id', value: candidate };
   };
 
   return (
@@ -139,7 +145,7 @@ export function GalleryView({ view }: Props) {
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 p-6">
             {rows.map(row => {
-              const imageUrl = getImageUrl(row[gallery.image_field]);
+              const image = parseImageValue(row[gallery.image_field]);
               const title = String(row[gallery.title_field] || '');
               const subtitle = gallery.subtitle_field ? String(row[gallery.subtitle_field] || '') : '';
 
@@ -150,9 +156,15 @@ export function GalleryView({ view }: Props) {
                   onClick={() => setEditingRow(row)}
                 >
                   <div className="aspect-square bg-muted overflow-hidden flex items-center justify-center">
-                    {imageUrl ? (
+                    {image?.type === 'id' ? (
+                      <AuthImage
+                        id={image.value}
+                        alt={title}
+                        className="w-full h-full object-cover group-hover:scale-105 transition"
+                      />
+                    ) : image?.type === 'url' ? (
                       <img
-                        src={imageUrl}
+                        src={image.value}
                         alt={title}
                         className="w-full h-full object-cover group-hover:scale-105 transition"
                       />

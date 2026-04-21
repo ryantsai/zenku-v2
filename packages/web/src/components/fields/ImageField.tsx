@@ -6,7 +6,7 @@ import type { FieldDef } from '../../types';
 import { uploadFiles, deleteFile, getFileUrl, getFileMeta, type FileUploadResult } from '../../api';
 
 // Authenticated image component
-function AuthImage({ id, alt, className }: { id: string; alt: string; className?: string }) {
+export function AuthImage({ id, alt, className }: { id: string; alt: string; className?: string }) {
   const [src, setSrc] = useState<string | null>(null);
   useEffect(() => {
     const token = localStorage.getItem('zenku-token');

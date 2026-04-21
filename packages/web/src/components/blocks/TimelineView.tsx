@@ -12,29 +12,39 @@ interface Props {
 
 type RowData = Record<string, unknown>;
 
-// A small palette for auto-assigning category colors
 const AUTO_COLORS = [
   '#6366f1', '#f59e0b', '#10b981', '#ef4444',
   '#3b82f6', '#8b5cf6', '#ec4899', '#14b8a6',
 ];
 
 function resolveColor(value: unknown, colorMap: Map<string, string>): string {
-  if (!value) return '#94a3b8';
+  if (!value) return '#6366f1';
   const str = String(value);
-  // Direct hex value
   if (/^#[0-9a-fA-F]{3,8}$/.test(str)) return str;
-  // Category → auto color
   if (!colorMap.has(str)) {
     colorMap.set(str, AUTO_COLORS[colorMap.size % AUTO_COLORS.length]);
   }
   return colorMap.get(str)!;
 }
 
-function formatDate(value: unknown): string {
-  if (!value) return '';
+function formatDate(value: unknown): { full: string; year: string; monthDay: string } {
+  if (!value) return { full: '', year: '', monthDay: '' };
   const d = new Date(String(value));
-  if (isNaN(d.getTime())) return String(value);
-  return d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+  if (isNaN(d.getTime())) return { full: String(value), year: '', monthDay: String(value) };
+  const year = d.getFullYear().toString();
+  const monthDay = d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  return { full: `${monthDay} ${year}`, year, monthDay };
+}
+
+function groupByYear(rows: RowData[], dateField: string): { year: string; rows: RowData[] }[] {
+  const groups = new Map<string, RowData[]>();
+  for (const row of rows) {
+    const { year } = formatDate(row[dateField]);
+    const key = year || '—';
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key)!.push(row);
+  }
+  return [...groups.entries()].map(([year, rows]) => ({ year, rows }));
 }
 
 export function TimelineView({ view }: Props) {
@@ -85,6 +95,7 @@ export function TimelineView({ view }: Props) {
 
   const { date_field, title_field, description_field, color_field } = timeline;
   const colorMap = new Map<string, string>();
+  const groups = groupByYear(rows, date_field);
 
   const visibleFieldCount = view.form.fields.filter(f => !f.hidden_in_form).length;
   const formColumns = view.form.columns ?? (visibleFieldCount >= 5 ? 2 : 1);
@@ -92,45 +103,66 @@ export function TimelineView({ view }: Props) {
 
   return (
     <div className="flex h-full flex-col overflow-hidden">
-      <div className="flex-1 overflow-auto px-6 py-6">
+      <div className="flex-1 overflow-auto">
         {rows.length === 0 ? (
           <div className="flex h-full items-center justify-center text-sm text-muted-foreground">{t('common.no_data')}</div>
         ) : (
-          <ol className="relative ml-4 border-l border-muted">
-            {rows.map((row, idx) => {
-              const color = color_field ? resolveColor(row[color_field], colorMap) : '#6366f1';
-              const title = String(row[title_field] ?? '');
-              const desc = description_field ? String(row[description_field] ?? '') : '';
-              const date = formatDate(row[date_field]);
+          <div className="mx-auto max-w-2xl px-6 py-8 space-y-8">
+            {groups.map(({ year, rows: groupRows }) => (
+              <div key={year}>
+                {/* Year divider */}
+                <div className="mb-5 flex items-center gap-3">
+                  <span className="text-xs font-semibold tracking-widest text-muted-foreground">{year}</span>
+                  <div className="flex-1 border-t border-dashed border-border" />
+                </div>
 
-              return (
-                <li
-                  key={String(row.id ?? idx)}
-                  className="group mb-8 ml-6 cursor-pointer"
-                  onClick={() => setEditingRow(row)}
-                >
-                  {/* Timeline dot */}
-                  <span
-                    className="absolute -left-[11px] flex h-5 w-5 items-center justify-center rounded-full ring-4 ring-background transition group-hover:scale-110"
-                    style={{ backgroundColor: color }}
-                  />
+                {/* Timeline items */}
+                <div className="space-y-0">
+                  {groupRows.map((row, idx) => {
+                    const color = color_field ? resolveColor(row[color_field], colorMap) : resolveColor(null, colorMap);
+                    const title = String(row[title_field] ?? '');
+                    const desc = description_field ? String(row[description_field] ?? '') : '';
+                    const { monthDay } = formatDate(row[date_field]);
+                    const isLast = idx === groupRows.length - 1;
 
-                  {/* Content */}
-                  <div className="rounded-lg border bg-card p-4 shadow-sm transition group-hover:shadow-md">
-                    <div className="mb-1 flex items-center justify-between gap-2">
-                      <h3 className="text-sm font-semibold leading-tight">{title || '-'}</h3>
-                      {date && (
-                        <time className="shrink-0 text-xs text-muted-foreground">{date}</time>
-                      )}
-                    </div>
-                    {desc && (
-                      <p className="text-sm text-muted-foreground line-clamp-3">{desc}</p>
-                    )}
-                  </div>
-                </li>
-              );
-            })}
-          </ol>
+                    return (
+                      <div key={String(row.id ?? idx)} className="flex gap-0">
+                        {/* Left: date */}
+                        <div className="w-20 shrink-0 pt-3.5 pr-4 text-right">
+                          <span className="text-xs text-muted-foreground tabular-nums">{monthDay}</span>
+                        </div>
+
+                        {/* Center: dot + line */}
+                        <div className="flex flex-col items-center">
+                          <div
+                            className="z-10 mt-3 h-4 w-4 shrink-0 rounded-full ring-2 ring-background"
+                            style={{ backgroundColor: color }}
+                          />
+                          {!isLast && (
+                            <div className="w-px flex-1 bg-border" style={{ minHeight: '1.5rem' }} />
+                          )}
+                        </div>
+
+                        {/* Right: card */}
+                        <div className="flex-1 pb-5 pl-4">
+                          <div
+                            className="group cursor-pointer rounded-lg border bg-card px-4 py-3 shadow-sm transition-shadow hover:shadow-md"
+                            style={{ borderLeftWidth: '3px', borderLeftColor: color }}
+                            onClick={() => setEditingRow(row)}
+                          >
+                            <p className="text-sm font-semibold leading-snug">{title || '—'}</p>
+                            {desc && (
+                              <p className="mt-1 text-xs leading-relaxed text-muted-foreground line-clamp-2">{desc}</p>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+          </div>
         )}
       </div>
 
