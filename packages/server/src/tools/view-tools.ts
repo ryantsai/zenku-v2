@@ -14,7 +14,7 @@ export function createOrUpdateView(view: ViewDefinition, userRequest: string): A
     db.prepare(`
       UPDATE _zenku_views SET name=?, table_name=?, definition=?, updated_at=datetime('now')
       WHERE id=?
-    `).run(view.name, view.table_name, JSON.stringify(view), view.id);
+    `).run(view.name ?? '', view.table_name ?? '', JSON.stringify(view), view.id ?? '');
     logChange('ui-agent', 'update_view', { viewId: view.id, viewName: view.name }, userRequest);
 
     writeJournal({
@@ -35,7 +35,7 @@ export function createOrUpdateView(view: ViewDefinition, userRequest: string): A
     db.prepare(`
       INSERT INTO _zenku_views (id, name, table_name, definition)
       VALUES (?, ?, ?, ?)
-    `).run(view.id, view.name, view.table_name, JSON.stringify(view));
+    `).run(view.id ?? '', view.name ?? '', view.table_name ?? '', JSON.stringify(view));
     logChange('ui-agent', 'create_view', { viewId: view.id, viewName: view.name }, userRequest);
 
     writeJournal({
