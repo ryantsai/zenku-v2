@@ -455,9 +455,22 @@ export function verifyApiKey(rawKey: string, requiredScope: string): ApiKeyRecor
   return { ...row, scopes };
 }
 
+export function expandScopes(scopes: string[]): string[] {
+  const expanded = new Set(scopes);
+  if (expanded.has('mcp:admin')) {
+    expanded.add('mcp:write');
+    expanded.add('mcp:read');
+  }
+  if (expanded.has('mcp:write')) {
+    expanded.add('mcp:read');
+  }
+  return [...expanded];
+}
+
 function hasScope(keyScopes: string[], required: string): boolean {
+  const expanded = expandScopes(keyScopes);
   const [action, resource] = required.split(':');
-  return keyScopes.some(s => {
+  return expanded.some(s => {
     const [sa, sr] = s.split(':');
     return sa === action && (sr === '*' || sr === resource);
   });

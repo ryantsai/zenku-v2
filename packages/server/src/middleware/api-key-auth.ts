@@ -1,5 +1,7 @@
 import type { Request, Response, NextFunction } from 'express';
-import { verifyApiKey } from '../db';
+import { verifyApiKey, expandScopes } from '../db';
+
+export { expandScopes };
 
 declare global {
   namespace Express {
@@ -22,18 +24,6 @@ function checkRateLimit(keyId: string): boolean {
   timestamps.push(now);
   rateLimitMap.set(keyId, timestamps);
   return true;
-}
-
-export function expandScopes(scopes: string[]): string[] {
-  const expanded = new Set(scopes);
-  if (expanded.has('mcp:admin')) {
-    expanded.add('mcp:write');
-    expanded.add('mcp:read');
-  }
-  if (expanded.has('mcp:write')) {
-    expanded.add('mcp:read');
-  }
-  return [...expanded];
 }
 
 export function requireApiKey(scope: string) {
