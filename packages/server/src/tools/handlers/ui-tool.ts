@@ -230,13 +230,13 @@ When users say "statistics/kanban/calendar/gallery", directly create a view of t
             },
             actions: {
               type: 'array',
-              description: 'Built-in string actions and/or custom action objects.',
+              description: 'Controls which UI buttons appear. REQUIRED — omitting this means no buttons at all. Built-in values: "create" (Add button), "edit" (Edit button), "delete" (Delete button), "export" (Export button). For standard CRUD use ["create","edit","delete"]. No other string values are valid.',
               items: {
                 oneOf: [
                   {
                     type: 'string',
                     enum: ['create', 'edit', 'delete', 'export'],
-                    description: 'Built-in CRUD action',
+                    description: 'Built-in CRUD action. Only these four values are valid.',
                   },
                   {
                     type: 'object',
