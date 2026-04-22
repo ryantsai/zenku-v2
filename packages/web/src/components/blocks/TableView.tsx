@@ -359,7 +359,6 @@ export function TableView({ view, filters, onCreateData }: Props) {
           </div>
           <Button
             variant={showFilterPanel || advFilters.length > 0 ? 'default' : 'outline'}
-            size="sm"
             onClick={() => setShowFilterPanel(v => !v)}
             className="relative"
           >
@@ -404,8 +403,9 @@ export function TableView({ view, filters, onCreateData }: Props) {
         />
       )}
 
-      <div className="flex-1 overflow-auto">
-        <Table>
+      <div className="flex-1 overflow-auto px-6 py-3">
+        <div className="rounded-md border">
+        <Table style={{ minWidth: table.getCenterTotalSize() }}>
           <TableHeader className="sticky top-0 z-10 bg-muted/70 backdrop-blur">
             {table.getHeaderGroups().map(headerGroup => (
               <TableRow key={headerGroup.id}>
@@ -442,7 +442,7 @@ export function TableView({ view, filters, onCreateData }: Props) {
               table.getRowModel().rows.map(row => (
                 <TableRow key={row.id}>
                   {row.getVisibleCells().map(cell => (
-                    <TableCell key={cell.id}>{flexRender(cell.column.columnDef.cell, cell.getContext())}</TableCell>
+                    <TableCell key={cell.id} style={{ width: cell.column.getSize() }}>{flexRender(cell.column.columnDef.cell, cell.getContext())}</TableCell>
                   ))}
                 </TableRow>
               ))
@@ -455,22 +455,19 @@ export function TableView({ view, filters, onCreateData }: Props) {
             )}
           </TableBody>
         </Table>
-      </div>
-
-      <div className="flex items-center justify-between border-t px-6 py-3 text-sm text-muted-foreground">
-        <span>
-          {t('table.view.showing_info', { start: pageStart, end: pageEnd, total })}
-        </span>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" disabled={currentPage <= 1} onClick={() => table.setPageIndex(currentPage - 2)}>
-            {t('table.view.prev_page')}
-          </Button>
-          <span>
-            {t('table.view.page_info', { current: currentPage, total: totalPages })}
-          </span>
-          <Button variant="outline" size="sm" disabled={currentPage >= totalPages} onClick={() => table.setPageIndex(currentPage)}>
-            {t('table.view.next_page')}
-          </Button>
+        </div>
+        <div className="flex items-center justify-end py-3 text-sm text-muted-foreground">
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" disabled={currentPage <= 1} onClick={() => table.setPageIndex(currentPage - 2)}>
+              {t('table.view.prev_page')}
+            </Button>
+            <span>
+              {t('table.view.page_info', { current: currentPage, total: totalPages })}
+            </span>
+            <Button variant="outline" size="sm" disabled={currentPage >= totalPages} onClick={() => table.setPageIndex(currentPage)}>
+              {t('table.view.next_page')}
+            </Button>
+          </div>
         </div>
       </div>
 
@@ -551,7 +548,6 @@ function ColumnVisibilityButton({ table }: { table: ReturnType<typeof useReactTa
     <div className="relative">
       <Button
         variant="outline"
-        size="sm"
         onClick={() => setOpen(!open)}
       >
         <Eye className="mr-1.5 h-4 w-4" />
