@@ -2,17 +2,20 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Outlet, useParams } from 'react-router-dom';
 import { Group, type PanelSize, Panel, Separator, usePanelRef } from 'react-resizable-panels';
-import { PanelLeftClose, PanelLeftOpen, PanelRightClose, PanelRightOpen, ChevronRight } from 'lucide-react';
+import { PanelLeftClose, PanelLeftOpen, PanelRightClose, PanelRightOpen, ChevronRight, Menu, MessageSquare } from 'lucide-react';
 import { Button } from '../ui/button';
 import { ThemeToggle } from './ThemeToggle';
 import { Card } from '../ui/card';
+import { Sheet, SheetContent } from '../ui/sheet';
 import { Sidebar } from '../Sidebar';
 import { ChatPanel } from '../ChatPanel';
 import { useViews } from '../../contexts/ViewsContext';
+import { useIsMobile } from '../../lib/use-mobile';
 
 export function AppShell() {
   const { views, fetchViews } = useViews();
   const { viewId } = useParams();
+  const isMobile = useIsMobile();
   const hasViews = views.length > 0;
   const currentView = views.find(v => v.id === viewId);
 
@@ -21,6 +24,8 @@ export function AppShell() {
 
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [chatCollapsed, setChatCollapsed] = useState(hasViews);
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+  const [mobileChatOpen, setMobileChatOpen] = useState(false);
 
   const handleSidebarResize = (size: PanelSize) => {
     setSidebarCollapsed(size.asPercentage <= 6);
@@ -46,6 +51,7 @@ export function AppShell() {
     return (
       <div className="flex h-screen flex-col bg-background">
         <AppBar
+          isMobile={isMobile}
           sidebarCollapsed={false}
           chatCollapsed={false}
           onToggleSidebar={() => {}}
@@ -61,10 +67,39 @@ export function AppShell() {
     );
   }
 
+  if (isMobile) {
+    return (
+      <div className="flex h-screen flex-col bg-background text-foreground">
+        <AppBar
+          viewName={currentView?.name}
+          isMobile={isMobile}
+          sidebarCollapsed={false}
+          chatCollapsed={false}
+          onToggleSidebar={() => setMobileSidebarOpen(true)}
+          onToggleChat={() => setMobileChatOpen(true)}
+        />
+        <Sheet open={mobileSidebarOpen} onOpenChange={setMobileSidebarOpen}>
+          <SheetContent side="left" className="w-64 p-0">
+            <Sidebar collapsed={false} />
+          </SheetContent>
+        </Sheet>
+        <Sheet open={mobileChatOpen} onOpenChange={setMobileChatOpen}>
+          <SheetContent side="right" className="w-full p-0 sm:w-96">
+            <ChatPanel onViewsChanged={fetchViews} />
+          </SheetContent>
+        </Sheet>
+        <div className="flex-1 overflow-hidden">
+          <Outlet />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex h-screen flex-col bg-background text-foreground">
       <AppBar
         viewName={currentView?.name}
+        isMobile={false}
         sidebarCollapsed={sidebarCollapsed}
         chatCollapsed={chatCollapsed}
         onToggleSidebar={toggleSidebar}
@@ -113,6 +148,7 @@ export function AppShell() {
 
 interface AppBarProps {
   viewName?: string;
+  isMobile: boolean;
   sidebarCollapsed: boolean;
   chatCollapsed: boolean;
   onToggleSidebar: () => void;
@@ -122,6 +158,7 @@ interface AppBarProps {
 
 function AppBar({
   viewName,
+  isMobile,
   sidebarCollapsed,
   chatCollapsed,
   onToggleSidebar,
@@ -132,7 +169,6 @@ function AppBar({
 
   return (
     <header className="flex h-11 shrink-0 items-center border-b bg-card px-2 gap-1">
-      {/* Left: sidebar toggle + logo */}
       <div className="flex items-center gap-1">
         {showPanelToggles && (
           <Button
@@ -141,9 +177,11 @@ function AppBar({
             onClick={onToggleSidebar}
             aria-label={sidebarCollapsed ? t('common.expand_sidebar') : t('common.collapse_sidebar')}
           >
-            {sidebarCollapsed
-              ? <PanelLeftOpen className="h-4 w-4 text-muted-foreground" />
-              : <PanelLeftClose className="h-4 w-4 text-muted-foreground" />}
+            {isMobile
+              ? <Menu className="h-4 w-4 text-muted-foreground" />
+              : sidebarCollapsed
+                ? <PanelLeftOpen className="h-4 w-4 text-muted-foreground" />
+                : <PanelLeftClose className="h-4 w-4 text-muted-foreground" />}
           </Button>
         )}
         <div className="flex items-center gap-1.5 px-1">
@@ -154,7 +192,6 @@ function AppBar({
         </div>
       </div>
 
-      {/* Center: breadcrumb */}
       {viewName && (
         <div className="flex items-center gap-1 text-sm text-muted-foreground">
           <ChevronRight className="h-3.5 w-3.5" />
@@ -162,7 +199,6 @@ function AppBar({
         </div>
       )}
 
-      {/* Right: theme toggle + chat toggle */}
       <div className="ml-auto flex items-center gap-1">
         <ThemeToggle />
         {showPanelToggles && (
@@ -172,9 +208,11 @@ function AppBar({
             onClick={onToggleChat}
             aria-label={chatCollapsed ? t('common.expand_chat') : t('common.collapse_chat')}
           >
-            {chatCollapsed
-              ? <PanelRightOpen className="h-4 w-4 text-muted-foreground" />
-              : <PanelRightClose className="h-4 w-4 text-muted-foreground" />}
+            {isMobile
+              ? <MessageSquare className="h-4 w-4 text-muted-foreground" />
+              : chatCollapsed
+                ? <PanelRightOpen className="h-4 w-4 text-muted-foreground" />
+                : <PanelRightClose className="h-4 w-4 text-muted-foreground" />}
           </Button>
         )}
       </div>

@@ -257,8 +257,6 @@ export function TableView({ view, filters, onCreateData }: Props) {
 
   const totalPages = Math.max(1, Math.ceil(total / pagination.pageSize));
   const currentPage = pagination.pageIndex + 1;
-  const pageStart = total === 0 ? 0 : pagination.pageIndex * pagination.pageSize + 1;
-  const pageEnd = Math.min(total, pagination.pageIndex * pagination.pageSize + rows.length);
 
   const handleCreate = async (data: Record<string, unknown>) => {
     try {
