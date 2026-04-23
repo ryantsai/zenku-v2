@@ -142,9 +142,9 @@ export function CalendarView({ view }: Props) {
     <>
       <div className="flex h-full flex-col">
         {/* Calendar header */}
-        <div className="flex shrink-0 items-center justify-between border-b px-5 py-3">
+        <div className="flex shrink-0 items-center justify-between border-b px-6 py-3">
           <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" onClick={goToday}>{t('calendar.today')}</Button>
+            <Button variant="outline" onClick={goToday}>{t('calendar.today')}</Button>
             <Button variant="ghost" size="icon" className="h-7 w-7" onClick={prevMonth}>
               <ChevronLeft className="h-4 w-4" />
             </Button>
