@@ -86,7 +86,7 @@ export function MasterDetailView({ view, recordId }: Props) {
     .filter((a): a is CustomViewAction => typeof a === 'object')
     .filter(a => !a.context || a.context === 'record' || a.context === 'both');
 
-  const formColumns = (view.form.columns ?? 2) as 1 | 2 | 3 | 4;
+  const formColumns = (view.form.columns ?? 4) as 1 | 2 | 3 | 4;
 
   return (
     <div className="flex h-full flex-col">
@@ -147,7 +147,7 @@ export function MasterDetailView({ view, recordId }: Props) {
 
       {/* Scrollable body */}
       <div className="flex-1 overflow-y-auto">
-        <div className="mx-auto max-w-4xl space-y-6 p-6">
+        <div className="space-y-6 p-6">
 
           {loading ? (
             <div className="space-y-3">
