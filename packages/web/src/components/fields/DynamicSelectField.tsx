@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import type { FieldDef } from '../../types';
 
@@ -19,6 +20,7 @@ function getAuthHeaders(): Record<string, string> {
 }
 
 export function DynamicSelectField({ field, value, onChange }: Props) {
+  const { t } = useTranslation();
   const [options, setOptions] = useState<Option[]>([]);
 
   const { table, value_field, display_field } = field.source!;
@@ -38,7 +40,7 @@ export function DynamicSelectField({ field, value, onChange }: Props) {
   return (
     <Select value={String(value ?? '')} onValueChange={v => onChange(v)}>
       <SelectTrigger>
-        <SelectValue placeholder={field.placeholder ?? 'Please select...'}>
+        <SelectValue placeholder={field.placeholder || t('relation.placeholder')}>
           {selectedLabel}
         </SelectValue>
       </SelectTrigger>

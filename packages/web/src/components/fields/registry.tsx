@@ -1,4 +1,5 @@
 import type { CSSProperties } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Input } from '../ui/input';
 import { Textarea } from '../ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
@@ -101,11 +102,12 @@ function BooleanInput({ field, value, onChange, disabled }: FieldInputInnerProps
 }
 
 function SelectInput({ field, value, onChange, disabled }: FieldInputInnerProps) {
+  const { t } = useTranslation();
   if (field.source) return <DynamicSelectField field={field} value={value} onChange={onChange} />;
   return (
     <Select value={String(value ?? '')} onValueChange={v => onChange(v)} disabled={disabled}>
       <SelectTrigger id={field.key}>
-        <SelectValue placeholder={field.placeholder ?? 'Please select...'} />
+        <SelectValue placeholder={field.placeholder || t('relation.placeholder')} />
       </SelectTrigger>
       <SelectContent>
         {(field.options ?? []).map(opt => (

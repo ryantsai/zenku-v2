@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Check, ChevronsUpDown, Search } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover';
@@ -22,6 +23,7 @@ function getAuthHeaders(): Record<string, string> {
 }
 
 export function RelationField({ field, value, onChange }: Props) {
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const [options, setOptions] = useState<Option[]>([]);
   const [loading, setLoading] = useState(false);
@@ -77,7 +79,7 @@ export function RelationField({ field, value, onChange }: Props) {
           className="w-full justify-between font-normal"
         >
           <span className={cn('truncate', !displayValue && 'text-muted-foreground')}>
-            {displayValue || field.placeholder || 'Please select...'}
+            {displayValue || field.placeholder || t('relation.placeholder')}
           </span>
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
@@ -88,16 +90,16 @@ export function RelationField({ field, value, onChange }: Props) {
           <input
             ref={inputRef}
             className="flex h-9 w-full bg-transparent py-2 text-sm outline-none placeholder:text-muted-foreground"
-            placeholder="Search..."
+            placeholder={t('relation.search_placeholder')}
             value={search}
             onChange={e => setSearch(e.target.value)}
           />
         </div>
         <div className="max-h-60 overflow-y-auto py-1">
           {loading ? (
-            <div className="py-4 text-center text-sm text-muted-foreground">Loading...</div>
+            <div className="py-4 text-center text-sm text-muted-foreground">{t('common.loading')}</div>
           ) : filtered.length === 0 ? (
-            <div className="py-4 text-center text-sm text-muted-foreground">No matching results</div>
+            <div className="py-4 text-center text-sm text-muted-foreground">{t('relation.no_results')}</div>
           ) : (
             filtered.map(opt => (
               <button

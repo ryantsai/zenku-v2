@@ -614,5 +614,10 @@
       "toast_action_failed": "{{action}} execution failed",
       "column_visibility_button": "Columns"
     }
+  },
+  "relation": {
+    "placeholder": "Please select...",
+    "search_placeholder": "Search...",
+    "no_results": "No matching results"
   }
 }

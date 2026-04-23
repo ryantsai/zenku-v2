@@ -620,5 +620,10 @@
       "toast_action_failed": "{{action}} 執行失敗",
       "column_visibility_button": "欄位"
     }
+  },
+  "relation": {
+    "placeholder": "請選擇...",
+    "search_placeholder": "搜尋...",
+    "no_results": "無符合的結果"
   }
 }
