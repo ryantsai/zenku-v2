@@ -81,11 +81,11 @@ export function TimelineView({ view }: Props) {
     return <div className="flex h-full items-center justify-center text-sm text-muted-foreground">{t('common.loading')}</div>;
   }
 
-  const { date_field, title_field, description_field, icon_field } = timeline;
+  const { date_field, title_field, description_field, icon_field, tags_field } = timeline;
   const groups = groupByYear(rows, date_field);
 
-  const visibleFieldCount = view.form.fields.filter(f => !f.hidden_in_form).length;
-  const formColumns = view.form.columns ?? (visibleFieldCount >= 5 ? 2 : 1);
+  const visibleFieldCount = view.form?.fields?.filter(f => !f.hidden_in_form).length ?? 0;
+  const formColumns = view.form?.columns ?? (visibleFieldCount >= 5 ? 2 : 1);
   const dialogWidthClass = formColumns === 3 ? 'max-w-4xl' : formColumns === 2 ? 'max-w-2xl' : 'max-w-lg';
 
   return (
@@ -143,10 +143,10 @@ export function TimelineView({ view }: Props) {
                             </p>
                           )}
 
-                          {/* Dynamic Badges (Optional: if you have a tags/technologies field) */}
-                          {row.tags && Array.isArray(row.tags) && row.tags.length > 0 && (
+                          {/* Dynamic Badges from config */}
+                          {tags_field && Array.isArray(row[tags_field]) && (row[tags_field] as string[]).length > 0 && (
                             <div className="flex flex-wrap gap-2">
-                              {row.tags.map((tag: string) => (
+                              {(row[tags_field] as string[]).map((tag: string) => (
                                 <Badge key={tag} variant="secondary" className="rounded-full px-3">
                                   {tag}
                                 </Badge>

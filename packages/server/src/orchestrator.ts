@@ -73,8 +73,9 @@ ${buildDashboardInstructions()}
   - Still require columns and form (for list mode fallback).
 - Calendar -> manage_ui, type: 'calendar', set calendar: { date_field, title_field }.
   - Still require columns and form.
-- Timeline -> manage_ui, type: 'timeline', set timeline: { date_field, title_field, description_field?, icon_field? }.
+- Timeline -> manage_ui, type: 'timeline', set timeline: { date_field, title_field, description_field?, icon_field?, tags_field? }.
   - icon_field: A field containing a lucide icon name (e.g., "package", "check-circle").
+  - tags_field: A field containing an array of strings (e.g., ["Urgent", "VIP"]).
   - Still require columns and form.
 
 Business Rules (e.g., "90% discount for VIPs"):

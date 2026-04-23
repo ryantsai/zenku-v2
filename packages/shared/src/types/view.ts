@@ -183,6 +183,8 @@ export interface TimelineConfig {
   color_field?: string;
   /** Icon field (lucide icon name, e.g. "package", "check-circle") */
   icon_field?: string;
+  /** Tags field (field containing an array of strings to show as badges) */
+  tags_field?: string;
 }
 
 // ===== Filters =====
