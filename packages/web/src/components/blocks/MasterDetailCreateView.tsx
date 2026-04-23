@@ -123,8 +123,8 @@ export function MasterDetailCreateView({ view }: Props) {
             return (
               <div className={cn(
                 'grid gap-x-6 gap-y-4',
-                cols === 2 && 'grid-cols-2',
-                cols === 3 && 'grid-cols-3',
+                cols === 2 && 'grid-cols-1 sm:grid-cols-2',
+                cols === 3 && 'grid-cols-1 sm:grid-cols-3',
                 cols === 1 && 'grid-cols-1',
               )}>
                 {masterFields.map(field => {

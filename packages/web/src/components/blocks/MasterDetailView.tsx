@@ -21,12 +21,6 @@ interface Props {
 
 type RowData = Record<string, unknown>;
 
-function formatDateTime(val: unknown): string {
-  if (!val) return '-';
-  const d = new Date(String(val));
-  if (isNaN(d.getTime())) return String(val);
-  return d.toLocaleString(undefined, { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
-}
 
 export function MasterDetailView({ view, recordId }: Props) {
   const { t } = useTranslation();
@@ -155,64 +149,27 @@ export function MasterDetailView({ view, recordId }: Props) {
       <div className="flex-1 overflow-y-auto">
         <div className="space-y-6 p-6">
 
-          {/* Master section: form (2/3) + metadata card (1/3) */}
-          <div className="grid grid-cols-3 gap-6 items-start">
-            {/* Form */}
-            <div className="col-span-2">
-              {loading ? (
-                <div className="space-y-3">
-                  {[...Array(4)].map((_, i) => (
-                    <div key={i} className="space-y-1.5">
-                      <Skeleton className="h-4 w-24" />
-                      <Skeleton className="h-9 w-full" />
-                    </div>
-                  ))}
+          {loading ? (
+            <div className="space-y-3">
+              {[...Array(4)].map((_, i) => (
+                <div key={i} className="space-y-1.5">
+                  <Skeleton className="h-4 w-24" />
+                  <Skeleton className="h-9 w-full" />
                 </div>
-              ) : record ? (
-                <FormView
-                  key={JSON.stringify(record)}
-                  fields={view.form.fields}
-                  initialValues={record}
-                  mode="view"
-                  columns={formColumns}
-                  onSubmit={handleUpdate}
-                />
-              ) : (
-                <p className="text-sm text-muted-foreground">{t('master_detail.record_not_found')}</p>
-              )}
+              ))}
             </div>
-
-            {/* Metadata card */}
-            <div className="col-span-1">
-              <Card>
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-sm font-medium">{t('master_detail.summary')}</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  {loading ? (
-                    <div className="space-y-3">
-                      {[...Array(3)].map((_, i) => <Skeleton key={i} className="h-4 w-full" />)}
-                    </div>
-                  ) : (
-                    <dl className="space-y-3 text-sm">
-                      <div>
-                        <dt className="text-xs font-medium text-muted-foreground">ID</dt>
-                        <dd className="mt-0.5 font-mono text-xs">{recordId}</dd>
-                      </div>
-                      <div>
-                        <dt className="text-xs font-medium text-muted-foreground">{t('master_detail.created_at')}</dt>
-                        <dd className="mt-0.5">{formatDateTime(record?.created_at)}</dd>
-                      </div>
-                      <div>
-                        <dt className="text-xs font-medium text-muted-foreground">{t('master_detail.last_updated')}</dt>
-                        <dd className="mt-0.5">{formatDateTime(record?.updated_at)}</dd>
-                      </div>
-                    </dl>
-                  )}
-                </CardContent>
-              </Card>
-            </div>
-          </div>
+          ) : record ? (
+            <FormView
+              key={JSON.stringify(record)}
+              fields={view.form.fields}
+              initialValues={record}
+              mode="view"
+              columns={formColumns}
+              onSubmit={handleUpdate}
+            />
+          ) : (
+            <p className="text-sm text-muted-foreground">{t('master_detail.record_not_found')}</p>
+          )}
 
           {/* Detail view cards */}
           {(view.detail_views ?? []).map(dv => (
