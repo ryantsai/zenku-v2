@@ -62,7 +62,7 @@ router.get('/:table/options', requireAuth, (req, res) => {
 
     if (id) {
       const row = db.prepare(
-        `SELECT "${valueField}" as value, "${displayField}" as label FROM "${table}" WHERE id = ? LIMIT 1`
+        `SELECT "${valueField}" as value, "${displayField}" as label FROM "${table}" WHERE "${valueField}" = ? LIMIT 1`
       ).get(id);
       res.json(row ? [row] : []);
       return;
@@ -101,7 +101,7 @@ router.get('/:table/:id', requireAuth, (req, res) => {
     const db = getDb();
     const relationCols = getRelationColumns(table);
     const joinClauses = relationCols.map(rc =>
-      `LEFT JOIN "${rc.relation.table}" ON "${table}"."${rc.key}" = "${rc.relation.table}"."id"`
+      `LEFT JOIN "${rc.relation.table}" ON "${table}"."${rc.key}" = "${rc.relation.table}"."${rc.relation.value_field}"`
     );
     const joinSelects = relationCols.map(rc =>
       `"${rc.relation.table}"."${rc.relation.display_field}" AS "${rc.key}__display"`
@@ -219,7 +219,7 @@ router.get('/:table', requireAuth, (req, res) => {
 
     const relationCols = getRelationColumns(table);
     const joinClauses = relationCols.map(rc =>
-      `LEFT JOIN "${rc.relation.table}" ON "${table}"."${rc.key}" = "${rc.relation.table}"."id"`
+      `LEFT JOIN "${rc.relation.table}" ON "${table}"."${rc.key}" = "${rc.relation.table}"."${rc.relation.value_field}"`
     );
     const joinSelects = relationCols.map(rc =>
       `"${rc.relation.table}"."${rc.relation.display_field}" AS "${rc.key}__display"`

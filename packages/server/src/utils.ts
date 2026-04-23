@@ -59,7 +59,7 @@ export function getMultiselectColumns(tableName: string): string[] {
  */
 export interface RelationColumnDef {
   key: string;
-  relation: { table: string; display_field: string };
+  relation: { table: string; display_field: string; value_field: string };
 }
 
 /**
@@ -94,7 +94,14 @@ export function getRelationColumns(tableName: string): RelationColumnDef[] {
     const def = JSON.parse(view.definition) as { columns?: { key: string; type: string; relation?: { table: string; display_field: string } }[] };
     return (def.columns ?? [])
       .filter(c => (c as any).type === 'relation' && (c as any).relation?.table && (c as any).relation?.display_field)
-      .map(c => ({ key: c.key, relation: (c as any).relation! }));
+      .map(c => ({
+        key: c.key,
+        relation: {
+          table: (c as any).relation!.table,
+          display_field: (c as any).relation!.display_field,
+          value_field: (c as any).relation!.value_field ?? 'id',
+        }
+      }));
   } catch {
     return [];
   }
