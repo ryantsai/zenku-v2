@@ -2,7 +2,7 @@ import { useEffect, useState, Fragment } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   Loader2, RefreshCw, Trash2, ChevronDown, ChevronRight,
-  ShieldCheck, ShieldOff, Info,
+  ShieldCheck, ShieldOff, Info, CheckCircle2, XCircle,
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { Button } from '../ui/button';
@@ -46,6 +46,22 @@ interface RuleRow {
 }
 
 
+interface WebhookLogRow {
+  id: number;
+  triggered_at: string;
+  rule_id: string | null;
+  rule_name: string;
+  table_name: string;
+  record_id: string | null;
+  trigger_type: string;
+  url: string;
+  method: string;
+  http_status: number | null;
+  duration_ms: number | null;
+  status: 'success' | 'failed';
+  error: string | null;
+}
+
 // ─── Constants ───────────────────────────────────────────────────────────────
 
 const TRIGGER_COLOR: Record<TriggerType, string> = {
@@ -82,9 +98,84 @@ function conditionSummary(cond: RuleCondition | null, t: any): string {
   return `${cond.field} ${op} ${val}`;
 }
 
+// ─── Webhook Log Panel ───────────────────────────────────────────────────────
+
+function WebhookLogPanel({ ruleId, token }: { ruleId: string; token: string }) {
+  const { t, i18n } = useTranslation();
+  const [logs, setLogs] = useState<WebhookLogRow[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    setLoading(true);
+    fetch(`/api/admin/webhook-logs?rule_id=${encodeURIComponent(ruleId)}&limit=10`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then(r => r.json())
+      .then((data: { rows: WebhookLogRow[] }) => setLogs(data.rows))
+      .catch(() => {/* silent */})
+      .finally(() => setLoading(false));
+  }, [ruleId, token]);
+
+  return (
+    <div>
+      <div className="mb-1.5 font-medium text-muted-foreground uppercase tracking-wide text-xs">
+        {t('admin.rules.webhook_log_title')}
+      </div>
+      {loading ? (
+        <div className="flex items-center gap-1.5 py-2 text-xs text-muted-foreground">
+          <Loader2 className="h-3 w-3 animate-spin" /> {t('common.loading')}
+        </div>
+      ) : logs.length === 0 ? (
+        <p className="text-xs italic text-muted-foreground">{t('admin.rules.webhook_log_empty')}</p>
+      ) : (
+        <div className="rounded-md border overflow-hidden">
+          <table className="w-full text-xs">
+            <thead>
+              <tr className="border-b bg-muted/40 text-muted-foreground">
+                <th className="px-3 py-1.5 text-left font-medium">{t('admin.rules.webhook_log_col_time')}</th>
+                <th className="px-3 py-1.5 text-left font-medium">{t('admin.rules.webhook_log_col_record')}</th>
+                <th className="px-3 py-1.5 text-left font-medium">{t('admin.rules.webhook_log_col_status')}</th>
+                <th className="px-3 py-1.5 text-left font-medium">{t('admin.rules.webhook_log_col_http')}</th>
+                <th className="px-3 py-1.5 text-left font-medium">{t('admin.rules.webhook_log_col_duration')}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {logs.map(log => (
+                <tr key={log.id} className="border-b last:border-0 hover:bg-muted/20">
+                  <td className="px-3 py-1.5 font-mono text-muted-foreground">
+                    {new Date(log.triggered_at).toLocaleString(i18n.language)}
+                  </td>
+                  <td className="px-3 py-1.5 font-mono">{log.record_id ?? '—'}</td>
+                  <td className="px-3 py-1.5">
+                    {log.status === 'success' ? (
+                      <span className="inline-flex items-center gap-1 text-green-600 dark:text-green-400">
+                        <CheckCircle2 className="h-3 w-3" />
+                        {t('admin.rules.webhook_log_success')}
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 text-destructive" title={log.error ?? undefined}>
+                        <XCircle className="h-3 w-3" />
+                        {t('admin.rules.webhook_log_failed')}
+                      </span>
+                    )}
+                  </td>
+                  <td className="px-3 py-1.5 font-mono">{log.http_status ?? '—'}</td>
+                  <td className="px-3 py-1.5 text-muted-foreground">
+                    {log.duration_ms !== null ? `${log.duration_ms}ms` : '—'}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Detail Panel ────────────────────────────────────────────────────────────
 
-function RuleDetail({ rule }: { rule: RuleRow }) {
+function RuleDetail({ rule, token }: { rule: RuleRow; token: string }) {
   const { t, i18n } = useTranslation();
   const opMap: Record<string, string> = {
     eq: t('admin.rules.op_eq'),
@@ -164,6 +255,13 @@ function RuleDetail({ rule }: { rule: RuleRow }) {
         <span>{t('admin.rules.created_info', { date: new Date(rule.created_at).toLocaleString(i18n.language) })}</span>
         <span>{t('admin.rules.updated_info', { date: new Date(rule.updated_at).toLocaleString(i18n.language) })}</span>
       </div>
+
+      {/* Webhook log — only for rules that have webhook actions */}
+      {rule.actions.some(a => a.type === 'webhook') && (
+        <div className="border-t pt-3">
+          <WebhookLogPanel ruleId={rule.id} token={token} />
+        </div>
+      )}
     </div>
   );
 }
@@ -388,7 +486,7 @@ export function RulesManagement() {
                       {expandedId === rule.id && (
                         <TableRow key={`${rule.id}-detail`} className="bg-muted/20 hover:bg-muted/20">
                           <TableCell colSpan={9} className="p-0">
-                            <RuleDetail rule={rule} />
+                            <RuleDetail rule={rule} token={token} />
                           </TableCell>
                         </TableRow>
                       )}

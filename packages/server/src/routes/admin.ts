@@ -417,6 +417,33 @@ router.delete('/admin/rules/:id', requireAdmin, (req, res) => {
 });
 
 // ──────────────────────────────────────────────
+// Webhook Logs
+// ──────────────────────────────────────────────
+router.get('/admin/webhook-logs', requireAdmin, (req, res) => {
+  const db = getDb();
+  const rule_id = req.query.rule_id ? String(req.query.rule_id) : null;
+  const status = req.query.status ? String(req.query.status) : null;
+  const page = Math.max(1, Number.parseInt(String(req.query.page ?? '1'), 10) || 1);
+  const limit = Math.min(100, Math.max(1, Number.parseInt(String(req.query.limit ?? '20'), 10) || 20));
+  const offset = (page - 1) * limit;
+
+  const whereParts: string[] = [];
+  const params: (string | number)[] = [];
+  if (rule_id) { whereParts.push('rule_id = ?'); params.push(rule_id); }
+  if (status)  { whereParts.push('status = ?');  params.push(status); }
+  const where = whereParts.length > 0 ? `WHERE ${whereParts.join(' AND ')}` : '';
+
+  const rows = db.prepare(
+    `SELECT * FROM _zenku_webhook_logs ${where} ORDER BY id DESC LIMIT ? OFFSET ?`
+  ).all(...params, limit, offset);
+  const total = (db.prepare(
+    `SELECT COUNT(*) AS count FROM _zenku_webhook_logs ${where}`
+  ).get(...params) as { count: number }).count;
+
+  res.json({ rows, total, page, limit });
+});
+
+// ──────────────────────────────────────────────
 // System Reset
 // ──────────────────────────────────────────────
 router.post('/reset', requireAdmin, (_req, res) => {

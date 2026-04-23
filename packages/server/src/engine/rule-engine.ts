@@ -1,4 +1,4 @@
-import { getDb, getRulesForTable } from '../db';
+import { getDb, getRulesForTable, writeWebhookLog } from '../db';
 import { evaluateFormula } from '@zenku/shared';
 
 // ===== Types =====
@@ -297,11 +297,41 @@ export async function executeManual(
 
         case 'webhook':
           if (act.url) {
-            await fetch(act.url, {
-              method: act.method ?? 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ table, data, rule: rule.name }),
-            });
+            const method = act.method ?? 'POST';
+            const start = Date.now();
+            try {
+              const response = await fetch(act.url, {
+                method,
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ table, data, rule: rule.name }),
+              });
+              writeWebhookLog({
+                rule_id: rule.id,
+                rule_name: rule.name,
+                table_name: table,
+                record_id: data.id !== undefined ? String(data.id) : undefined,
+                trigger_type: 'manual',
+                url: act.url,
+                method,
+                http_status: response.status,
+                duration_ms: Date.now() - start,
+                status: response.ok ? 'success' : 'failed',
+              });
+            } catch (err) {
+              writeWebhookLog({
+                rule_id: rule.id,
+                rule_name: rule.name,
+                table_name: table,
+                record_id: data.id !== undefined ? String(data.id) : undefined,
+                trigger_type: 'manual',
+                url: act.url,
+                method,
+                duration_ms: Date.now() - start,
+                status: 'failed',
+                error: String(err),
+              });
+              throw err;
+            }
           }
           break;
 
@@ -482,14 +512,40 @@ export async function executeAfter(
 
         case 'webhook':
           if (act.url) {
+            const method = act.method ?? 'POST';
+            const start = Date.now();
             try {
-              await fetch(act.url, {
-                method: act.method ?? 'POST',
+              const response = await fetch(act.url, {
+                method,
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ table, action, data, rule: rule.name }),
               });
+              writeWebhookLog({
+                rule_id: rule.id,
+                rule_name: rule.name,
+                table_name: table,
+                record_id: data.id !== undefined ? String(data.id) : undefined,
+                trigger_type: triggerType,
+                url: act.url,
+                method,
+                http_status: response.status,
+                duration_ms: Date.now() - start,
+                status: response.ok ? 'success' : 'failed',
+              });
             } catch (err) {
               console.error(`[RuleEngine] Webhook failed for rule "${rule.name}":`, err);
+              writeWebhookLog({
+                rule_id: rule.id,
+                rule_name: rule.name,
+                table_name: table,
+                record_id: data.id !== undefined ? String(data.id) : undefined,
+                trigger_type: triggerType,
+                url: act.url,
+                method,
+                duration_ms: Date.now() - start,
+                status: 'failed',
+                error: String(err),
+              });
             }
           }
           break;

@@ -341,7 +341,17 @@
       "toast_load_error": "Failed to load rules",
       "toast_rule_enabled": "Rule \"{{name}}\" enabled",
       "toast_rule_disabled": "Rule \"{{name}}\" disabled",
-      "btn_delete": "Delete Rule"
+      "btn_delete": "Delete Rule",
+      "webhook_log_title": "Webhook Execution Log",
+      "webhook_log_empty": "No executions recorded yet",
+      "webhook_log_col_time": "Time",
+      "webhook_log_col_record": "Record",
+      "webhook_log_col_status": "Status",
+      "webhook_log_col_http": "HTTP",
+      "webhook_log_col_duration": "Duration",
+      "webhook_log_success": "Success",
+      "webhook_log_failed": "Failed",
+      "webhook_log_load_error": "Failed to load webhook logs"
     },
     "chat": {
       "title": "Chat History Analysis",

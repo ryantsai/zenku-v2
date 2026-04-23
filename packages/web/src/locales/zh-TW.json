@@ -347,7 +347,17 @@
       "toast_load_error": "無法載入規則列表",
       "toast_rule_enabled": "規則「{{name}}」已啟用",
       "toast_rule_disabled": "規則「{{name}}」已停用",
-      "btn_delete": "刪除規則"
+      "btn_delete": "刪除規則",
+      "webhook_log_title": "Webhook 執行記錄",
+      "webhook_log_empty": "尚無執行記錄",
+      "webhook_log_col_time": "時間",
+      "webhook_log_col_record": "記錄 ID",
+      "webhook_log_col_status": "狀態",
+      "webhook_log_col_http": "HTTP",
+      "webhook_log_col_duration": "耗時",
+      "webhook_log_success": "成功",
+      "webhook_log_failed": "失敗",
+      "webhook_log_load_error": "無法載入 Webhook 記錄"
     },
     "chat": {
       "title": "對話歷程分析",

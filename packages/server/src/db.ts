@@ -176,6 +176,25 @@ function initSystemTables(db: DatabaseSync): void {
       UNIQUE(table_name, field_name, period)
     );
 
+    CREATE TABLE IF NOT EXISTS _zenku_webhook_logs (
+      id           INTEGER PRIMARY KEY AUTOINCREMENT,
+      triggered_at TEXT    NOT NULL DEFAULT (datetime('now')),
+      rule_id      TEXT,
+      rule_name    TEXT    NOT NULL,
+      table_name   TEXT    NOT NULL,
+      record_id    TEXT,
+      trigger_type TEXT    NOT NULL,
+      url          TEXT    NOT NULL,
+      method       TEXT    NOT NULL DEFAULT 'POST',
+      http_status  INTEGER,
+      duration_ms  INTEGER,
+      status       TEXT    NOT NULL,
+      error        TEXT
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_webhook_logs_rule_id ON _zenku_webhook_logs(rule_id);
+    CREATE INDEX IF NOT EXISTS idx_webhook_logs_triggered_at ON _zenku_webhook_logs(triggered_at);
+
   `);
 
   // Migrations for existing databases
@@ -388,6 +407,49 @@ export function getRecentJournal(limit = 20): JournalRow[] {
   return db.prepare(
     'SELECT * FROM _zenku_journal WHERE reversed = 0 ORDER BY id DESC LIMIT ?'
   ).all(limit) as unknown as JournalRow[];
+}
+
+// ===== Webhook Logs =====
+
+export interface WebhookLogEntry {
+  rule_id?: string;
+  rule_name: string;
+  table_name: string;
+  record_id?: string;
+  trigger_type: string;
+  url: string;
+  method: string;
+  http_status?: number;
+  duration_ms?: number;
+  status: 'success' | 'failed';
+  error?: string;
+}
+
+export function writeWebhookLog(entry: WebhookLogEntry): void {
+  const db = getDb();
+  db.prepare(`
+    INSERT INTO _zenku_webhook_logs
+      (rule_id, rule_name, table_name, record_id, trigger_type, url, method, http_status, duration_ms, status, error)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(
+    entry.rule_id ?? null,
+    entry.rule_name,
+    entry.table_name,
+    entry.record_id ?? null,
+    entry.trigger_type,
+    entry.url,
+    entry.method,
+    entry.http_status ?? null,
+    entry.duration_ms ?? null,
+    entry.status,
+    entry.error ?? null,
+  );
+  // Keep only the 1000 most recent rows globally
+  db.prepare(`
+    DELETE FROM _zenku_webhook_logs WHERE id NOT IN (
+      SELECT id FROM _zenku_webhook_logs ORDER BY id DESC LIMIT 1000
+    )
+  `).run();
 }
 
 // ===== Auth helpers =====
