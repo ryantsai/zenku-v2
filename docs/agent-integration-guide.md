@@ -1,6 +1,8 @@
-# Zenku Agent Integration Guide
+# Zenku External Integration Guide
 
-This document is written for AI agents (e.g. Claude, n8n AI nodes, LangChain agents) that need to integrate with Zenku programmatically. It covers authentication, the external REST API, webhook automation, and the MCP server.
+This document covers what external systems need to know to communicate bidirectionally with Zenku. Examples use **n8n** as the external system, but the same patterns apply to any automation tool, third-party service, or AI agent (Zapier, Make, LangChain, etc.).
+
+Topics: authentication, external REST API, outbound webhook payload format, write-back options, MCP server access, and common pitfalls.
 
 ---
 
