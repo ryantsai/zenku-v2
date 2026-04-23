@@ -140,11 +140,26 @@ export function MultiSelectField({ field, value, onChange }: Props) {
 }
 
 export function MultiSelectReadonly({ value }: { value: unknown }) {
-  const selected: string[] = Array.isArray(value) ? value.map(String) : (value ? [String(value)] : []);
+  let selected: string[] = [];
+  if (Array.isArray(value)) {
+    selected = value.map(String);
+  } else if (typeof value === 'string' && value.startsWith('[')) {
+    try {
+      const parsed = JSON.parse(value);
+      if (Array.isArray(parsed)) selected = parsed.map(String);
+    } catch {
+      selected = [value];
+    }
+  } else if (value) {
+    selected = [String(value)];
+  }
+
+  if (selected.length === 0) return <p className="py-1 text-sm text-muted-foreground">-</p>;
+
   return (
-    <div className="flex flex-wrap gap-1">
+    <div className="flex flex-wrap gap-1 py-1">
       {selected.map(v => (
-        <Badge key={v} variant="secondary">
+        <Badge key={v} variant="secondary" className="rounded-full px-2 py-0">
           {v}
         </Badge>
       ))}
