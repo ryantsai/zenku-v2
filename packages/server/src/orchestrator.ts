@@ -73,6 +73,9 @@ ${buildDashboardInstructions()}
   - Still require columns and form (for list mode fallback).
 - Calendar -> manage_ui, type: 'calendar', set calendar: { date_field, title_field }.
   - Still require columns and form.
+- Timeline -> manage_ui, type: 'timeline', set timeline: { date_field, title_field, description_field?, icon_field? }.
+  - icon_field: A field containing a lucide icon name (e.g., "package", "check-circle").
+  - Still require columns and form.
 
 Business Rules (e.g., "90% discount for VIPs"):
 1. manage_rules -> create_rule.
