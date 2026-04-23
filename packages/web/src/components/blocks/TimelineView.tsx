@@ -144,13 +144,22 @@ export function TimelineView({ view }: Props) {
                           )}
 
                           {/* Dynamic Badges from config */}
-                          {tags_field && Array.isArray(row[tags_field]) && (row[tags_field] as string[]).length > 0 && (
+                          {tags_field && (row[tags_field] || (typeof row[tags_field] === 'string' && (row[tags_field] as string).startsWith('['))) && (
                             <div className="flex flex-wrap gap-2">
-                              {(row[tags_field] as string[]).map((tag: string) => (
-                                <Badge key={tag} variant="secondary" className="rounded-full px-3">
-                                  {tag}
-                                </Badge>
-                              ))}
+                              {(() => {
+                                let tags: string[] = [];
+                                const val = row[tags_field];
+                                if (Array.isArray(val)) {
+                                  tags = val;
+                                } else if (typeof val === 'string' && val.startsWith('[')) {
+                                  try { tags = JSON.parse(val); } catch { tags = []; }
+                                }
+                                return tags.map((tag: string) => (
+                                  <Badge key={tag} variant="secondary" className="rounded-full px-3">
+                                    {tag}
+                                  </Badge>
+                                ));
+                              })()}
                             </div>
                           )}
                         </div>
