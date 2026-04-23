@@ -38,7 +38,7 @@ export function MasterDetailCreateView({ view }: Props) {
 
   const updateMaster = (field: FieldDef, value: unknown) => {
     setMasterValues(prev => ({ ...prev, [field.key]: value }));
-    if (field.required && !field.computed) {
+    if (field.required && !field.computed && field.type !== 'auto_number') {
       const empty = value === null || value === undefined || String(value ?? '').trim() === '';
       setMasterErrors(prev => ({ ...prev, [field.key]: empty ? t('master_detail.required_error', { label: field.label }) : null }));
     }
@@ -62,6 +62,7 @@ export function MasterDetailCreateView({ view }: Props) {
     const errors: Record<string, string | null> = {};
     for (const f of masterFields) {
       if (f.computed) continue;
+      if (f.type === 'auto_number') continue;
       if (f.required) {
         const v = masterValues[f.key];
         const empty = v === null || v === undefined || String(v ?? '').trim() === '';

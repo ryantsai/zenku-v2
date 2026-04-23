@@ -77,6 +77,7 @@ export function FormView({ fields, initialValues = {}, mode = 'create', columns 
 
   const validateField = (field: FieldDef, value: unknown): string | null => {
     if (field.computed) return null;
+    if (field.type === 'auto_number') return null;
     const app = fieldAppearance.get(field.key);
     // If the field is conditionally hidden, skip validation
     if (app?.visibility === 'hidden') return null;
@@ -180,7 +181,7 @@ export function FormView({ fields, initialValues = {}, mode = 'create', columns 
                 style={app?.text_color ? { color: app.text_color } : undefined}
               >
                 {field.label}
-                {effectiveRequired && !field.computed && !isViewMode
+                {effectiveRequired && !field.computed && field.type !== 'auto_number' && !isViewMode
                   ? <span className="ml-0.5 text-destructive">*</span>
                   : null}
                 {field.computed

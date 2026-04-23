@@ -31,10 +31,16 @@ export function DynamicSelectField({ field, value, onChange }: Props) {
       .catch(() => setOptions([]));
   }, [table, value_field, display_field]);
 
+  // Radix SelectValue only knows the label when SelectItem is mounted (requires dropdown open).
+  // Pass the computed label as children so it shows correctly on controlled pre-set values.
+  const selectedLabel = options.find(o => o.value === String(value ?? ''))?.label;
+
   return (
     <Select value={String(value ?? '')} onValueChange={v => onChange(v)}>
       <SelectTrigger>
-        <SelectValue placeholder={field.placeholder ?? 'Please select...'} />
+        <SelectValue placeholder={field.placeholder ?? 'Please select...'}>
+          {selectedLabel}
+        </SelectValue>
       </SelectTrigger>
       <SelectContent>
         {options.map(opt => (
