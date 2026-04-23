@@ -181,6 +181,8 @@ export interface TimelineConfig {
   description_field?: string;
   /** Color field (if the value is a hex string it is used directly; otherwise treated as a category and auto-mapped to a color) */
   color_field?: string;
+  /** Icon field (lucide icon name, e.g. "package", "check-circle") */
+  icon_field?: string;
 }
 
 // ===== Filters =====

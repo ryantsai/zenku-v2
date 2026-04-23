@@ -158,7 +158,7 @@ export function FormView({ fields, initialValues = {}, mode = 'create', columns 
               {t('form.edit_btn')}
             </Button>
           ) : (
-            <Button type="button" size="sm" variant="ghost" onClick={() => setCurrentMode('view')}>
+            <Button type="button" size="sm" variant="outline" onClick={() => setCurrentMode('view')}>
               {t('form.cancel_edit_btn')}
             </Button>
           )}
@@ -214,7 +214,7 @@ export function FormView({ fields, initialValues = {}, mode = 'create', columns 
             </Button>
           )}
           {mode === 'view' && (
-            <Button type="button" variant="ghost" onClick={() => setCurrentMode('view')} disabled={submitting}>
+            <Button type="button" variant="outline" onClick={() => setCurrentMode('view')} disabled={submitting}>
               {t('common.cancel')}
             </Button>
           )}
