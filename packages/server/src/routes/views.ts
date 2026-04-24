@@ -1,17 +1,15 @@
 import { Router } from 'express';
 import crypto from 'crypto';
-import { getDb, getAllViews } from '../db';
+import { getDb, dbNow } from '../db';
+import { getAllViews } from '../db/views';
 import { requireAdmin, requireAuth } from '../middleware/auth';
 import { executeBefore, executeAfter, executeManual } from '../engine/rule-engine';
 import { p } from '../utils';
 
 const router = Router();
 
-// ──────────────────────────────────────────────
-// User Views
-// ──────────────────────────────────────────────
-router.get('/views', requireAuth, (_req, res) => {
-  const views = getAllViews();
+router.get('/views', requireAuth, async (_req, res) => {
+  const views = await getAllViews();
   res.json(views.map(v => ({ ...v, definition: JSON.parse(v.definition) })));
 });
 
@@ -25,9 +23,11 @@ router.post('/views/:viewId/actions/:actionId/execute', requireAuth, async (req,
     res.status(400).json({ error: 'ERROR_MISSING_ID' }); return;
   }
 
-  // Load view definition
-  const viewRow = db.prepare('SELECT definition, table_name FROM _zenku_views WHERE id = ?').get(viewId) as
-    { definition: string; table_name: string } | undefined;
+  const { rows: viewRows } = await db.query<{ definition: string; table_name: string }>(
+    'SELECT definition, table_name FROM _zenku_views WHERE id = ?',
+    [viewId]
+  );
+  const viewRow = viewRows[0];
   if (!viewRow) { res.status(404).json({ error: 'ERROR_VIEW_NOT_FOUND' }); return; }
 
   const def = JSON.parse(viewRow.definition) as { actions?: unknown[] };
@@ -41,9 +41,10 @@ router.post('/views/:viewId/actions/:actionId/execute', requireAuth, async (req,
   const { behavior } = action;
   const tableName = viewRow.table_name;
 
-  // Load current record
-  const record = db.prepare(`SELECT * FROM "${tableName}" WHERE id = ?`).get(record_id) as
-    Record<string, unknown> | undefined;
+  const { rows: recordRows } = await db.query<Record<string, unknown>>(
+    `SELECT * FROM "${tableName}" WHERE id = ?`, [record_id]
+  );
+  const record = recordRows[0];
   if (!record) { res.status(404).json({ error: 'ERROR_RECORD_NOT_FOUND' }); return; }
 
   try {
@@ -51,18 +52,21 @@ router.post('/views/:viewId/actions/:actionId/execute', requireAuth, async (req,
       case 'set_field': {
         const { field, value } = behavior as { type: string; field: string; value: string };
         if (!field) { res.status(400).json({ error: 'ERROR_MISSING_FIELD' }); return; }
-        // Run through rule engine (before_update / after_update will fire)
         const data = { [field]: value };
         const beforeResult = await executeBefore(tableName, 'update', data, record);
         if (!beforeResult.allowed) {
           res.status(422).json({ error: 'ERROR_RULE_VALIDATION', params: { details: beforeResult.errors.join('; ') } }); return;
         }
         const merged = { ...beforeResult.data };
-        db.prepare(`UPDATE "${tableName}" SET "${field}" = ?, updated_at = datetime('now') WHERE id = ?`)
-          .run(String(merged[field] ?? value), record_id);
-        const updated = db.prepare(`SELECT * FROM "${tableName}" WHERE id = ?`).get(record_id) as Record<string, unknown>;
-        void executeAfter(tableName, 'update', updated, record);
-        res.json({ success: true, updated });
+        await db.execute(
+          `UPDATE "${tableName}" SET "${field}" = ?, updated_at = ? WHERE id = ?`,
+          [String(merged[field] ?? value), dbNow(), record_id]
+        );
+        const { rows: updatedRows } = await db.query<Record<string, unknown>>(
+          `SELECT * FROM "${tableName}" WHERE id = ?`, [record_id]
+        );
+        void executeAfter(tableName, 'update', updatedRows[0] ?? {}, record);
+        res.json({ success: true, updated: updatedRows[0] });
         break;
       }
 
@@ -71,7 +75,6 @@ router.post('/views/:viewId/actions/:actionId/execute', requireAuth, async (req,
           type: string; url: string; method?: string; payload?: string;
         };
         if (!url) { res.status(400).json({ error: 'ERROR_MISSING_URL' }); return; }
-        // Interpolate {{field}} tokens
         const body = payload
           ? payload.replace(/\{\{(\w+)\}\}/g, (_, f) => String(record[f] ?? ''))
           : JSON.stringify(record);
@@ -94,7 +97,6 @@ router.post('/views/:viewId/actions/:actionId/execute', requireAuth, async (req,
         if (!table || !field_mapping) { res.status(400).json({ error: 'ERROR_MISSING_FIELDS' }); return; }
         const insertData: Record<string, unknown> = {};
         for (const [targetField, sourceExpr] of Object.entries(field_mapping)) {
-          // If sourceExpr matches a field name in the record, use its value; otherwise treat as literal
           insertData[targetField] = sourceExpr in record ? record[sourceExpr] : sourceExpr;
         }
         const beforeResult = await executeBefore(table, 'insert', insertData, {});
@@ -102,20 +104,21 @@ router.post('/views/:viewId/actions/:actionId/execute', requireAuth, async (req,
           res.status(422).json({ error: 'ERROR_RULE_VALIDATION', params: { details: beforeResult.errors.join('; ') } }); return;
         }
         const cols = Object.keys(beforeResult.data);
-        const vals = Object.values(beforeResult.data) as (string | number | bigint | null)[];
+        const vals = Object.values(beforeResult.data);
         const newId = crypto.randomUUID();
-        db.prepare(
-          `INSERT INTO "${table}" (id, ${cols.map(c => `"${c}"`).join(', ')}, created_at, updated_at)
-           VALUES (?, ${cols.map(() => '?').join(', ')}, datetime('now'), datetime('now'))`
-        ).run(newId, ...vals);
-        const created = db.prepare(`SELECT * FROM "${table}" WHERE id = ?`).get(newId) as Record<string, unknown>;
-        void executeAfter(table, 'insert', created, {});
-        res.json({ success: true, created });
+        await db.execute(
+          `INSERT INTO "${table}" (id, ${cols.map(c => `"${c}"`).join(', ')}, created_at, updated_at) VALUES (?, ${cols.map(() => '?').join(', ')}, ?, ?)`,
+          [newId, ...vals, dbNow(), dbNow()]
+        );
+        const { rows: createdRows } = await db.query<Record<string, unknown>>(
+          `SELECT * FROM "${table}" WHERE id = ?`, [newId]
+        );
+        void executeAfter(table, 'insert', createdRows[0] ?? {}, {});
+        res.json({ success: true, created: createdRows[0] });
         break;
       }
 
       case 'navigate':
-        // Pure client-side server has nothing to do
         res.json({ success: true });
         break;
 
@@ -126,9 +129,10 @@ router.post('/views/:viewId/actions/:actionId/execute', requireAuth, async (req,
         if (!result.success) {
           res.status(422).json({ error: 'ERROR_RULE_VALIDATION', params: { details: result.errors.join('; ') } }); return;
         }
-        // Reload updated record
-        const refreshed = db.prepare(`SELECT * FROM "${tableName}" WHERE id = ?`).get(record_id) as Record<string, unknown>;
-        res.json({ success: true, updated: refreshed });
+        const { rows: refreshed } = await db.query<Record<string, unknown>>(
+          `SELECT * FROM "${tableName}" WHERE id = ?`, [record_id]
+        );
+        res.json({ success: true, updated: refreshed[0] });
         break;
       }
 
@@ -140,21 +144,23 @@ router.post('/views/:viewId/actions/:actionId/execute', requireAuth, async (req,
   }
 });
 
-// ──────────────────────────────────────────────
-// Admin View Configuration
-// ──────────────────────────────────────────────
-router.get('/admin/views', requireAdmin, (_req, res) => {
-  const views = getAllViews();
+// ── Admin View Configuration ──────────────────────────────────────────────────
+
+router.get('/admin/views', requireAdmin, async (_req, res) => {
+  const views = await getAllViews();
   res.json(views.map(v => ({ ...v, definition: JSON.parse(v.definition) })));
 });
 
-router.patch('/admin/views/:id/field-prop', requireAdmin, (req, res) => {
+router.patch('/admin/views/:id/field-prop', requireAdmin, async (req, res) => {
   const db = getDb();
   const viewId = p(req.params.id);
   const { field, prop, value } = req.body as { field?: string; prop?: string; value?: unknown };
   if (!field || !prop) { res.status(400).json({ error: 'ERROR_MISSING_FIELDS' }); return; }
 
-  const row = db.prepare('SELECT definition FROM _zenku_views WHERE id = ?').get(viewId) as { definition: string } | undefined;
+  const { rows } = await db.query<{ definition: string }>(
+    'SELECT definition FROM _zenku_views WHERE id = ?', [viewId]
+  );
+  const row = rows[0];
   if (!row) { res.status(404).json({ error: 'ERROR_VIEW_NOT_FOUND' }); return; }
 
   const def = JSON.parse(row.definition);
@@ -163,30 +169,32 @@ router.patch('/admin/views/:id/field-prop', requireAdmin, (req, res) => {
     if (!def.appearance[field]) def.appearance[field] = {};
     def.appearance[field][prop] = value;
   } else {
-    // Default: update the property inside columns
     const col = (def.columns || []).find((c: any) => c.key === field);
     if (col) col[prop] = value;
     const formField = (def.form?.fields || []).find((f: any) => f.key === field);
     if (formField) formField[prop] = value;
   }
-
-  db.prepare(`UPDATE _zenku_views SET definition = ?, updated_at = datetime('now') WHERE id = ?`)
-    .run(JSON.stringify(def), viewId);
+  await db.execute(
+    `UPDATE _zenku_views SET definition = ?, updated_at = ? WHERE id = ?`,
+    [JSON.stringify(def), dbNow(), viewId]
+  );
   res.json({ success: true });
 });
 
-router.patch('/admin/views/:id/builtin-action', requireAdmin, (req, res) => {
+router.patch('/admin/views/:id/builtin-action', requireAdmin, async (req, res) => {
   const db = getDb();
   const viewId = p(req.params.id);
   const { action, enabled } = req.body as { action?: string; enabled?: boolean };
   if (!action || enabled === undefined) { res.status(400).json({ error: 'ERROR_MISSING_FIELDS' }); return; }
 
-  const row = db.prepare('SELECT definition FROM _zenku_views WHERE id = ?').get(viewId) as { definition: string } | undefined;
+  const { rows } = await db.query<{ definition: string }>(
+    'SELECT definition FROM _zenku_views WHERE id = ?', [viewId]
+  );
+  const row = rows[0];
   if (!row) { res.status(404).json({ error: 'ERROR_VIEW_NOT_FOUND' }); return; }
 
   const def = JSON.parse(row.definition);
   const actions: unknown[] = def.actions ?? [];
-
   if (enabled) {
     if (!actions.includes(action)) actions.push(action);
   } else {
@@ -194,45 +202,48 @@ router.patch('/admin/views/:id/builtin-action', requireAdmin, (req, res) => {
     if (idx !== -1) actions.splice(idx, 1);
   }
   def.actions = actions;
-
-  db.prepare(`UPDATE _zenku_views SET definition = ?, updated_at = datetime('now') WHERE id = ?`)
-    .run(JSON.stringify(def), viewId);
+  await db.execute(
+    `UPDATE _zenku_views SET definition = ?, updated_at = ? WHERE id = ?`,
+    [JSON.stringify(def), dbNow(), viewId]
+  );
   res.json({ success: true });
 });
 
-router.put('/admin/views/:id/custom-action', requireAdmin, (req, res) => {
+router.put('/admin/views/:id/custom-action', requireAdmin, async (req, res) => {
   const db = getDb();
   const viewId = p(req.params.id);
   const actionDef = req.body as { id?: string };
   if (!actionDef.id) { res.status(400).json({ error: 'ERROR_MISSING_FIELDS' }); return; }
 
-  const row = db.prepare('SELECT definition FROM _zenku_views WHERE id = ?').get(viewId) as { definition: string } | undefined;
+  const { rows } = await db.query<{ definition: string }>(
+    'SELECT definition FROM _zenku_views WHERE id = ?', [viewId]
+  );
+  const row = rows[0];
   if (!row) { res.status(404).json({ error: 'ERROR_VIEW_NOT_FOUND' }); return; }
 
   const def = JSON.parse(row.definition);
   const actions: unknown[] = def.actions ?? [];
-
   const idx = actions.findIndex(
     a => typeof a === 'object' && a !== null && (a as any).id === actionDef.id
   );
-  if (idx !== -1) {
-    actions[idx] = actionDef;
-  } else {
-    actions.push(actionDef);
-  }
+  if (idx !== -1) actions[idx] = actionDef; else actions.push(actionDef);
   def.actions = actions;
-
-  db.prepare(`UPDATE _zenku_views SET definition = ?, updated_at = datetime('now') WHERE id = ?`)
-    .run(JSON.stringify(def), viewId);
+  await db.execute(
+    `UPDATE _zenku_views SET definition = ?, updated_at = ? WHERE id = ?`,
+    [JSON.stringify(def), dbNow(), viewId]
+  );
   res.json({ success: true });
 });
 
-router.delete('/admin/views/:id/custom-action/:actionId', requireAdmin, (req, res) => {
+router.delete('/admin/views/:id/custom-action/:actionId', requireAdmin, async (req, res) => {
   const db = getDb();
   const viewId = p(req.params.id);
   const actionId = p(req.params.actionId);
 
-  const row = db.prepare('SELECT definition FROM _zenku_views WHERE id = ?').get(viewId) as { definition: string } | undefined;
+  const { rows } = await db.query<{ definition: string }>(
+    'SELECT definition FROM _zenku_views WHERE id = ?', [viewId]
+  );
+  const row = rows[0];
   if (!row) { res.status(404).json({ error: 'ERROR_VIEW_NOT_FOUND' }); return; }
 
   const def = JSON.parse(row.definition);
@@ -241,9 +252,10 @@ router.delete('/admin/views/:id/custom-action/:actionId', requireAdmin, (req, re
     (a: any) => !(typeof a === 'object' && a !== null && a.id === actionId)
   );
   if (def.actions.length === before) { res.status(404).json({ error: 'ERROR_ACTION_NOT_FOUND' }); return; }
-
-  db.prepare(`UPDATE _zenku_views SET definition = ?, updated_at = datetime('now') WHERE id = ?`)
-    .run(JSON.stringify(def), viewId);
+  await db.execute(
+    `UPDATE _zenku_views SET definition = ?, updated_at = ? WHERE id = ?`,
+    [JSON.stringify(def), dbNow(), viewId]
+  );
   res.json({ success: true });
 });
 

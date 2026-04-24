@@ -6,6 +6,6 @@ interface QueryInput {
   explanation: string;
 }
 
-export function runQueryAgent(input: QueryInput): AgentResult {
+export async function runQueryAgent(input: QueryInput): Promise<AgentResult> {
   return queryData(input.sql);
 }

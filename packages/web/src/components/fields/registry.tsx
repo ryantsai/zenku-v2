@@ -110,9 +110,14 @@ function SelectInput({ field, value, onChange, disabled }: FieldInputInnerProps)
         <SelectValue placeholder={field.placeholder || t('relation.placeholder')} />
       </SelectTrigger>
       <SelectContent>
-        {(field.options ?? []).map(opt => (
-          <SelectItem key={opt} value={opt}>{opt}</SelectItem>
-        ))}
+        {(field.options ?? []).map((opt, i) => {
+          const isObj = typeof opt === 'object' && opt !== null;
+          const val = isObj ? (opt as any).value : String(opt);
+          const label = isObj ? (opt as any).label : String(opt);
+          return (
+            <SelectItem key={`${val}-${i}`} value={val}>{label}</SelectItem>
+          );
+        })}
       </SelectContent>
     </Select>
   );

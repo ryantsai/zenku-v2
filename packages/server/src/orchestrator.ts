@@ -1,4 +1,7 @@
-import { getUserTables, getAllViews, getAllRules, getUserLanguage } from './db';
+import { getUserTables } from './db/schema';
+import { getAllViews } from './db/views';
+import { getAllRules } from './db/rules';
+import { getUserLanguage } from './db/auth';
 import { buildJournalContext } from './tools/journal-tools';
 import { createProvider, getDefaultProviderName, getDefaultModel } from './ai';
 import {
@@ -9,9 +12,6 @@ import { ALL_TOOLS, dispatchTool } from './tools/registry';
 import { buildDashboardInstructions } from './dashboard-instructions';
 import type { ToolDefinition } from './ai';
 import type { ViewDefinition, LLMMessage, ToolResult, AIProvider as AIProviderName } from './types';
-
-
-
 
 export interface SystemPromptParts {
   static: string;
@@ -41,6 +41,22 @@ Critical Rules:
 7. Modifying an existing view: ALWAYS call manage_ui (get_view) first to retrieve the current definition, then apply your changes and call update_view with the COMPLETE modified definition. Never write a partial definition — it will overwrite and lose existing fields, columns, and actions.
 8. Unknown Schema: If you need to query or modify a table but don't know its column definitions, you MUST call get_table_schema(action: 'get_schema', table_name: '...') first. Never guess column names.
 9. Required Fields: Any schema column with required: true MUST also have required: true on the corresponding form.fields entry. Omitting this causes NOT NULL constraint errors on insert.
+
+STRICT TOOL CALL FORMAT (failure to follow causes errors):
+
+manage_schema create_table — columns array is MANDATORY:
+{ "action": "create_table", "table_name": "products", "columns": [{"name": "title", "type": "TEXT"}, {"name": "price", "type": "REAL"}] }
+NEVER call create_table without the columns array. NEVER pass an empty columns array.
+
+manage_schema alter_table — changes array is MANDATORY:
+{ "action": "alter_table", "table_name": "products", "changes": [{"operation": "add_column", "column": {"name": "stock", "type": "INTEGER"}}] }
+
+manage_ui create_view — view object with id, name, table_name, columns, form, actions is MANDATORY:
+{ "action": "create_view", "view": { "id": "products", "name": "Products", "table_name": "products", "type": "table", "columns": [...], "form": {"columns": 2, "fields": [...]}, "actions": ["create","edit","delete"] } }
+NEVER call create_view without the view object. NEVER omit view.id, view.name, or view.table_name.
+
+manage_ui get_view — view_id is MANDATORY:
+{ "action": "get_view", "view_id": "products" }
 
 Relation Guidance (e.g., "Orders link to Customers"):
 1. manage_schema: Field uses INTEGER + references: { table: 'customers' }.
@@ -155,10 +171,13 @@ Field Type Guide:
 - Status/Category (Dynamic) -> schema: TEXT, ui type: select + source.`;
 }
 
-export function buildDynamicContext(): string {
-  const tables = getUserTables();
-  const views = getAllViews();
-  const rules = getAllRules();
+export async function buildDynamicContext(): Promise<string> {
+  const [tables, views, rules, journalCtx] = await Promise.all([
+    getUserTables(),
+    getAllViews(),
+    getAllRules(),
+    buildJournalContext(),
+  ]);
 
   const tableListStr = tables.length > 0
     ? tables.map(t => `- ${t}`).join('\n')
@@ -182,14 +201,7 @@ Current Rules:
 ${rulesStr}
 
 Recent Operations (for undo reference):
-${buildJournalContext()}`;
-}
-
-function buildSystemPrompt(userLanguage: string = 'zh-TW'): SystemPromptParts {
-  return {
-    static: buildStaticPrompt(userLanguage),
-    dynamic: buildDynamicContext(),
-  };
+${journalCtx}`;
 }
 
 // ===== Tool dispatch =====
@@ -229,15 +241,13 @@ export async function* chat(
   const provider = createProvider(providerName);
   const tools = getToolsForRole(userRole);
 
-  // Create or reuse chat session
   const sessionId = options?.existingSessionId
-    ?? (userId ? createChatSession(userId, providerName, model, userMessage.slice(0, 80)) : null);
+    ?? (userId ? await createChatSession(userId, providerName, model, userMessage.slice(0, 80)) : null);
 
   if (sessionId && userId) {
-    recordMessage({ session_id: sessionId, user_id: userId, role: 'user', content: userMessage });
+    await recordMessage({ session_id: sessionId, user_id: userId, role: 'user', content: userMessage });
   }
 
-  // Build initial messages from history
   const userMsg: LLMMessage = { role: 'user' as const, content: userMessage };
   if (attachments && attachments.length > 0) {
     userMsg.content_blocks = attachments.map(a => {
@@ -257,32 +267,28 @@ export async function* chat(
     userMsg,
   ];
 
-  const userLanguage = userId ? getUserLanguage(userId) : 'zh-TW';
-  const { static: staticPrompt } = buildSystemPrompt(userLanguage);
-
+  const userLanguage = userId ? await getUserLanguage(userId) : 'zh-TW';
+  const staticPrompt = buildStaticPrompt(userLanguage);
   let continueLoop = true;
 
   while (continueLoop) {
+    const dynamicContext = await buildDynamicContext();
     const response = await provider.chat({
       model,
-      system: `${staticPrompt}\n\n${buildDynamicContext()}`,
+      system: `${staticPrompt}\n\n${dynamicContext}`,
       messages: currentMessages,
       tools,
       maxTokens: 4096,
     });
 
-    // Yield text content
     if (response.content) {
       yield JSON.stringify({ type: 'text', content: response.content }) + '\n';
     }
-
-    // Yield usage info after each LLM call
     yield JSON.stringify({ type: 'usage', usage: response.usage, latency_ms: response.latency_ms }) + '\n';
 
     if (response.stop_reason === 'tool_use' && response.tool_calls.length > 0) {
-      // Log the assistant turn before processing tools
       const assistantMsgId = sessionId && userId
-        ? recordMessage({
+        ? await recordMessage({
             session_id: sessionId,
             user_id: userId,
             role: 'assistant',
@@ -296,7 +302,7 @@ export async function* chat(
           })
         : null;
 
-      if (sessionId) updateSessionStats(sessionId, response.usage, model);
+      if (sessionId) await updateSessionStats(sessionId, response.usage, model);
 
       const toolResults: ToolResult[] = [];
 
@@ -318,7 +324,7 @@ export async function* chat(
         yield JSON.stringify({ type: 'tool_result', tool: tc.name, agent, result }) + '\n';
 
         if (assistantMsgId && sessionId) {
-          recordToolEvent({
+          await recordToolEvent({
             message_id: assistantMsgId,
             session_id: sessionId,
             tool_name: tc.name,
@@ -330,13 +336,9 @@ export async function* chat(
           });
         }
 
-        toolResults.push({
-          tool_use_id: tc.id,
-          content: JSON.stringify(result),
-        });
+        toolResults.push({ tool_use_id: tc.id, content: JSON.stringify(result) });
       }
 
-      // Append assistant response + tool results to the conversation
       currentMessages.push({
         role: 'assistant',
         content: response.content,
@@ -348,9 +350,8 @@ export async function* chat(
         tool_results: toolResults,
       });
     } else {
-      // Final assistant turn — log it
       if (sessionId && userId) {
-        recordMessage({
+        await recordMessage({
           session_id: sessionId,
           user_id: userId,
           role: 'assistant',
@@ -362,13 +363,12 @@ export async function* chat(
           thinking_tokens: response.usage.thinking_tokens ?? 0,
           latency_ms: response.latency_ms,
         });
-        updateSessionStats(sessionId, response.usage, model);
-        updateSessionTitle(sessionId, userMessage.slice(0, 80));
+        await updateSessionStats(sessionId, response.usage, model);
+        await updateSessionTitle(sessionId, userMessage.slice(0, 80));
       }
       continueLoop = false;
     }
   }
 
-  // Yield done with session info
   yield JSON.stringify({ type: 'done', provider: providerName, model, session_id: sessionId }) + '\n';
 }

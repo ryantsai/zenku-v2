@@ -49,20 +49,20 @@ Field type mapping:
         action: {
           type: 'string',
           enum: ['create_table', 'alter_table', 'describe_tables'],
-          description: 'Type of action to perform',
+          description: 'Action to perform.',
         },
         table_name: {
           type: 'string',
-          description: 'Table name (lowercase English with underscores)',
+          description: 'Table name (lowercase_underscores). Required for create_table and alter_table.',
         },
         columns: {
           type: 'array',
-          description: 'Field definitions for create_table',
+          description: 'For create_table: ALL field definitions in one call. For alter_table/describe_tables: pass [].',
           items: COLUMN_DEF_SCHEMA,
         },
         changes: {
           type: 'array',
-          description: 'Changes for alter_table',
+          description: 'For alter_table: list of add_column operations.',
           items: {
             type: 'object',
             properties: {
@@ -73,7 +73,7 @@ Field type mapping:
           },
         },
       },
-      required: ['action'],
+      required: ['action', 'table_name', 'columns'],
     },
   },
   execute: async (input: any, userMessage?: string) => {

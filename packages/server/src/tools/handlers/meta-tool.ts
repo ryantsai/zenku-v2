@@ -1,5 +1,5 @@
 import { ZenkuTool } from '../types';
-import { getUserTables, getTableSchema } from '../../db';
+import { getUserTables, getTableSchema } from '../../db/schema';
 
 export const metaTool: ZenkuTool = {
   definition: {
@@ -29,7 +29,7 @@ Actions:
     const { action, table_name } = input;
 
     if (action === 'list_tables') {
-      const tables = getUserTables();
+      const tables = await getUserTables();
       return {
         success: true,
         message: `Found ${tables.length} tables.`,
@@ -41,7 +41,7 @@ Actions:
       if (!table_name) {
         return { success: false, message: 'Missing table_name for get_schema action.' };
       }
-      const schema = getTableSchema(table_name);
+      const schema = await getTableSchema(table_name);
       if (!schema || schema.length === 0) {
         return { success: false, message: `Table "${table_name}" not found or has no columns.` };
       }

@@ -1,4 +1,4 @@
-import { getDb } from '../db';
+import { getDb, dbNow } from '../db';
 import { estimateCost } from '../types';
 import type { TokenUsage } from '../types';
 
@@ -17,40 +17,41 @@ export function toolToAgent(toolName: string): AgentName {
 
 // ── Session ──────────────────────────────────────────────────────────────────
 
-export function createChatSession(userId: string, provider: string, model: string, title?: string): string {
-  const db = getDb();
+export async function createChatSession(userId: string, provider: string, model: string, title?: string): Promise<string> {
   const id = crypto.randomUUID();
-  db.prepare(`
+  await getDb().execute(`
     INSERT INTO _zenku_chat_sessions (id, user_id, provider, model, title)
     VALUES (?, ?, ?, ?, ?)
-  `).run(id, userId, provider, model, title ?? null);
+  `, [id, userId, provider, model, title ?? null]);
   return id;
 }
 
-export function updateSessionTitle(sessionId: string, title: string): void {
-  getDb().prepare(
-    `UPDATE _zenku_chat_sessions SET title = ? WHERE id = ? AND title IS NULL`
-  ).run(title, sessionId);
+export async function updateSessionTitle(sessionId: string, title: string): Promise<void> {
+  await getDb().execute(
+    `UPDATE _zenku_chat_sessions SET title = ? WHERE id = ? AND title IS NULL`,
+    [title, sessionId]
+  );
 }
 
-export function updateSessionStats(sessionId: string, usage: TokenUsage, model: string): void {
+export async function updateSessionStats(sessionId: string, usage: TokenUsage, model: string): Promise<void> {
   const cost = estimateCost(model, usage);
-  getDb().prepare(`
+  await getDb().execute(`
     UPDATE _zenku_chat_sessions SET
-      total_input_tokens   = total_input_tokens + ?,
-      total_output_tokens  = total_output_tokens + ?,
+      total_input_tokens    = total_input_tokens + ?,
+      total_output_tokens   = total_output_tokens + ?,
       total_thinking_tokens = total_thinking_tokens + ?,
-      total_cost_usd       = total_cost_usd + ?,
-      message_count        = message_count + 1,
-      updated_at           = datetime('now')
+      total_cost_usd        = total_cost_usd + ?,
+      message_count         = message_count + 1,
+      updated_at            = ?
     WHERE id = ?
-  `).run(
+  `, [
     usage.input_tokens,
     usage.output_tokens,
     usage.thinking_tokens ?? 0,
     cost,
+    dbNow(),
     sessionId,
-  );
+  ]);
 }
 
 // ── Messages ──────────────────────────────────────────────────────────────────
@@ -69,15 +70,14 @@ export interface RecordMessageInput {
   latency_ms?: number;
 }
 
-export function recordMessage(input: RecordMessageInput): string {
-  const db = getDb();
+export async function recordMessage(input: RecordMessageInput): Promise<string> {
   const id = crypto.randomUUID();
-  db.prepare(`
+  await getDb().execute(`
     INSERT INTO _zenku_chat_messages
     (id, session_id, user_id, role, content, provider, model,
      input_tokens, output_tokens, thinking_tokens, thinking_content, latency_ms)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `).run(
+  `, [
     id,
     input.session_id,
     input.user_id,
@@ -90,7 +90,7 @@ export function recordMessage(input: RecordMessageInput): string {
     input.thinking_tokens ?? 0,
     input.thinking_content ?? null,
     input.latency_ms ?? 0,
-  );
+  ]);
   return id;
 }
 
@@ -107,13 +107,12 @@ export interface RecordToolEventInput {
   latency_ms: number;
 }
 
-export function recordToolEvent(input: RecordToolEventInput): void {
-  const db = getDb();
-  db.prepare(`
+export async function recordToolEvent(input: RecordToolEventInput): Promise<void> {
+  await getDb().execute(`
     INSERT INTO _zenku_tool_events
     (id, message_id, session_id, agent, tool_name, tool_input, tool_output, success, started_at, finished_at, latency_ms)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `).run(
+  `, [
     crypto.randomUUID(),
     input.message_id,
     input.session_id,
@@ -125,5 +124,5 @@ export function recordToolEvent(input: RecordToolEventInput): void {
     input.started_at,
     input.finished_at,
     input.latency_ms,
-  );
+  ]);
 }

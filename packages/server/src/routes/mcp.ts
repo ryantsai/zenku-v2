@@ -23,17 +23,10 @@ function getToolsForScopes(scopes: string[]): ToolDefinition[] {
   return ALL_TOOLS.filter(t => allowed.has(t.definition.name)).map(t => t.definition);
 }
 
-/**
- * Strip `enum` from non-string typed fields.
- * Gemini (and some other providers) only allow enum on STRING type.
- * This keeps the schema semantically correct — the description already communicates valid values.
- */
 function sanitizeSchemaForMcp(schema: any): any {
   if (!schema || typeof schema !== 'object') return schema;
   const s = { ...schema };
-  if (Array.isArray(s.enum) && s.type && s.type !== 'string') {
-    delete s.enum;
-  }
+  if (Array.isArray(s.enum) && s.type && s.type !== 'string') delete s.enum;
   if (s.properties) {
     s.properties = Object.fromEntries(
       Object.entries(s.properties).map(([k, v]) => [k, sanitizeSchemaForMcp(v)])
@@ -45,7 +38,8 @@ function sanitizeSchemaForMcp(schema: any): any {
   return s;
 }
 
-function buildMcpInstructions(): string {
+async function buildMcpInstructions(): Promise<string> {
+  const dynamicContext = await buildDynamicContext();
   return `You are connected to a Zenku instance — a low-code application runtime.
 
 ## Tool usage rules
@@ -56,7 +50,18 @@ function buildMcpInstructions(): string {
 - When updating an existing view, always call manage_ui(get_view) first, then submit the COMPLETE modified definition with update_view. Never send a partial definition.
 
 ## Creating views (manage_ui)
-Every view MUST include an "actions" array. Without it, no buttons appear in the UI.
+
+**CRITICAL: Avoid undefined values in view definitions:**
+- Never include properties with undefined/null values
+- Every column.key and form.field.key MUST match actual database columns (verify with get_table_schema)
+- relation type REQUIRES relation object with: table, value_field, display_field
+- select type REQUIRES options array
+- auto_number type REQUIRES auto_number object with prefix and/or date_format
+- computed type REQUIRES computed object with formula, dependencies, and format
+- form MUST have fields array (can be empty [])
+- actions MUST be set (use [] for read-only, ["create","edit","delete"] for CRUD)
+
+Every view MUST include an "actions" array:
 - Standard CRUD: actions: ["create", "edit", "delete"]
 - Read-only: actions: []
 - With export: actions: ["create", "edit", "delete", "export"]
@@ -67,6 +72,17 @@ Field naming: use English lowercase_underscore for all table and field names.
 
 form.columns controls the form layout width (integer 1–4):
 - Set 2 for most forms with 5+ fields; 3 for 8+ fields.
+- Always set this explicitly when form has 5+ fields.
+
+## View creation workflow
+1. Call get_table_schema to retrieve all columns and their types
+2. Create view definition with:
+   - id, name, table_name (from schema)
+   - type: "table" (most common)
+   - columns: list each database column (key MUST match schema)
+   - form: { columns: 2, fields: [...] }
+   - actions: ["create", "edit", "delete"]
+3. Do NOT include optional properties if you won't set them (e.g., don't add "group" unless you'll set a value)
 
 ${buildDashboardInstructions()}
 
@@ -79,20 +95,18 @@ ${buildDashboardInstructions()}
 - Use appearance[] in form.fields to conditionally hide, disable, or style fields based on other field values.
 - In master-detail views, detail form appearance rules can reference the parent master record by prefixing the field with "$master." (e.g. "$master.status").
 
-${buildDynamicContext()}`;
+${dynamicContext}`;
 }
 
-// ──────────────────────────────────────────────
-// POST /api/mcp  (Streamable HTTP, stateless)
-// ──────────────────────────────────────────────
 router.post('/', requireApiKey('mcp:read'), async (req, res) => {
   const scopes  = req.apiKeyScopes ?? [];
   const tools   = getToolsForScopes(scopes);
   const allowedNames = new Set(tools.map(t => t.name));
+  const instructions = await buildMcpInstructions();
 
   const server = new Server(
     { name: 'zenku', version: '1.0.0' },
-    { capabilities: { tools: {} }, instructions: buildMcpInstructions() },
+    { capabilities: { tools: {} }, instructions },
   );
 
   server.setRequestHandler(ListToolsRequestSchema, async () => ({
@@ -105,18 +119,15 @@ router.post('/', requireApiKey('mcp:read'), async (req, res) => {
 
   server.setRequestHandler(CallToolRequestSchema, async (request) => {
     const { name, arguments: args } = request.params;
-
     if (!allowedNames.has(name)) {
       return {
-        content: [{
-          type: 'text' as const,
-          text: JSON.stringify({ success: false, message: `Tool "${name}" is not available for this API key scope.` }),
-        }],
+        content: [{ type: 'text' as const, text: JSON.stringify({ success: false, message: `Tool "${name}" is not available for this API key scope.` }) }],
         isError: true,
       };
     }
-
-    const result = await dispatchTool(name, args ?? {}, '(MCP)');
+    // Clean up undefined values from arguments
+    const cleanArgs = args ? JSON.parse(JSON.stringify(args)) : {};
+    const result = await dispatchTool(name, cleanArgs, '(MCP)');
     return {
       content: [{ type: 'text' as const, text: JSON.stringify(result) }],
       isError: !result.success,
@@ -125,7 +136,6 @@ router.post('/', requireApiKey('mcp:read'), async (req, res) => {
 
   const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined });
   await server.connect(transport);
-
   try {
     await transport.handleRequest(req as any, res as any, req.body);
   } finally {
@@ -133,18 +143,10 @@ router.post('/', requireApiKey('mcp:read'), async (req, res) => {
   }
 });
 
-// ──────────────────────────────────────────────
-// GET /api/mcp  (SSE stream for server-initiated messages, stateless)
-// ──────────────────────────────────────────────
 router.get('/', requireApiKey('mcp:read'), async (req, res) => {
-  const server = new Server(
-    { name: 'zenku', version: '1.0.0' },
-    { capabilities: { tools: {} } },
-  );
-
+  const server = new Server({ name: 'zenku', version: '1.0.0' }, { capabilities: { tools: {} } });
   const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined });
   await server.connect(transport);
-
   try {
     await transport.handleRequest(req as any, res as any);
   } finally {
@@ -152,9 +154,6 @@ router.get('/', requireApiKey('mcp:read'), async (req, res) => {
   }
 });
 
-// ──────────────────────────────────────────────
-// GET /api/mcp/info  (lightweight health + capability summary, no auth)
-// ──────────────────────────────────────────────
 router.get('/info', (_req, res) => {
   res.json({
     name: 'zenku',
@@ -166,7 +165,6 @@ router.get('/info', (_req, res) => {
       'mcp:write': ['query_data', 'get_table_schema', 'write_data'],
       'mcp:admin': ['query_data', 'get_table_schema', 'write_data', 'manage_schema', 'manage_ui', 'manage_rules', 'assess_impact', 'undo_action'],
     },
-    claude_desktop_note: 'Claude Desktop requires mcp-remote bridge. See plans/MCP_SERVER.md for setup instructions.',
   });
 });
 

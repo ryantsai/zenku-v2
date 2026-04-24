@@ -171,7 +171,7 @@ export function TableView({ view, filters, onCreateData, masterRecord }: Props) 
       },
       enableSorting: col.sortable !== false,
       enableHiding: true,
-      size: col.width ?? 180,
+      size: (typeof col.width === 'number' && !isNaN(col.width)) ? col.width : 180,
       minSize: 120,
       maxSize: 480,
     }));

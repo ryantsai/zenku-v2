@@ -1,6 +1,6 @@
-import { getPrimaryViewForTable } from '../db';
-import type { AutoNumberConfig } from '@zenku/shared';
+import { getPrimaryViewForTable } from '../db/views';
 import { getDb } from '../db';
+import type { AutoNumberConfig } from '@zenku/shared';
 
 function getPeriodKey(cfg: AutoNumberConfig): string {
   const reset = cfg.reset ?? 'never';
@@ -29,18 +29,8 @@ function getDateSegment(cfg: AutoNumberConfig): string {
   return `${yyyy}${mm}${dd}`;
 }
 
-// Atomic upsert-and-increment in one round-trip.
-// PostgreSQL equivalent: INSERT … ON CONFLICT DO UPDATE SET current_value = … RETURNING current_value
-function incrementCounter(tableName: string, fieldName: string, period: string): number {
-  const db = getDb();
-  const row = db.prepare(`
-    INSERT INTO _zenku_counters (table_name, field_name, period, current_value)
-    VALUES (?, ?, ?, 1)
-    ON CONFLICT(table_name, field_name, period)
-    DO UPDATE SET current_value = current_value + 1
-    RETURNING current_value
-  `).get(tableName, fieldName, period) as { current_value: number };
-  return row.current_value;
+async function incrementCounter(tableName: string, fieldName: string, period: string): Promise<number> {
+  return getDb().upsertCounter(tableName, fieldName, period);
 }
 
 function formatValue(seq: number, cfg: AutoNumberConfig): string {
@@ -53,12 +43,14 @@ interface AutoNumberField {
   cfg: AutoNumberConfig;
 }
 
-function getAutoNumberFields(tableName: string): AutoNumberField[] {
-  const viewRow = getPrimaryViewForTable(tableName);
+async function getAutoNumberFields(tableName: string): Promise<AutoNumberField[]> {
+  const viewRow = await getPrimaryViewForTable(tableName);
   if (!viewRow) return [];
 
   try {
-    const viewDef = JSON.parse(viewRow.definition) as { form?: { fields?: { key: string; type: string; auto_number?: AutoNumberConfig }[] } };
+    const viewDef = JSON.parse(viewRow.definition) as {
+      form?: { fields?: { key: string; type: string; auto_number?: AutoNumberConfig }[] }
+    };
     return (viewDef.form?.fields ?? [])
       .filter(f => f.type === 'auto_number' && f.auto_number)
       .map(f => ({ key: f.key, cfg: f.auto_number! }));
@@ -67,21 +59,16 @@ function getAutoNumberFields(tableName: string): AutoNumberField[] {
   }
 }
 
-/**
- * Inject auto-generated sequential numbers into `data` for any `auto_number`
- * fields defined in this table's view. Always overwrites — callers must not
- * pass a value for these fields.
- */
-export function applyAutoNumbers(
+export async function applyAutoNumbers(
   tableName: string,
   data: Record<string, unknown>,
-): Record<string, unknown> {
-  const fields = getAutoNumberFields(tableName);
+): Promise<Record<string, unknown>> {
+  const fields = await getAutoNumberFields(tableName);
   if (fields.length === 0) return data;
 
   const result = { ...data };
   for (const { key, cfg } of fields) {
-    result[key] = formatValue(incrementCounter(tableName, key, getPeriodKey(cfg)), cfg);
+    result[key] = formatValue(await incrementCounter(tableName, key, getPeriodKey(cfg)), cfg);
   }
   return result;
 }

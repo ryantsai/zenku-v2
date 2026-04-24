@@ -1,4 +1,8 @@
-import { getDb, getTableSchema, getAllSchemas, logChange, writeJournal } from '../db';
+import { getDb } from '../db';
+import type { ColumnSpec, FieldType } from '../db/adapter';
+import { getTableSchema, getAllSchemas } from '../db/schema';
+import { logChange } from '../db/changes';
+import { writeJournal } from '../db/journal';
 import { executeBefore, executeAfter } from '../engine/rule-engine';
 import { applyAutoNumbers } from '../engine/auto-number-engine';
 import type { AgentResult } from '../types';
@@ -30,66 +34,58 @@ interface ColumnInput {
   references?: ReferenceDef;
 }
 
-export function createTable(
+export async function createTable(
   tableName: string,
   columns: ColumnInput[],
   userRequest: string
-): AgentResult {
+): Promise<AgentResult> {
   if (!isSafeTableName(tableName)) {
     return { success: false, message: `Invalid table name: ${tableName}` };
   }
 
+  if (!Array.isArray(columns) || columns.length === 0) {
+    return { success: false, message: 'columns must be a non-empty array' };
+  }
+
   const db = getDb();
 
-  const existing = db.prepare(
-    `SELECT name FROM sqlite_master WHERE type='table' AND name=?`
-  ).get(tableName);
-  if (existing) {
+  if (await db.tableExists(tableName)) {
     return { success: false, message: `Table ${tableName} already exists` };
   }
 
   const RESERVED = new Set(['id', 'created_at', 'updated_at']);
   columns = columns.filter(col => !RESERVED.has(col.name.toLowerCase()));
 
-  const colDefs = columns.map(col => {
-    const type = col.type.toUpperCase();
-    if (!ALLOWED_TYPES.has(type)) {
-        throw new Error(`Unsupported type: ${col.type}`);
+  const columnSpecs: ColumnSpec[] = columns.map(col => {
+    const type = col.type.toUpperCase() as FieldType;
+    if (!ALLOWED_TYPES.has(type)) throw new Error(`Unsupported type: ${col.type}`);
+    if (col.references && !isSafeTableName(col.references.table)) {
+      throw new Error(`Invalid foreign key table name: ${col.references.table}`);
     }
-    let def = `"${col.name}" ${type}`;
-    if (col.required) def += ' NOT NULL';
-    if (col.references) {
-      const refTable = col.references.table;
-      const refCol = col.references.column ?? 'id';
-      if (!isSafeTableName(refTable)) throw new Error(`Invalid foreign key table name: ${refTable}`);
-      def += ` REFERENCES "${refTable}"("${refCol}")`;
-    }
-    return def;
+    return {
+      name: col.name,
+      type,
+      required: col.required,
+      references: col.references ? { table: col.references.table, column: col.references.column } : undefined,
+    };
   });
 
-  const sql = `CREATE TABLE "${tableName}" (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    ${colDefs.join(',\n    ')},
-    created_at TEXT DEFAULT (datetime('now')),
-    updated_at TEXT DEFAULT (datetime('now'))
-  )`;
-
-  db.exec(sql);
-  logChange('schema-agent', 'create_table', { tableName, columns }, userRequest);
-  writeJournal({
+  await db.createTable(tableName, columnSpecs);
+  await logChange('schema-agent', 'create_table', { tableName, columns }, userRequest);
+  await writeJournal({
     agent: 'schema',
     type: 'schema_change',
     description: `Created table ${tableName} with fields: ${columns.map(c => c.name).join(', ')}`,
     diff: { before: null, after: { table: tableName, columns } },
     user_request: userRequest,
     reversible: true,
-    reverse_operations: [{ type: 'sql', sql: `DROP TABLE IF EXISTS "${tableName}"` }],
+    reverse_operations: [{ type: 'drop_table', table: tableName }],
   });
 
   return {
     success: true,
-      message: `Created table ${tableName} with fields: ${columns.map(c => c.name).join(', ')}`,
-    data: getTableSchema(tableName),
+    message: `Created table ${tableName} with fields: ${columns.map(c => c.name).join(', ')}`,
+    data: await getTableSchema(tableName),
   };
 }
 
@@ -98,11 +94,11 @@ interface AlterInput {
   column: ColumnInput;
 }
 
-export function alterTable(
+export async function alterTable(
   tableName: string,
   changes: AlterInput[],
   userRequest: string
-): AgentResult {
+): Promise<AgentResult> {
   if (!isSafeTableName(tableName)) {
     return { success: false, message: `Invalid table name: ${tableName}` };
   }
@@ -128,10 +124,10 @@ export function alterTable(
         colDef += ` REFERENCES "${refTable}"("${refCol}")`;
       }
 
-      db.exec(`ALTER TABLE "${tableName}" ADD COLUMN ${colDef}`);
+      await db.execute(`ALTER TABLE "${tableName}" ADD COLUMN ${colDef}`);
       results.push(`Added field ${col.name}`);
 
-      writeJournal({
+      await writeJournal({
         agent: 'schema',
         type: 'schema_change',
         description: `Added field ${col.name} (${col.type}) to table ${tableName}`,
@@ -143,35 +139,32 @@ export function alterTable(
     }
   }
 
-  logChange('schema-agent', 'alter_table', { tableName, changes }, userRequest);
+  await logChange('schema-agent', 'alter_table', { tableName, changes }, userRequest);
 
   return {
     success: true,
-      message: `Updated table ${tableName}: ${results.join(', ')}`,
-    data: getTableSchema(tableName),
+    message: `Updated table ${tableName}: ${results.join(', ')}`,
+    data: await getTableSchema(tableName),
   };
 }
 
-export function describeTables(): AgentResult {
-  const schemas = getAllSchemas();
+export async function describeTables(): Promise<AgentResult> {
   return {
     success: true,
     message: 'Current database structure',
-    data: schemas,
+    data: await getAllSchemas(),
   };
 }
 
-export function queryData(sql: string): AgentResult {
+export async function queryData(sql: string): Promise<AgentResult> {
   const trimmed = sql.trim().toUpperCase();
   if (!trimmed.startsWith('SELECT')) {
     return { success: false, message: 'Only SELECT queries are allowed' };
   }
-
-  const db = getDb();
-  const rows = db.prepare(sql).all();
+  const { rows } = await getDb().query(sql);
   return {
     success: true,
-      message: `Query completed, ${rows.length} records found`,
+    message: `Query completed, ${rows.length} records found`,
     data: rows,
   };
 }
@@ -180,12 +173,6 @@ export function queryData(sql: string): AgentResult {
 
 type WriteOperation = 'insert' | 'update' | 'delete';
 type ScalarValue = string | number | boolean | null;
-
-/** node:sqlite 不接受 boolean，轉成 0/1 */
-function toSQLValue(v: ScalarValue): string | number | null | bigint {
-  if (typeof v === 'boolean') return v ? 1 : 0;
-  return v;
-}
 
 interface WriteDataInput {
   operation: WriteOperation;
@@ -202,14 +189,10 @@ export async function writeData(input: WriteDataInput, userRequest: string): Pro
   }
 
   const db = getDb();
-  const tableExists = db.prepare(
-    `SELECT name FROM sqlite_master WHERE type='table' AND name=?`
-  ).get(table);
-  if (!tableExists) {
+  if (!(await db.tableExists(table))) {
     return { success: false, message: `Table ${table} does not exist` };
   }
 
-  // Validate all field names
   const allKeys = [...Object.keys(data), ...Object.keys(where ?? {})];
   for (const k of allKeys) {
     if (!isSafeFieldName(k)) {
@@ -221,24 +204,27 @@ export async function writeData(input: WriteDataInput, userRequest: string): Pro
     const keys = Object.keys(data);
     if (keys.length === 0) return { success: false, message: 'Data cannot be empty for insert' };
 
-    // Run before_insert rules, then inject auto-numbers
-    const before = executeBefore(table, 'insert', data as Record<string, unknown>);
+    const before = await executeBefore(table, 'insert', data as Record<string, unknown>);
     if (!before.allowed) {
       return { success: false, message: before.errors.join('; ') };
     }
-    const finalData = applyAutoNumbers(table, before.data);
+    const finalData = await applyAutoNumbers(table, before.data);
 
     const finalKeys = Object.keys(finalData);
     const cols = finalKeys.map(k => `"${k}"`).join(', ');
     const placeholders = finalKeys.map(() => '?').join(', ');
+    const values = finalKeys.map(k => {
+      const v = finalData[k];
+      return typeof v === 'boolean' ? (v ? 1 : 0) : v;
+    });
 
-    const result = db.prepare(
-      `INSERT INTO "${table}" (${cols}) VALUES (${placeholders})`
-    ).run(...finalKeys.map(k => toSQLValue(finalData[k] as ScalarValue)));
+    const result = await db.execute(
+      `INSERT INTO "${table}" (${cols}) VALUES (${placeholders})`,
+      values
+    );
+    const insertedId = result.lastInsertId;
 
-    const insertedId = result.lastInsertRowid;
-
-    writeJournal({
+    await writeJournal({
       agent: 'user',
       type: 'data_write',
       description: `AI inserted 1 record into ${table} (id: ${insertedId})`,
@@ -248,12 +234,12 @@ export async function writeData(input: WriteDataInput, userRequest: string): Pro
       reverse_operations: [{ type: 'sql', sql: `DELETE FROM "${table}" WHERE id = ${insertedId}` }],
     });
 
-    await executeAfter(table, 'insert', { ...finalData, id: Number(insertedId) });
+    await executeAfter(table, 'insert', { ...finalData, id: insertedId });
 
     return {
       success: true,
       message: `Inserted 1 record into ${table}, id = ${insertedId}`,
-      data: { id: Number(insertedId) },
+      data: { id: insertedId },
     };
   }
 
@@ -265,34 +251,32 @@ export async function writeData(input: WriteDataInput, userRequest: string): Pro
     const dataKeys = Object.keys(data);
     if (dataKeys.length === 0) return { success: false, message: 'Update fields cannot be empty' };
 
-    // Fetch old record for before rules
     const wheres = whereKeys.map(k => `"${k}" = ?`).join(' AND ');
     const whereValues = whereKeys.map(k => (where as Record<string, ScalarValue>)[k]);
-    const oldRecord = db.prepare(
-      `SELECT * FROM "${table}" WHERE ${wheres} LIMIT 1`
-    ).get(...whereValues.map(toSQLValue)) as Record<string, unknown> | undefined;
+    const { rows: oldRows } = await db.query<Record<string, unknown>>(
+      `SELECT * FROM "${table}" WHERE ${wheres} LIMIT 1`,
+      whereValues
+    );
+    const oldRecord = oldRows[0];
 
-    const before = executeBefore(table, 'update', data as Record<string, unknown>, oldRecord);
+    const before = await executeBefore(table, 'update', data as Record<string, unknown>, oldRecord);
     if (!before.allowed) {
       return { success: false, message: before.errors.join('; ') };
     }
     const finalData = before.data;
-
     const finalKeys = Object.keys(finalData);
     const sets = finalKeys.map(k => `"${k}" = ?`).join(', ');
-    const values = [
-      ...finalKeys.map(k => finalData[k]),
-      ...whereValues,
-    ];
+    const values = [...finalKeys.map(k => finalData[k]), ...whereValues];
 
-    const result = db.prepare(
-      `UPDATE "${table}" SET ${sets} WHERE ${wheres}`
-    ).run(...values.map(v => toSQLValue(v as ScalarValue)));
+    const result = await db.execute(
+      `UPDATE "${table}" SET ${sets} WHERE ${wheres}`,
+      values
+    );
 
-    writeJournal({
+    await writeJournal({
       agent: 'user',
       type: 'data_write',
-      description: `AI updated ${result.changes} records in ${table}`,
+      description: `AI updated ${result.rowsAffected} records in ${table}`,
       diff: { before: oldRecord ?? null, after: { ...where, ...finalData } },
       user_request: userRequest,
       reversible: false,
@@ -304,8 +288,8 @@ export async function writeData(input: WriteDataInput, userRequest: string): Pro
 
     return {
       success: true,
-      message: `Updated ${result.changes} records`,
-      data: { changes: result.changes },
+      message: `Updated ${result.rowsAffected} records`,
+      data: { changes: result.rowsAffected },
     };
   }
 
@@ -317,24 +301,26 @@ export async function writeData(input: WriteDataInput, userRequest: string): Pro
 
     const wheres = whereKeys.map(k => `"${k}" = ?`).join(' AND ');
     const whereValues = whereKeys.map(k => (where as Record<string, ScalarValue>)[k]);
+    const { rows: oldRows } = await db.query<Record<string, unknown>>(
+      `SELECT * FROM "${table}" WHERE ${wheres} LIMIT 1`,
+      whereValues
+    );
+    const oldRecord = oldRows[0];
 
-    const oldRecord = db.prepare(
-      `SELECT * FROM "${table}" WHERE ${wheres} LIMIT 1`
-    ).get(...whereValues.map(toSQLValue)) as Record<string, unknown> | undefined;
-
-    const before = executeBefore(table, 'delete', oldRecord ?? (where as Record<string, unknown>));
+    const before = await executeBefore(table, 'delete', oldRecord ?? (where as Record<string, unknown>));
     if (!before.allowed) {
       return { success: false, message: before.errors.join('; ') };
     }
 
-    const result = db.prepare(
-      `DELETE FROM "${table}" WHERE ${wheres}`
-    ).run(...whereValues.map(toSQLValue));
+    const result = await db.execute(
+      `DELETE FROM "${table}" WHERE ${wheres}`,
+      whereValues
+    );
 
-    writeJournal({
+    await writeJournal({
       agent: 'user',
       type: 'data_write',
-      description: `AI deleted ${result.changes} records from ${table}`,
+      description: `AI deleted ${result.rowsAffected} records from ${table}`,
       diff: { before: oldRecord ?? null, after: null },
       user_request: userRequest,
       reversible: false,
@@ -346,8 +332,8 @@ export async function writeData(input: WriteDataInput, userRequest: string): Pro
 
     return {
       success: true,
-      message: `Deleted ${result.changes} records`,
-      data: { changes: result.changes },
+      message: `Deleted ${result.rowsAffected} records`,
+      data: { changes: result.rowsAffected },
     };
   }
 

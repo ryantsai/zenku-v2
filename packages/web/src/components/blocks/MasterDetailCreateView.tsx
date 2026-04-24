@@ -47,7 +47,7 @@ export function MasterDetailCreateView({ view }: Props) {
   // Draft rows per detail_view
   const [draftRows, setDraftRows] = useState<Record<string, RowData[]>>(() => {
     const init: Record<string, RowData[]> = {};
-    for (const dv of view.detail_views ?? []) init[dv.table_name] = [];
+    for (const dv of view.detail_views ?? []) init[dv.view.table_name] = [];
     return init;
   });
 
@@ -84,8 +84,8 @@ export function MasterDetailCreateView({ view }: Props) {
       const masterId = master.id;
 
       for (const dv of view.detail_views ?? []) {
-        for (const row of draftRows[dv.table_name] ?? []) {
-          await createRow(dv.table_name, { ...row, [dv.foreign_key]: masterId });
+        for (const row of draftRows[dv.view.table_name] ?? []) {
+          await createRow(dv.view.table_name, { ...row, [dv.foreign_key]: masterId });
         }
       }
 
@@ -153,14 +153,14 @@ export function MasterDetailCreateView({ view }: Props) {
         </div>
 
         {/* Detail draft sections */}
-        {(view.detail_views ?? []).map(dv => (
+        {(view.detail_views ?? []).map((dv, i) => (
           <DraftDetailSection
-            key={dv.table_name}
+            key={`${dv.view.table_name}-${i}`}
             detailView={dv}
-            rows={draftRows[dv.table_name] ?? []}
+            rows={draftRows[dv.view.table_name] ?? []}
             masterRecord={masterValues}
-            onAdd={data => addDraftRow(dv.table_name, data)}
-            onRemove={index => removeDraftRow(dv.table_name, index)}
+            onAdd={data => addDraftRow(dv.view.table_name, data)}
+            onRemove={index => removeDraftRow(dv.view.table_name, index)}
           />
         ))}
       </div>

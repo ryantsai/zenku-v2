@@ -4,6 +4,7 @@ import { FIELD_TYPES, VIEW_TYPES } from '@zenku/shared';
 
 export const FORM_FIELD_SCHEMA = {
   type: 'object' as const,
+  additionalProperties: false,
   properties: {
     key: { type: 'string', description: 'Database field name' },
     label: { type: 'string', description: 'Field label (for UI display)' },
@@ -17,6 +18,7 @@ export const FORM_FIELD_SCHEMA = {
     },
     source: {
       type: 'object',
+      additionalProperties: false,
       description: 'Dynamic dropdown source (replaces static options, loads from another table in real-time)',
       properties: {
         table: { type: 'string' },
@@ -27,6 +29,7 @@ export const FORM_FIELD_SCHEMA = {
     },
     relation: {
       type: 'object',
+      additionalProperties: false,
       description: 'Relation field definition (required when type is relation). Uses searchable dropdown and stores value_field',
       properties: {
         table: { type: 'string', description: 'Related table name' },
@@ -37,6 +40,7 @@ export const FORM_FIELD_SCHEMA = {
     },
     computed: {
       type: 'object',
+      additionalProperties: false,
       description: 'Computed field. Formula references field names like "quantity * unit_price". Computed on both frontend and backend',
       properties: {
         formula: { type: 'string', description: 'Calculation formula supporting + - * / and parentheses' },
@@ -55,6 +59,7 @@ export const FORM_FIELD_SCHEMA = {
     },
     auto_number: {
       type: 'object',
+      additionalProperties: false,
       description: `Auto-number field config (required when type is "auto_number").
 The server generates a sequential number automatically on every insert — do NOT ask the user to fill this field.
 Format: {prefix}{date_segment}{seq padded to padding digits}, e.g. "ORD-20240422-0001".
@@ -102,9 +107,11 @@ Typical use cases:
 - Make a field required when a related field is filled`,
       items: {
         type: 'object',
+        additionalProperties: false,
         properties: {
           when: {
             type: 'object',
+            additionalProperties: false,
             description: 'Condition based on current form values. Field must be a key present in the same form, or use "$master.field_key" to read from parent master record.',
             properties: {
               field: { type: 'string', description: 'Form field key to evaluate, or "$master.key" for master-detail views' },
@@ -118,6 +125,7 @@ Typical use cases:
           },
           apply: {
             type: 'object',
+            additionalProperties: false,
             description: 'Effect to apply when condition is true',
             properties: {
               visibility: {
@@ -200,6 +208,7 @@ When users say "statistics/kanban/calendar/gallery", directly create a view of t
         },
         view: {
           type: 'object',
+          additionalProperties: false,
           description: 'View definition object',
           properties: {
             id: { type: 'string', description: 'Unique ID, usually matches table_name' },
@@ -212,6 +221,7 @@ When users say "statistics/kanban/calendar/gallery", directly create a view of t
               description: 'List field definitions',
               items: {
                 type: 'object',
+                additionalProperties: false,
                 properties: {
                   key: { type: 'string', description: 'Database field name' },
                   label: { type: 'string', description: 'Column label' },
@@ -219,10 +229,11 @@ When users say "statistics/kanban/calendar/gallery", directly create a view of t
                   sortable: { type: 'boolean' },
                   relation: {
                     type: 'object',
-                  description: 'Display settings for relation type in list',
-                  properties: {
-                    table: { type: 'string' },
-                    display_field: { type: 'string', description: 'Which field from related table to display' },
+                    additionalProperties: false,
+                    description: 'Display settings for relation type in list',
+                    properties: {
+                      table: { type: 'string' },
+                      display_field: { type: 'string', description: 'Which field from related table to display' },
                     },
                     required: ['table', 'display_field'],
                   },
@@ -232,6 +243,7 @@ When users say "statistics/kanban/calendar/gallery", directly create a view of t
             },
             form: {
               type: 'object',
+              additionalProperties: false,
               properties: {
                 columns: {
                   type: 'integer',

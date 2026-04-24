@@ -8,23 +8,27 @@ interface UiInput {
   view_id?: string;
 }
 
-export function runUiAgent(input: UiInput, userRequest: string): AgentResult {
+export async function runUiAgent(input: UiInput, userRequest: string): Promise<AgentResult> {
+  // Claude sometimes serializes objects/arrays as JSON strings — parse them back
+  if (typeof input.view === 'string') {
+    try { input.view = JSON.parse(input.view); } catch { /* leave as-is */ }
+  }
+
   if (input.action === 'get_view') {
     const id = input.view_id;
     if (!id) return { success: false, message: 'get_view requires view_id' };
-    const db = getDb();
-    const row = db.prepare('SELECT definition FROM _zenku_views WHERE id = ?').get(id) as { definition: string } | undefined;
-    if (!row) return { success: false, message: `View "${id}" not found` };
-    const def = JSON.parse(row.definition) as ViewDefinition;
-    return { success: true, message: `View definition for "${id}"`, data: def };
+    const { rows } = await getDb().query<{ definition: string }>(
+      'SELECT definition FROM _zenku_views WHERE id = ?', [id]
+    );
+    if (!rows[0]) return { success: false, message: `View "${id}" not found` };
+    return { success: true, message: `View definition for "${id}"`, data: JSON.parse(rows[0].definition) as ViewDefinition };
   }
 
   if (input.action === 'delete_view') {
     const id = input.view_id;
     if (!id) return { success: false, message: 'delete_view requires view_id' };
-    const db = getDb();
-    const result = db.prepare('DELETE FROM _zenku_views WHERE id = ?').run(id);
-    if (result.changes === 0) return { success: false, message: `View "${id}" not found` };
+    const result = await getDb().execute('DELETE FROM _zenku_views WHERE id = ?', [id]);
+    if (result.rowsAffected === 0) return { success: false, message: `View "${id}" not found` };
     return { success: true, message: `View "${id}" deleted` };
   }
 

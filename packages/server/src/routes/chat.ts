@@ -6,9 +6,6 @@ import { p } from '../utils';
 
 const router = Router();
 
-// ──────────────────────────────────────────────
-// Chat endpoint (SSE)
-// ──────────────────────────────────────────────
 router.post('/chat', requireAuth, async (req, res) => {
   const { message, history = [], provider, model, session_id, attachments = [] } = req.body as {
     message: string;
@@ -32,10 +29,11 @@ router.post('/chat', requireAuth, async (req, res) => {
     const role = req.user!.role;
     let existingSessionId: string | undefined;
     if (session_id) {
-      const owned = getDb().prepare(
-        'SELECT id FROM _zenku_chat_sessions WHERE id = ? AND user_id = ? AND archived = 0'
-      ).get(session_id, req.user!.id);
-      if (owned) existingSessionId = session_id;
+      const { rows } = await getDb().query(
+        'SELECT id FROM _zenku_chat_sessions WHERE id = ? AND user_id = ? AND archived = 0',
+        [session_id, req.user!.id]
+      );
+      if (rows.length > 0) existingSessionId = session_id;
     }
     const aiOptions = {
       provider: provider as any,
@@ -54,37 +52,35 @@ router.post('/chat', requireAuth, async (req, res) => {
   res.end();
 });
 
-// ──────────────────────────────────────────────
-// Sessions
-// ──────────────────────────────────────────────
-router.get('/sessions', requireAuth, (req, res) => {
-  const db = getDb();
+router.get('/sessions', requireAuth, async (req, res) => {
   const limit = Math.min(50, Math.max(1, Number(req.query.limit ?? 20)));
-  const sessions = db.prepare(`
+  const { rows } = await getDb().query(`
     SELECT id, title, provider, model, message_count, created_at, updated_at
     FROM _zenku_chat_sessions
     WHERE user_id = ? AND archived = 0
     ORDER BY updated_at DESC
     LIMIT ?
-  `).all(req.user!.id, limit);
-  res.json(sessions);
+  `, [req.user!.id, limit]);
+  res.json(rows);
 });
 
-router.get('/sessions/:id/messages', requireAuth, (req, res) => {
+router.get('/sessions/:id/messages', requireAuth, async (req, res) => {
   const db = getDb();
   const sessionId = p(req.params.id);
-  const session = db.prepare(
-    'SELECT id FROM _zenku_chat_sessions WHERE id = ? AND user_id = ?'
-  ).get(sessionId, req.user!.id);
-  if (!session) { res.status(404).json({ error: 'ERROR_SESSION_NOT_FOUND' }); return; }
+  const { rows: sessionRows } = await db.query(
+    'SELECT id FROM _zenku_chat_sessions WHERE id = ? AND user_id = ?',
+    [sessionId, req.user!.id]
+  );
+  if (!sessionRows[0]) { res.status(404).json({ error: 'ERROR_SESSION_NOT_FOUND' }); return; }
 
-  const messages = db.prepare(
-    'SELECT * FROM _zenku_chat_messages WHERE session_id = ? ORDER BY created_at'
-  ).all(sessionId) as { id: string }[];
-
-  const toolEvents = db.prepare(
-    'SELECT * FROM _zenku_tool_events WHERE session_id = ? ORDER BY started_at'
-  ).all(sessionId) as { message_id: string; tool_input: string; tool_output: string }[];
+  const { rows: messages } = await db.query<{ id: string }>(
+    'SELECT * FROM _zenku_chat_messages WHERE session_id = ? ORDER BY created_at',
+    [sessionId]
+  );
+  const { rows: toolEvents } = await db.query<{ message_id: string; tool_input: string; tool_output: string }>(
+    'SELECT * FROM _zenku_tool_events WHERE session_id = ? ORDER BY started_at',
+    [sessionId]
+  );
 
   const toolsByMsg: Record<string, unknown[]> = {};
   for (const te of toolEvents) {
@@ -101,34 +97,33 @@ router.get('/sessions/:id/messages', requireAuth, (req, res) => {
   res.json(timeline);
 });
 
-router.patch('/sessions/:id/title', requireAuth, (req, res) => {
+router.patch('/sessions/:id/title', requireAuth, async (req, res) => {
   const db = getDb();
   const sessionId = p(req.params.id);
   const { title } = req.body as { title?: string };
   if (!title?.trim()) { res.status(400).json({ error: 'ERROR_INVALID_NAME' }); return; }
-  const session = db.prepare(
-    'SELECT id FROM _zenku_chat_sessions WHERE id = ? AND user_id = ?'
-  ).get(sessionId, req.user!.id);
-  if (!session) { res.status(404).json({ error: 'ERROR_SESSION_NOT_FOUND' }); return; }
-  db.prepare('UPDATE _zenku_chat_sessions SET title = ? WHERE id = ?').run(title.trim(), sessionId);
+  const { rows } = await db.query(
+    'SELECT id FROM _zenku_chat_sessions WHERE id = ? AND user_id = ?',
+    [sessionId, req.user!.id]
+  );
+  if (!rows[0]) { res.status(404).json({ error: 'ERROR_SESSION_NOT_FOUND' }); return; }
+  await db.execute('UPDATE _zenku_chat_sessions SET title = ? WHERE id = ?', [title.trim(), sessionId]);
   res.json({ success: true });
 });
 
-router.patch('/sessions/:id/archive', requireAuth, (req, res) => {
+router.patch('/sessions/:id/archive', requireAuth, async (req, res) => {
   const db = getDb();
   const sessionId = p(req.params.id);
-  const session = db.prepare(
-    'SELECT id FROM _zenku_chat_sessions WHERE id = ? AND user_id = ?'
-  ).get(sessionId, req.user!.id);
-  if (!session) { res.status(404).json({ error: 'ERROR_SESSION_NOT_FOUND' }); return; }
-  db.prepare('UPDATE _zenku_chat_sessions SET archived = 1 WHERE id = ?').run(sessionId);
+  const { rows } = await db.query(
+    'SELECT id FROM _zenku_chat_sessions WHERE id = ? AND user_id = ?',
+    [sessionId, req.user!.id]
+  );
+  if (!rows[0]) { res.status(404).json({ error: 'ERROR_SESSION_NOT_FOUND' }); return; }
+  await db.execute('UPDATE _zenku_chat_sessions SET archived = 1 WHERE id = ?', [sessionId]);
   res.json({ success: true });
 });
 
-// ──────────────────────────────────────────────
-// Dashboard query endpoint (SELECT only)
-// ──────────────────────────────────────────────
-router.post('/query', requireAuth, (req, res) => {
+router.post('/query', requireAuth, async (req, res) => {
   const { sql } = req.body as { sql?: string };
   if (!sql || typeof sql !== 'string') {
     res.status(400).json({ error: 'ERROR_MISSING_SQL' });
@@ -140,9 +135,8 @@ router.post('/query', requireAuth, (req, res) => {
     return;
   }
   try {
-    const db = getDb();
     const safeSQL = /\bLIMIT\b/i.test(sql) ? sql : `${sql} LIMIT 1000`;
-    const rows = db.prepare(safeSQL).all();
+    const { rows } = await getDb().query(safeSQL);
     res.json(rows);
   } catch (err) {
     res.status(400).json({ error: 'ERROR_INTERNAL_SERVER', params: { detail: String(err) } });

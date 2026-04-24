@@ -1,5 +1,6 @@
 import bcrypt from 'bcryptjs';
-import { getDb, getUserCount } from '../db';
+import { getDb, dbNow } from '../db';
+import { getUserCount } from '../db/auth';
 import type { Request, Response, NextFunction } from 'express';
 
 export interface AuthUser {
@@ -10,7 +11,6 @@ export interface AuthUser {
   language: string;
 }
 
-// Extend Express Request
 declare global {
   namespace Express {
     interface Request {
@@ -38,21 +38,26 @@ export function requireAuth(req: Request, res: Response, next: NextFunction): vo
     return;
   }
   const token = header.slice(7);
-  const db = getDb();
-  const session = db.prepare(
-    `SELECT s.user_id, u.id, u.email, u.name, u.role, u.language
-     FROM _zenku_sessions s
-     JOIN _zenku_users u ON u.id = s.user_id
-     WHERE s.token = ? AND s.expires_at > datetime('now') AND u.disabled = 0`
-  ).get(token) as (AuthUser & { user_id: string }) | undefined;
-
-  if (!session) {
-    res.status(401).json({ error: 'ERROR_INVALID_TOKEN' });
-    return;
-  }
-
-  req.user = { id: session.id, email: session.email, name: session.name, role: session.role, language: session.language };
-  next();
+  void (async () => {
+    try {
+      const { rows } = await getDb().query<AuthUser & { user_id: string }>(
+        `SELECT s.user_id, u.id, u.email, u.name, u.role, u.language
+         FROM _zenku_sessions s
+         JOIN _zenku_users u ON u.id = s.user_id
+         WHERE s.token = ? AND s.expires_at > ? AND u.disabled = 0`,
+        [token, dbNow()]
+      );
+      const session = rows[0];
+      if (!session) {
+        res.status(401).json({ error: 'ERROR_INVALID_TOKEN' });
+        return;
+      }
+      req.user = { id: session.id, email: session.email, name: session.name, role: session.role, language: session.language };
+      next();
+    } catch (err) {
+      next(err);
+    }
+  })();
 }
 
 export function requireAdmin(req: Request, res: Response, next: NextFunction): void {
@@ -79,25 +84,32 @@ export async function registerHandler(req: Request, res: Response): Promise<void
   }
 
   const db = getDb();
-  const existing = db.prepare('SELECT id FROM _zenku_users WHERE email = ?').get(email);
-  if (existing) {
+  const { rows: existing } = await db.query(
+    'SELECT id FROM _zenku_users WHERE email = ?',
+    [email]
+  );
+  if (existing.length > 0) {
     res.status(409).json({ error: 'ERROR_EMAIL_TAKEN' });
     return;
   }
 
-  const isFirst = getUserCount() === 0;
+  const isFirst = (await getUserCount()) === 0;
   const role = isFirst ? 'admin' : 'user';
-  const language = 'en'; // Default to English
+  const language = 'en';
   const id = crypto.randomUUID();
   const hash = await bcrypt.hash(password, 12);
 
-  db.prepare('INSERT INTO _zenku_users (id, email, name, password_hash, role, language) VALUES (?, ?, ?, ?, ?, ?)')
-    .run(id, email, name, hash, role, language);
+  await db.execute(
+    'INSERT INTO _zenku_users (id, email, name, password_hash, role, language) VALUES (?, ?, ?, ?, ?, ?)',
+    [id, email, name, hash, role, language]
+  );
 
   const token = generateToken();
   const sessionId = crypto.randomUUID();
-  db.prepare('INSERT INTO _zenku_sessions (id, user_id, token, expires_at) VALUES (?, ?, ?, ?)')
-    .run(sessionId, id, token, expiresAt());
+  await db.execute(
+    'INSERT INTO _zenku_sessions (id, user_id, token, expires_at) VALUES (?, ?, ?, ?)',
+    [sessionId, id, token, expiresAt()]
+  );
 
   res.json({ token, user: { id, email, name, role, language } });
 }
@@ -110,21 +122,30 @@ export async function loginHandler(req: Request, res: Response): Promise<void> {
   }
 
   const db = getDb();
-  const user = db.prepare('SELECT * FROM _zenku_users WHERE email = ?').get(email) as {
+  const { rows } = await db.query<{
     id: string; email: string; name: string; password_hash: string; role: string; language: string;
-  } | undefined;
+  }>(
+    'SELECT * FROM _zenku_users WHERE email = ?',
+    [email]
+  );
+  const user = rows[0];
 
   if (!user || !(await bcrypt.compare(password, user.password_hash))) {
     res.status(401).json({ error: 'ERROR_LOGIN_FAILED' });
     return;
   }
 
-  db.prepare(`UPDATE _zenku_users SET last_login_at = datetime('now') WHERE id = ?`).run(user.id);
+  await db.execute(
+    `UPDATE _zenku_users SET last_login_at = ? WHERE id = ?`,
+    [dbNow(), user.id]
+  );
 
   const token = generateToken();
   const sessionId = crypto.randomUUID();
-  db.prepare('INSERT INTO _zenku_sessions (id, user_id, token, expires_at) VALUES (?, ?, ?, ?)')
-    .run(sessionId, user.id, token, expiresAt());
+  await db.execute(
+    'INSERT INTO _zenku_sessions (id, user_id, token, expires_at) VALUES (?, ?, ?, ?)',
+    [sessionId, user.id, token, expiresAt()]
+  );
 
   res.json({ token, user: { id: user.id, email: user.email, name: user.name, role: user.role, language: user.language } });
 }
@@ -137,12 +158,12 @@ export function logoutHandler(req: Request, res: Response): void {
   const header = req.headers.authorization;
   if (header?.startsWith('Bearer ')) {
     const token = header.slice(7);
-    getDb().prepare('DELETE FROM _zenku_sessions WHERE token = ?').run(token);
+    void getDb().execute('DELETE FROM _zenku_sessions WHERE token = ?', [token]);
   }
   res.json({ success: true });
 }
 
-export function statusHandler(_req: Request, res: Response): void {
-  const count = getUserCount();
+export async function statusHandler(_req: Request, res: Response): Promise<void> {
+  const count = await getUserCount();
   res.json({ has_users: count > 0 });
 }

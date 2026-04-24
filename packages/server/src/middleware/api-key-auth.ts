@@ -1,5 +1,5 @@
 import type { Request, Response, NextFunction } from 'express';
-import { verifyApiKey, expandScopes } from '../db';
+import { verifyApiKey, expandScopes } from '../db/auth';
 
 export { expandScopes };
 
@@ -35,17 +35,23 @@ export function requireApiKey(scope: string) {
       return;
     }
     const rawKey = header.slice(7);
-    const record = verifyApiKey(rawKey, scope);
-    if (!record) {
-      res.status(403).json({ error: 'ERROR_API_KEY_INVALID_OR_INSUFFICIENT_SCOPE' });
-      return;
-    }
-    if (!checkRateLimit(record.id)) {
-      res.status(429).json({ error: 'ERROR_RATE_LIMIT_EXCEEDED' });
-      return;
-    }
-    req.apiKeyId = record.id;
-    req.apiKeyScopes = record.scopes;
-    next();
+    void (async () => {
+      try {
+        const record = await verifyApiKey(rawKey, scope);
+        if (!record) {
+          res.status(403).json({ error: 'ERROR_API_KEY_INVALID_OR_INSUFFICIENT_SCOPE' });
+          return;
+        }
+        if (!checkRateLimit(record.id)) {
+          res.status(429).json({ error: 'ERROR_RATE_LIMIT_EXCEEDED' });
+          return;
+        }
+        req.apiKeyId = record.id;
+        req.apiKeyScopes = record.scopes;
+        next();
+      } catch (err) {
+        next(err);
+      }
+    })();
   };
 }

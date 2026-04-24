@@ -172,8 +172,8 @@ export function MasterDetailView({ view, recordId }: Props) {
           )}
 
           {/* Detail view cards */}
-          {(view.detail_views ?? []).map(dv => (
-            <DetailCard key={dv.table_name} detailView={dv} masterId={recordId} masterRecord={record || undefined} />
+          {(view.detail_views ?? []).map((dv, i) => (
+            <DetailCard key={`${dv.view.table_name}-${i}`} detailView={dv} masterId={recordId} masterRecord={record || undefined} />
           ))}
 
         </div>

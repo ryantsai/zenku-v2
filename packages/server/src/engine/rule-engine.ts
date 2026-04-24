@@ -1,10 +1,11 @@
-import { getDb, getRulesForTable, writeWebhookLog } from '../db';
+import { getDb, dbNow } from '../db';
+import { getRulesForTable } from '../db/rules';
+import { writeWebhookLog } from '../db/webhook';
 import { evaluateFormula } from '@zenku/shared';
 
 // ===== Types =====
 
 export interface RuleCondition {
-  // Simple field or dot-notation FK path, e.g. "order_id.customer_id.tier"
   field: string;
   operator: 'eq' | 'neq' | 'gt' | 'lt' | 'gte' | 'lte' | 'contains' | 'changed' | 'was_eq' | 'was_neq';
   value?: unknown;
@@ -12,27 +13,16 @@ export interface RuleCondition {
 
 export interface RuleAction {
   type: 'set_field' | 'validate' | 'create_record' | 'update_record' | 'update_related_records' | 'webhook' | 'notify';
-  // set_field
   field?: string;
-  value?: string; // literal or formula expression
-  // validate
+  value?: string;
   message?: string;
-  // create_record / update_record
   target_table?: string;
-  record_data?: Record<string, string>; // field → expression
-  // update_record: WHERE conditions: key=target column, value=source expression
+  record_data?: Record<string, string>;
   where?: Record<string, string>;
-  // update_related_records: iterate child records and update a third table
-  via_table?: string;       // intermediate table (e.g. purchase_order_items)
-  via_foreign_key?: string; // FK in via_table pointing back to source (e.g. purchase_order_id)
-  // (reuses where and target_table and record_data)
-  // In record_data expressions, via_table fields are accessible by name,
-  // and target_table's current values are accessible with __old_ prefix
-  // e.g. "__old_quantity + quantity" means target.quantity + via.quantity
-  // webhook
+  via_table?: string;
+  via_foreign_key?: string;
   url?: string;
   method?: string;
-  // notify
   text?: string;
 }
 
@@ -46,20 +36,12 @@ type TriggerAction = 'insert' | 'update' | 'delete';
 
 // ===== FK path resolution =====
 
-/**
- * Resolve a dot-notation FK path from the given data.
- * e.g. "order_id.customer_id.tier" → follows order_id FK to orders, then customer_id FK to customers, returns tier value.
- * If the field has no dots (or exists directly), returns the data value.
- */
-function resolveFieldPath(
+async function resolveFieldPath(
   table: string,
   field: string,
   data: Record<string, unknown>,
-): unknown {
-  // Fast path: field exists directly in data
+): Promise<unknown> {
   if (field in data) return data[field];
-
-  // Dot-notation: "fk_col.next_fk_col.field"
   if (!field.includes('.')) return undefined;
 
   const db = getDb();
@@ -72,20 +54,25 @@ function resolveFieldPath(
     const fkValue = currentData[fkCol];
     if (fkValue === null || fkValue === undefined) return undefined;
 
-    // Look up FK info for this column on the current table
-    const fkList = db.prepare(`PRAGMA foreign_key_list("${currentTable}")`).all() as unknown as {
-      from: string; table: string; to: string;
-    }[];
+    if (db.type !== 'sqlite') return undefined; // non-SQLite: manual FK path not supported
+    let fkList: { from: string; table: string; to: string }[] = [];
+    try {
+      const res = await db.query<{ from: string; table: string; to: string }>(
+        `PRAGMA foreign_key_list("${currentTable}")`
+      );
+      fkList = res.rows;
+    } catch { return undefined; } 
     const fk = fkList.find(f => f.from === fkCol);
-    if (!fk) return undefined; // not a FK column
+    if (!fk) return undefined;
 
-    // Fetch related row
-    const row = db.prepare(`SELECT * FROM "${fk.table}" WHERE "${fk.to}" = ?`)
-      .get(fkValue as string | number | bigint) as Record<string, unknown> | undefined;
-    if (!row) return undefined;
+    const { rows } = await db.query<Record<string, unknown>>(
+      `SELECT * FROM "${fk.table}" WHERE "${fk.to}" = ?`,
+      [fkValue as string | number]
+    );
+    if (!rows[0]) return undefined;
 
     currentTable = fk.table;
-    currentData = row;
+    currentData = rows[0];
   }
 
   return currentData[parts[parts.length - 1]];
@@ -93,41 +80,34 @@ function resolveFieldPath(
 
 // ===== Condition evaluation =====
 
-function evaluateCondition(
+async function evaluateCondition(
   condition: RuleCondition | null | undefined,
   table: string,
   data: Record<string, unknown>,
   oldData?: Record<string, unknown>,
-): boolean {
-  if (!condition) return true; // no condition = always match
+): Promise<boolean> {
+  if (!condition) return true;
 
-  const fieldVal = resolveFieldPath(table, condition.field, data);
+  const fieldVal = await resolveFieldPath(table, condition.field, data);
   const expected = condition.value;
 
   switch (condition.operator) {
-    case 'eq':
-      return String(fieldVal ?? '') === String(expected ?? '');
-    case 'neq':
-      return String(fieldVal ?? '') !== String(expected ?? '');
-    case 'gt':
-      return Number(fieldVal) > Number(expected);
-    case 'lt':
-      return Number(fieldVal) < Number(expected);
-    case 'gte':
-      return Number(fieldVal) >= Number(expected);
-    case 'lte':
-      return Number(fieldVal) <= Number(expected);
-    case 'contains':
-      return String(fieldVal ?? '').includes(String(expected ?? ''));
+    case 'eq':       return String(fieldVal ?? '') === String(expected ?? '');
+    case 'neq':      return String(fieldVal ?? '') !== String(expected ?? '');
+    case 'gt':       return Number(fieldVal) > Number(expected);
+    case 'lt':       return Number(fieldVal) < Number(expected);
+    case 'gte':      return Number(fieldVal) >= Number(expected);
+    case 'lte':      return Number(fieldVal) <= Number(expected);
+    case 'contains': return String(fieldVal ?? '').includes(String(expected ?? ''));
     case 'changed':
-      if (!oldData) return true; // insert → always "changed"
-      return resolveFieldPath(table, condition.field, oldData) !== fieldVal;
+      if (!oldData) return true;
+      return (await resolveFieldPath(table, condition.field, oldData)) !== fieldVal;
     case 'was_eq':
-      if (!oldData) return false; // insert → no old value
-      return String(resolveFieldPath(table, condition.field, oldData) ?? '') === String(expected ?? '');
+      if (!oldData) return false;
+      return String((await resolveFieldPath(table, condition.field, oldData)) ?? '') === String(expected ?? '');
     case 'was_neq':
-      if (!oldData) return true; // insert → no old value
-      return String(resolveFieldPath(table, condition.field, oldData) ?? '') !== String(expected ?? '');
+      if (!oldData) return true;
+      return String((await resolveFieldPath(table, condition.field, oldData)) ?? '') !== String(expected ?? '');
     default:
       return false;
   }
@@ -136,18 +116,14 @@ function evaluateCondition(
 // ===== Expression evaluation =====
 
 function evaluateExpression(expr: string, data: Record<string, unknown>): unknown {
-  // If it looks like a formula (contains operators or field names), evaluate as formula
   if (/[+\-*/()]/.test(expr)) {
     try {
       const depValues: Record<string, number> = {};
-      // Extract all word tokens that could be field names
       const tokens = expr.match(/[a-zA-Z_][a-zA-Z0-9_]*/g) ?? [];
       for (const token of tokens) {
         if (token in data) {
           depValues[token] = Number(data[token]) || 0;
         } else if (token.startsWith('__old_')) {
-          // __old_<field> references a target record's current value.
-          // If the target record doesn't exist (INSERT case), default to 0.
           depValues[token] = 0;
         }
       }
@@ -156,49 +132,36 @@ function evaluateExpression(expr: string, data: Record<string, unknown>): unknow
       return expr;
     }
   }
-
-  // If it matches a field name, return that field's value
-  if (/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(expr) && expr in data) {
-    return data[expr];
-  }
-
-  // Try to parse as number
+  if (/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(expr) && expr in data) return data[expr];
   const num = Number(expr);
   if (!Number.isNaN(num) && expr.trim() !== '') return num;
-
-  // Return as string literal
   return expr;
 }
 
 // ===== Rule execution =====
 
-export function executeBefore(
+export async function executeBefore(
   table: string,
   action: TriggerAction,
   data: Record<string, unknown>,
   oldData?: Record<string, unknown>,
-): BeforeResult {
+): Promise<BeforeResult> {
   const triggerType = `before_${action}`;
-  const rules = getRulesForTable(table, triggerType);
+  const rules = await getRulesForTable(table, triggerType);
 
   const errors: string[] = [];
   let currentData = { ...data };
 
   for (const rule of rules) {
     const condition = rule.condition ? JSON.parse(rule.condition) as RuleCondition : null;
-    const conditionMatch = evaluateCondition(condition, table, currentData, oldData);
-    if (!conditionMatch) continue;
+    if (!(await evaluateCondition(condition, table, currentData, oldData))) continue;
 
     const actions = JSON.parse(rule.actions) as RuleAction[];
-
     for (const act of actions) {
       switch (act.type) {
         case 'validate':
-          // validate action: check the condition — if we got here, condition matched,
-          // so the validation fails (i.e., the rule says "reject if condition is met")
           errors.push(act.message ?? `ERROR_RULE_VALIDATION_FAILED:${rule.name}`);
           break;
-
         case 'set_field':
           if (act.field && act.value !== undefined) {
             currentData[act.field] = evaluateExpression(act.value, currentData);
@@ -211,7 +174,7 @@ export function executeBefore(
   return { allowed: errors.length === 0, data: currentData, errors };
 }
 
-// ===== Manual trigger (for custom ViewAction trigger_rule behavior) =====
+// ===== Manual trigger =====
 
 export interface ManualResult {
   success: boolean;
@@ -224,17 +187,18 @@ export async function executeManual(
   table: string,
 ): Promise<ManualResult> {
   const db = getDb();
-  const rule = db.prepare(
-    'SELECT * FROM _zenku_rules WHERE id = ? AND trigger_type = ? AND enabled = 1'
-  ).get(ruleId, 'manual') as {
+  const { rows } = await db.query<{
     id: string; name: string; table_name: string; trigger_type: string;
     condition: string | null; actions: string; enabled: number;
-  } | undefined;
-
+  }>(
+    'SELECT * FROM _zenku_rules WHERE id = ? AND trigger_type = ? AND enabled = 1',
+    [ruleId, 'manual']
+  );
+  const rule = rows[0];
   if (!rule) return { success: false, errors: ['ERROR_RULE_NOT_FOUND_OR_DISABLED'] };
 
   const condition = rule.condition ? JSON.parse(rule.condition) as RuleCondition : null;
-  if (!evaluateCondition(condition, table, data)) {
+  if (!(await evaluateCondition(condition, table, data))) {
     return { success: false, errors: ['ERROR_RULE_CONDITION_MISMATCH'] };
   }
 
@@ -245,16 +209,17 @@ export async function executeManual(
     try {
       switch (act.type) {
         case 'validate':
-          // In manual context, validate means reject if condition matched
           errors.push(act.message ?? `ERROR_RULE_VALIDATION_FAILED:${rule.name}`);
           break;
 
         case 'set_field':
           if (act.field && act.value !== undefined && data.id !== undefined) {
             const newVal = evaluateExpression(act.value, data);
-            db.prepare(`UPDATE "${table}" SET "${act.field}" = ?, updated_at = datetime('now') WHERE id = ?`)
-              .run(newVal as string | number | bigint | null, data.id as string | number | bigint);
-            data[act.field] = newVal; // update local copy for subsequent actions
+            await db.execute(
+              `UPDATE "${table}" SET "${act.field}" = ?, updated_at = ? WHERE id = ?`,
+              [newVal as string | number | null, dbNow(), data.id as string | number]
+            );
+            data[act.field] = newVal;
           }
           break;
 
@@ -265,9 +230,10 @@ export async function executeManual(
               record[key] = evaluateExpression(expr, data);
             }
             const keys = Object.keys(record);
-            db.prepare(
-              `INSERT INTO "${act.target_table}" (${keys.map(k => `"${k}"`).join(', ')}) VALUES (${keys.map(() => '?').join(', ')})`
-            ).run(...(Object.values(record) as (string | number | bigint | null)[]));
+            await db.execute(
+              `INSERT INTO "${act.target_table}" (${keys.map(k => `"${k}"`).join(', ')}) VALUES (${keys.map(() => '?').join(', ')})`,
+              Object.values(record)
+            );
           }
           break;
 
@@ -276,9 +242,11 @@ export async function executeManual(
           const whereEntries = Object.entries(act.where);
           const whereClause = whereEntries.map(([col]) => `"${col}" = ?`).join(' AND ');
           const whereValues = whereEntries.map(([, expr]) => evaluateExpression(expr, data));
-          const targetRecord = db.prepare(
-            `SELECT * FROM "${act.target_table}" WHERE ${whereClause} LIMIT 1`
-          ).get(...(whereValues as (string | number | bigint | null)[])) as Record<string, unknown> | undefined;
+          const { rows: targetRows } = await db.query<Record<string, unknown>>(
+            `SELECT * FROM "${act.target_table}" WHERE ${whereClause} LIMIT 1`,
+            whereValues
+          );
+          const targetRecord = targetRows[0];
           const context: Record<string, unknown> = { ...data };
           if (targetRecord) {
             for (const [k, v] of Object.entries(targetRecord)) context[`__old_${k}`] = v;
@@ -289,8 +257,10 @@ export async function executeManual(
           }
           if (targetRecord) {
             const setClause = Object.keys(updates).map(k => `"${k}" = ?`).join(', ');
-            db.prepare(`UPDATE "${act.target_table}" SET ${setClause} WHERE ${whereClause}`)
-              .run(...(Object.values(updates) as (string | number | bigint | null)[]), ...(whereValues as (string | number | bigint | null)[]));
+            await db.execute(
+              `UPDATE "${act.target_table}" SET ${setClause} WHERE ${whereClause}`,
+              [...Object.values(updates), ...whereValues]
+            );
           }
           break;
         }
@@ -305,30 +275,19 @@ export async function executeManual(
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ table, data, rule: rule.name }),
               });
-              writeWebhookLog({
-                rule_id: rule.id,
-                rule_name: rule.name,
-                table_name: table,
+              await writeWebhookLog({
+                rule_id: rule.id, rule_name: rule.name, table_name: table,
                 record_id: data.id !== undefined ? String(data.id) : undefined,
-                trigger_type: 'manual',
-                url: act.url,
-                method,
-                http_status: response.status,
-                duration_ms: Date.now() - start,
+                trigger_type: 'manual', url: act.url, method,
+                http_status: response.status, duration_ms: Date.now() - start,
                 status: response.ok ? 'success' : 'failed',
               });
             } catch (err) {
-              writeWebhookLog({
-                rule_id: rule.id,
-                rule_name: rule.name,
-                table_name: table,
+              await writeWebhookLog({
+                rule_id: rule.id, rule_name: rule.name, table_name: table,
                 record_id: data.id !== undefined ? String(data.id) : undefined,
-                trigger_type: 'manual',
-                url: act.url,
-                method,
-                duration_ms: Date.now() - start,
-                status: 'failed',
-                error: String(err),
+                trigger_type: 'manual', url: act.url, method,
+                duration_ms: Date.now() - start, status: 'failed', error: String(err),
               });
               throw err;
             }
@@ -354,23 +313,24 @@ export async function executeAfter(
   oldData?: Record<string, unknown>,
 ): Promise<void> {
   const triggerType = `after_${action}`;
-  const rules = getRulesForTable(table, triggerType);
+  const rules = await getRulesForTable(table, triggerType);
 
   for (const rule of rules) {
     const condition = rule.condition ? JSON.parse(rule.condition) as RuleCondition : null;
-    if (!evaluateCondition(condition, table, data, oldData)) continue;
+    if (!(await evaluateCondition(condition, table, data, oldData))) continue;
 
+    const db = getDb();
     const actions = JSON.parse(rule.actions) as RuleAction[];
 
     for (const act of actions) {
       switch (act.type) {
         case 'set_field':
-          // After trigger set_field: UPDATE the record
           if (act.field && act.value !== undefined && data.id !== undefined) {
             const newVal = evaluateExpression(act.value, data);
-            const db = getDb();
-            db.prepare(`UPDATE "${table}" SET "${act.field}" = ? WHERE id = ?`)
-              .run(newVal as string | number | bigint | null, data.id as string | number | bigint);
+            await db.execute(
+              `UPDATE "${table}" SET "${act.field}" = ? WHERE id = ?`,
+              [newVal as string | number | null, data.id as string | number]
+            );
           }
           break;
 
@@ -380,70 +340,55 @@ export async function executeAfter(
             for (const [key, expr] of Object.entries(act.record_data)) {
               record[key] = evaluateExpression(expr, data);
             }
-            const db = getDb();
             const keys = Object.keys(record);
-            const placeholders = keys.map(() => '?').join(', ');
-            db.prepare(
-              `INSERT INTO "${act.target_table}" (${keys.map(k => `"${k}"`).join(', ')}) VALUES (${placeholders})`
-            ).run(...(Object.values(record) as (string | number | bigint | null)[]));
+            await db.execute(
+              `INSERT INTO "${act.target_table}" (${keys.map(k => `"${k}"`).join(', ')}) VALUES (${keys.map(() => '?').join(', ')})`,
+              Object.values(record)
+            );
           }
           break;
 
         case 'update_record': {
           if (!act.target_table || !act.record_data || !act.where) {
-            console.warn(`[RuleEngine] update_record rule "${rule.name}" missing target_table, record_data, or where`);
+            console.warn(`[RuleEngine] update_record rule "${rule.name}" missing required fields`);
             break;
           }
-          const db = getDb();
-
           const whereEntries = Object.entries(act.where);
           const whereClause = whereEntries.map(([col]) => `"${col}" = ?`).join(' AND ');
           const whereValues = whereEntries.map(([, expr]) => evaluateExpression(expr, data));
-
-          const targetRecord = db.prepare(
-            `SELECT * FROM "${act.target_table}" WHERE ${whereClause} LIMIT 1`
-          ).get(...(whereValues as (string | number | bigint | null)[])) as Record<string, unknown> | undefined;
-
-          // Context: target current values with __old_ prefix; source data directly
-          // If no target record, __old_ values default to 0
+          const { rows: targetRows } = await db.query<Record<string, unknown>>(
+            `SELECT * FROM "${act.target_table}" WHERE ${whereClause} LIMIT 1`,
+            whereValues
+          );
+          const targetRecord = targetRows[0];
           const context: Record<string, unknown> = { ...data };
           if (targetRecord) {
-            for (const [k, v] of Object.entries(targetRecord)) {
-              context[`__old_${k}`] = v;
-            }
+            for (const [k, v] of Object.entries(targetRecord)) context[`__old_${k}`] = v;
           }
-
           const updates: Record<string, unknown> = {};
           for (const [key, expr] of Object.entries(act.record_data)) {
             updates[key] = evaluateExpression(expr, context);
           }
-
           if (targetRecord) {
-            // UPDATE existing record
             const setClause = Object.keys(updates).map(k => `"${k}" = ?`).join(', ');
-            db.prepare(
-              `UPDATE "${act.target_table}" SET ${setClause} WHERE ${whereClause}`
-            ).run(
-              ...(Object.values(updates) as (string | number | bigint | null)[]),
-              ...(whereValues as (string | number | bigint | null)[]),
+            await db.execute(
+              `UPDATE "${act.target_table}" SET ${setClause} WHERE ${whereClause}`,
+              [...Object.values(updates), ...whereValues]
             );
           } else {
-            // INSERT: combine where-key values + record_data values
             const insertRecord: Record<string, unknown> = { ...updates };
-            for (const [col, expr] of whereEntries) {
-              insertRecord[col] = evaluateExpression(expr, data);
-            }
+            for (const [col, expr] of whereEntries) insertRecord[col] = evaluateExpression(expr, data);
             const cols = Object.keys(insertRecord).map(k => `"${k}"`).join(', ');
             const placeholders = Object.keys(insertRecord).map(() => '?').join(', ');
-            db.prepare(
-              `INSERT INTO "${act.target_table}" (${cols}) VALUES (${placeholders})`
-            ).run(...(Object.values(insertRecord) as (string | number | bigint | null)[]));
+            await db.execute(
+              `INSERT INTO "${act.target_table}" (${cols}) VALUES (${placeholders})`,
+              Object.values(insertRecord)
+            );
           }
           break;
         }
 
         case 'update_related_records': {
-          // Iterate child records (via_table) linked to this source, and update target_table for each
           if (!act.via_table || !act.via_foreign_key || !act.target_table || !act.record_data || !act.where) {
             console.warn(`[RuleEngine] update_related_records rule "${rule.name}" missing required fields`);
             break;
@@ -452,59 +397,44 @@ export async function executeAfter(
             console.warn(`[RuleEngine] update_related_records rule "${rule.name}": source record has no id`);
             break;
           }
-          const db = getDb();
-
-          // Fetch all related via_table records
-          const viaRecords = db.prepare(
-            `SELECT * FROM "${act.via_table}" WHERE "${act.via_foreign_key}" = ?`
-          ).all(data.id as string | number | bigint) as Record<string, unknown>[];
-
+          const { rows: viaRecords } = await db.query<Record<string, unknown>>(
+            `SELECT * FROM "${act.via_table}" WHERE "${act.via_foreign_key}" = ?`,
+            [data.id as string | number]
+          );
           for (const viaRecord of viaRecords) {
-            // Resolve WHERE clause using via_table fields
             const whereEntries = Object.entries(act.where);
             const whereClause = whereEntries.map(([col]) => `"${col}" = ?`).join(' AND ');
             const whereValues = whereEntries.map(([, expr]) => evaluateExpression(expr, viaRecord));
-
-            // Fetch the target record for current values
-            const targetRecord = db.prepare(
-              `SELECT * FROM "${act.target_table}" WHERE ${whereClause} LIMIT 1`
-            ).get(...(whereValues as (string | number | bigint | null)[])) as Record<string, unknown> | undefined;
-
-            // Context: via_table fields by name + target current values with __old_ prefix
-            // If no target record exists, __old_ values default to 0 → INSERT will be done
+            const { rows: targetRows } = await db.query<Record<string, unknown>>(
+              `SELECT * FROM "${act.target_table}" WHERE ${whereClause} LIMIT 1`,
+              whereValues
+            );
+            const targetRecord = targetRows[0];
             const context: Record<string, unknown> = { ...viaRecord };
             if (targetRecord) {
-              for (const [k, v] of Object.entries(targetRecord)) {
-                context[`__old_${k}`] = v;
-              }
+              for (const [k, v] of Object.entries(targetRecord)) context[`__old_${k}`] = v;
             }
-
             const updates: Record<string, unknown> = {};
             for (const [key, expr] of Object.entries(act.record_data)) {
               updates[key] = evaluateExpression(expr, context);
             }
-
             if (targetRecord) {
-              // UPDATE existing record
               const setClause = Object.keys(updates).map(k => `"${k}" = ?`).join(', ');
-              db.prepare(
-                `UPDATE "${act.target_table}" SET ${setClause} WHERE ${whereClause}`
-              ).run(
-                ...(Object.values(updates) as (string | number | bigint | null)[]),
-                ...(whereValues as (string | number | bigint | null)[]),
+              await db.execute(
+                `UPDATE "${act.target_table}" SET ${setClause} WHERE ${whereClause}`,
+                [...Object.values(updates), ...whereValues]
               );
             } else {
-              // INSERT: combine where-key values (from via_table) + record_data values
               const insertRecord: Record<string, unknown> = { ...updates };
-              const whereEntriesLocal = Object.entries(act.where);
-              for (const [col, expr] of whereEntriesLocal) {
+              for (const [col, expr] of Object.entries(act.where)) {
                 insertRecord[col] = evaluateExpression(expr, viaRecord);
               }
               const cols = Object.keys(insertRecord).map(k => `"${k}"`).join(', ');
               const placeholders = Object.keys(insertRecord).map(() => '?').join(', ');
-              db.prepare(
-                `INSERT INTO "${act.target_table}" (${cols}) VALUES (${placeholders})`
-              ).run(...(Object.values(insertRecord) as (string | number | bigint | null)[]));
+              await db.execute(
+                `INSERT INTO "${act.target_table}" (${cols}) VALUES (${placeholders})`,
+                Object.values(insertRecord)
+              );
             }
           }
           break;
@@ -520,31 +450,20 @@ export async function executeAfter(
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ table, action, data, rule: rule.name }),
               });
-              writeWebhookLog({
-                rule_id: rule.id,
-                rule_name: rule.name,
-                table_name: table,
+              await writeWebhookLog({
+                rule_id: rule.id, rule_name: rule.name, table_name: table,
                 record_id: data.id !== undefined ? String(data.id) : undefined,
-                trigger_type: triggerType,
-                url: act.url,
-                method,
-                http_status: response.status,
-                duration_ms: Date.now() - start,
+                trigger_type: triggerType, url: act.url, method,
+                http_status: response.status, duration_ms: Date.now() - start,
                 status: response.ok ? 'success' : 'failed',
               });
             } catch (err) {
               console.error(`[RuleEngine] Webhook failed for rule "${rule.name}":`, err);
-              writeWebhookLog({
-                rule_id: rule.id,
-                rule_name: rule.name,
-                table_name: table,
+              await writeWebhookLog({
+                rule_id: rule.id, rule_name: rule.name, table_name: table,
                 record_id: data.id !== undefined ? String(data.id) : undefined,
-                trigger_type: triggerType,
-                url: act.url,
-                method,
-                duration_ms: Date.now() - start,
-                status: 'failed',
-                error: String(err),
+                trigger_type: triggerType, url: act.url, method,
+                duration_ms: Date.now() - start, status: 'failed', error: String(err),
               });
             }
           }

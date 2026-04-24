@@ -4,7 +4,7 @@ import path from 'path';
 import fs from 'fs';
 import { v4 as uuidv4 } from 'uuid';
 import { requireAuth } from '../middleware/auth';
-import { insertFile, getFile, deleteFileRecord } from '../db';
+import { insertFile, getFile, deleteFileRecord } from '../db/files';
 
 const router = Router();
 
@@ -47,16 +47,12 @@ const upload = multer({
   },
 });
 
-// POST /api/files/upload
 router.post('/upload', requireAuth, (req, res, next) => {
   upload.array('files', 10)(req, res, (err) => {
-    if (err) {
-      res.status(400).json({ error: err.message });
-      return;
-    }
+    if (err) { res.status(400).json({ error: err.message }); return; }
     next();
   });
-}, (req, res) => {
+}, async (req, res) => {
   const files = req.files as Express.Multer.File[];
   if (!files || files.length === 0) {
     res.status(400).json({ error: 'No files uploaded' });
@@ -65,9 +61,8 @@ router.post('/upload', requireAuth, (req, res, next) => {
 
   const { table_name, record_id, field_name } = req.query as Record<string, string>;
 
-  const records = files.map(f => {
+  const records = await Promise.all(files.map(f => {
     const id = path.basename(f.filename);
-    // multer decodes originalname as latin1; re-encode to UTF-8 for Chinese filenames
     const filename = Buffer.from(f.originalname, 'latin1').toString('utf8');
     return insertFile({
       id,
@@ -80,7 +75,7 @@ router.post('/upload', requireAuth, (req, res, next) => {
       field_name: field_name ?? null,
       uploaded_by: req.user!.id,
     });
-  });
+  }));
 
   res.json(records.map(r => ({
     id: r.id,
@@ -91,22 +86,17 @@ router.post('/upload', requireAuth, (req, res, next) => {
   })));
 });
 
-// GET /api/files/:id/meta — metadata only (no file content)
-router.get('/:id/meta', requireAuth, (req, res) => {
-  const record = getFile(String(req.params.id));
+router.get('/:id/meta', requireAuth, async (req, res) => {
+  const record = await getFile(String(req.params.id));
   if (!record) { res.status(404).json({ error: 'File not found' }); return; }
   res.json({
-    id: record.id,
-    filename: record.filename,
-    mime_type: record.mime_type,
-    size: record.size,
-    url: `/api/files/${record.id}`,
+    id: record.id, filename: record.filename, mime_type: record.mime_type,
+    size: record.size, url: `/api/files/${record.id}`,
   });
 });
 
-// GET /api/files/:id
-router.get('/:id', requireAuth, (req, res) => {
-  const record = getFile(String(req.params.id));
+router.get('/:id', requireAuth, async (req, res) => {
+  const record = await getFile(String(req.params.id));
   if (!record) { res.status(404).json({ error: 'File not found' }); return; }
 
   const filePath = path.join(UPLOAD_DIR, record.path);
@@ -121,9 +111,8 @@ router.get('/:id', requireAuth, (req, res) => {
   res.sendFile(path.resolve(filePath));
 });
 
-// DELETE /api/files/:id
-router.delete('/:id', requireAuth, (req, res) => {
-  const record = getFile(String(req.params.id));
+router.delete('/:id', requireAuth, async (req, res) => {
+  const record = await getFile(String(req.params.id));
   if (!record) { res.status(404).json({ error: 'File not found' }); return; }
 
   if (record.uploaded_by !== req.user!.id && req.user!.role !== 'admin') {
@@ -133,7 +122,7 @@ router.delete('/:id', requireAuth, (req, res) => {
 
   const filePath = path.join(UPLOAD_DIR, record.path);
   try { fs.unlinkSync(filePath); } catch { /* file already gone */ }
-  deleteFileRecord(record.id);
+  await deleteFileRecord(record.id);
 
   res.json({ success: true });
 });
