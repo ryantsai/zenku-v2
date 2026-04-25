@@ -39,7 +39,7 @@ export function ProfileDialog({ open, onClose }: Props) {
     setProfileLoading(true);
     try {
       const res = await fetch('/api/users/me', { method: 'PUT', headers, body: JSON.stringify({ name: name.trim(), language }) });
-      const json = await res.json() as { success?: boolean; name?: string; language?: string; error?: string; params?: any };
+      const json = await res.json() as { success?: boolean; name?: string; language?: string; error?: string; params?: Record<string, unknown> };
       if (!res.ok) {
         toast.error(String(t(`errors.${json.error}`, { ...json.params, defaultValue: json.error || t('common.error') })));
         return;
@@ -64,7 +64,7 @@ export function ProfileDialog({ open, onClose }: Props) {
         method: 'PUT', headers,
         body: JSON.stringify({ old_password: oldPwd, new_password: newPwd }),
       });
-      const json = await res.json() as { success?: boolean; error?: string; params?: any };
+      const json = await res.json() as { success?: boolean; error?: string; params?: Record<string, unknown> };
       if (!res.ok) {
         toast.error(String(t(`errors.${json.error}`, { ...json.params, defaultValue: json.error || t('common.error') })));
         return;

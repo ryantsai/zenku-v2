@@ -27,7 +27,7 @@ export interface TableQueryResult {
 }
 
 export class ApiError extends Error {
-  constructor(public code: string, public params: Record<string, any> = {}, public status: number) {
+  constructor(public code: string, public params: Record<string, unknown> = {}, public status: number) {
     super(code);
     this.name = 'ApiError';
   }
@@ -36,9 +36,9 @@ export class ApiError extends Error {
 async function parseJsonOrThrow<T>(res: Response): Promise<T> {
   if (!res.ok) {
     let code = `ERROR_HTTP_${res.status}`;
-    let params = {};
+    let params: Record<string, unknown> = {};
     try {
-      const json = await res.json() as { error?: string; params?: Record<string, any> };
+      const json = await res.json() as { error?: string; params?: Record<string, unknown> };
       if (json.error) code = json.error;
       if (json.params) params = json.params;
     } catch {

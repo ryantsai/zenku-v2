@@ -41,29 +41,30 @@ export interface RelationColumnDef {
 
 export async function getRelationColumns(tableName: string): Promise<RelationColumnDef[]> {
   const views = await getAllViews();
-  let view = views.find(v => v.table_name === tableName);
-  if (!view) {
+
+  let definitionStr: string | undefined = views.find(v => v.table_name === tableName)?.definition;
+  if (!definitionStr) {
     for (const v of views) {
       try {
-        const def = JSON.parse(v.definition) as { detail_views?: { table_name: string; view: { columns?: unknown[] } }[] };
-        if (def.detail_views) {
-          const detailView = def.detail_views.find(dv => dv.table_name === tableName);
-          if (detailView) { view = { definition: JSON.stringify(detailView.view) } as any; break; }
-        }
+        const def = JSON.parse(v.definition) as { detail_views?: { table_name: string; view: unknown }[] };
+        const dv = def.detail_views?.find(d => d.table_name === tableName);
+        if (dv) { definitionStr = JSON.stringify(dv.view); break; }
       } catch { continue; }
     }
   }
-  if (!view) return [];
+  if (!definitionStr) return [];
+
   try {
-    const def = JSON.parse(view.definition) as { columns?: { key: string; type: string; relation?: { table: string; display_field: string } }[] };
+    type ColDef = { key: string; type: string; relation?: { table: string; display_field: string; value_field?: string } };
+    const def = JSON.parse(definitionStr) as { columns?: ColDef[] };
     return (def.columns ?? [])
-      .filter(c => (c as any).type === 'relation' && (c as any).relation?.table && (c as any).relation?.display_field)
+      .filter(c => c.type === 'relation' && c.relation?.table && c.relation?.display_field)
       .map(c => ({
         key: c.key,
         relation: {
-          table: (c as any).relation!.table,
-          display_field: (c as any).relation!.display_field,
-          value_field: (c as any).relation!.value_field ?? 'id',
+          table: c.relation!.table,
+          display_field: c.relation!.display_field,
+          value_field: c.relation!.value_field ?? 'id',
         }
       }));
   } catch { return []; }

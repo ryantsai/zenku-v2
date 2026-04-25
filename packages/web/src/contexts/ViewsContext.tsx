@@ -2,7 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useState } from 'rea
 import { useTranslation } from 'react-i18next';
 import type React from 'react';
 import { toast } from 'sonner';
-import { getViews } from '../api';
+import { getViews, ApiError } from '../api';
 import type { ViewDefinition } from '../types';
 
 interface ViewsContextValue {
@@ -25,9 +25,8 @@ export function ViewsProvider({ children }: { children: React.ReactNode }) {
       const data = await getViews();
       setViews(data.map(d => d.definition));
     } catch (err) {
-      if (err instanceof Error && err.name === 'ApiError') {
-        const apiErr = err as any;
-        toast.error(String(t(`errors.${apiErr.code}`, { ...apiErr.params, defaultValue: apiErr.code })));
+      if (err instanceof ApiError) {
+        toast.error(String(t(`errors.${err.code}`, { ...err.params, defaultValue: err.code })));
       } else {
         toast.error(t('common.error'));
       }

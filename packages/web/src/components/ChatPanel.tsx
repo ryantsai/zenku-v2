@@ -4,6 +4,7 @@ import { Send, Loader2, Wrench, CheckCircle, XCircle, Plus, Archive, ChevronDown
 import { MarkdownRenderer } from './MarkdownRenderer';
 import {
   sendChat, getAIProviders, getOllamaModels, getSessions, getSessionMessages, updateSessionTitle, archiveSession,
+  ApiError,
   type AIProviderInfo, type SessionSummary, type SessionMessage,
 } from '../api';
 import type { ChatMessage, SSEChunk, ToolEvent } from '../types';
@@ -19,7 +20,7 @@ interface Props {
   className?: string;
 }
 
-const getWelcomeMsg = (t: any): ChatMessage => ({
+const getWelcomeMsg = (t: (key: string) => string): ChatMessage => ({
   id: 'welcome',
   role: 'assistant',
   content: t('chat.welcome'),
@@ -260,20 +261,17 @@ export function ChatPanel({ onViewsChanged, className }: Props) {
           if (hasViewChange) onViewsChanged();
           if (c.session_id) newSessionId = c.session_id;
         } else if (c.type === 'error') {
-          const errorCode = (c as any).error || 'ERROR_INTERNAL_SERVER';
-          const errorParams = (c as any).params || { detail: (c as any).message };
           setMessages(prev =>
             prev.map(m =>
-              m.id === assistantMsg.id ? { ...m, content: `${t('common.error')}：${t(`errors.${errorCode}`, { ...errorParams, defaultValue: errorParams.detail || errorCode })}` } : m
+              m.id === assistantMsg.id ? { ...m, content: `${t('common.error')}：${t('errors.ERROR_INTERNAL_SERVER', { detail: c.message, defaultValue: c.message })}` } : m
             )
           );
         }
       }
     } catch (err) {
       let errorMessage = String(err);
-      if (err instanceof Error && err.name === 'ApiError') {
-        const apiErr = err as any;
-        errorMessage = String(t(`errors.${apiErr.code}`, { ...apiErr.params, defaultValue: apiErr.code }));
+      if (err instanceof ApiError) {
+        errorMessage = String(t(`errors.${err.code}`, { ...err.params, defaultValue: err.code }));
       }
       setMessages(prev =>
         prev.map(m =>

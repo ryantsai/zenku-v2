@@ -410,7 +410,7 @@ router.post('/admin/api-keys', requireAdmin, async (req, res) => {
   if (!Array.isArray(scopes) || scopes.length === 0) {
     res.status(400).json({ error: 'ERROR_API_KEY_NO_SCOPES' }); return;
   }
-  const userId = (req as any).user?.id ?? 'system';
+  const userId = req.user!.id;
   const { rawKey, record } = await createApiKey(name.trim(), scopes, userId, expires_at);
   res.status(201).json({ raw_key: rawKey, record });
 });

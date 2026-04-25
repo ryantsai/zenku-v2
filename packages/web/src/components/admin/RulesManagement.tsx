@@ -76,7 +76,7 @@ const TRIGGER_COLOR: Record<TriggerType, string> = {
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-function conditionSummary(cond: RuleCondition | null, t: any): string {
+function conditionSummary(cond: RuleCondition | null, t: (key: string, opts?: Record<string, unknown>) => string): string {
   if (!cond) return t('admin.rules.no_condition');
   const opMap: Record<string, string> = {
     eq: t('admin.rules.op_eq'),

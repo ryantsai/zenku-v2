@@ -65,7 +65,7 @@ function countAppearanceRules(view: ViewDefinition): number {
   return formRules + colRules + detailRules;
 }
 
-function conditionText(when: Record<string, unknown>, t: any): string {
+function conditionText(when: Record<string, unknown>, t: (key: string) => string): string {
   if ('logic' in when) {
     const sub = (when.conditions as Array<Record<string, unknown>> ?? []).map(c => conditionText(c, t));
     return `(${sub.join(` ${String(when.logic).toUpperCase()} `)})`;
@@ -78,7 +78,7 @@ function conditionText(when: Record<string, unknown>, t: any): string {
   return `${when.field} ${op}${val}`;
 }
 
-function effectItems(apply: AppearanceEffect, t: any): Array<{ icon: React.ReactNode; label: string }> {
+function effectItems(apply: AppearanceEffect, t: (key: string) => string): Array<{ icon: React.ReactNode; label: string }> {
   const items: Array<{ icon: React.ReactNode; label: string }> = [];
   if (apply.visibility === 'hidden')  items.push({ icon: <EyeOff className="h-3 w-3" />, label: t('admin.views.effect_hidden') });
   if (apply.visibility === 'visible') items.push({ icon: <Eye className="h-3 w-3" />, label: t('admin.views.effect_visible') });

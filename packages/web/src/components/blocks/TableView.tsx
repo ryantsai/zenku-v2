@@ -280,7 +280,7 @@ export function TableView({ view, filters, onCreateData, masterRecord }: Props) 
       void fetchRows();
     } catch (error) {
       const desc = error instanceof ApiError
-        ? (error.params?.details || error.params?.detail || error.code)
+        ? String(error.params?.details ?? error.params?.detail ?? error.code)
         : String(error);
       toast.error(t('table.view.toast_create_failed'), { description: desc });
     }
@@ -300,7 +300,7 @@ export function TableView({ view, filters, onCreateData, masterRecord }: Props) 
       void fetchRows();
     } catch (error) {
       const desc = error instanceof ApiError
-        ? (error.params?.details || error.params?.detail || error.code)
+        ? String(error.params?.details ?? error.params?.detail ?? error.code)
         : String(error);
       toast.error(t('table.view.toast_update_failed'), { description: desc });
     }
