@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { NavLink } from 'react-router-dom';
-import { Database, BarChart3, Columns3, Calendar, FileText, Image, ClipboardList, GitCommitVertical, Network, GanttChartSquare, Globe, ChevronDown, ChevronRight } from 'lucide-react';
+import { Database, BarChart3, Columns3, Calendar, FileText, Image, ClipboardList, GitCommitVertical, Network, GanttChartSquare, Globe, Package, ChevronDown, ChevronRight } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { cn } from '../lib/cn';
 import { useViews } from '../contexts/ViewsContext';
@@ -113,6 +113,36 @@ export function Sidebar({ collapsed = false }: Props) {
               <GroupSection key={label} label={label} views={groupViews} collapsed={collapsed} />
             ))}
           </>
+        )}
+        {/* System section */}
+        {!collapsed && (
+          <div className="mt-2">
+            <p className="px-3 py-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
+              {t('sidebar.system')}
+            </p>
+            <NavLink
+              to="/app/bundle"
+              className={({ isActive }) => cn(
+                'flex items-center gap-2 rounded-md px-3 py-1.5 text-sm text-muted-foreground transition hover:bg-accent hover:text-foreground',
+                isActive && 'bg-accent text-foreground font-medium',
+              )}
+            >
+              <Package className="h-4 w-4 shrink-0" />
+              {t('bundle.nav_label')}
+            </NavLink>
+          </div>
+        )}
+        {collapsed && (
+          <NavLink
+            to="/app/bundle"
+            title={t('bundle.nav_label')}
+            className={({ isActive }) => cn(
+              'flex justify-center rounded-md p-2 text-muted-foreground hover:bg-accent hover:text-foreground',
+              isActive && 'bg-accent text-foreground',
+            )}
+          >
+            <Package className="h-4 w-4" />
+          </NavLink>
         )}
       </nav>
       {!collapsed && <UserMenu />}

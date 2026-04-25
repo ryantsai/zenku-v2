@@ -286,3 +286,92 @@ export async function deleteFile(id: string): Promise<void> {
   });
   await parseJsonOrThrow<{ success: boolean }>(res);
 }
+
+// ─── App Bundle (Export / Import) ────────────────────────────────────────────
+
+export interface BundleManifest {
+  name: string;
+  description?: string;
+  version: string;
+  author?: string;
+}
+
+export interface ColumnInfo {
+  name: string; type: string; notNull: boolean; defaultValue: string | null; isPrimaryKey: boolean;
+}
+
+export interface TableDiff {
+  table: string;
+  columns_to_add: ColumnInfo[];
+  columns_orphaned: ColumnInfo[];
+}
+
+export interface BundleDiff {
+  tables_to_create: string[];
+  tables_to_alter: TableDiff[];
+  tables_unchanged: string[];
+  views_to_create: string[];
+  views_to_update: string[];
+  rules_to_create: string[];
+  rules_to_update: string[];
+  webhook_urls: string[];
+  warnings: string[];
+}
+
+export interface ImportPreviewResult {
+  manifest: BundleManifest;
+  diff: BundleDiff;
+  summary: { tables: number; views: number; rules: number; webhooks: number };
+}
+
+export interface ImportApplyResult {
+  success: boolean;
+  tables_created: string[];
+  tables_altered: string[];
+  views_upserted: string[];
+  rules_upserted: string[];
+  errors: string[];
+}
+
+/** Download the current app as a .zenku.json file */
+export async function exportApp(manifest: BundleManifest): Promise<void> {
+  const params = new URLSearchParams({
+    name: manifest.name,
+    description: manifest.description ?? '',
+    version: manifest.version,
+    author: manifest.author ?? '',
+  });
+  const res = await fetch(`${BASE}/app/export?${params}`, { headers: authHeaders() });
+  if (!res.ok) throw new Error(`Export failed: ${res.statusText}`);
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const cd = res.headers.get('Content-Disposition') ?? '';
+  const match = cd.match(/filename="([^"]+)"/);
+  const filename = match?.[1] ?? `${manifest.name}.zenku.json`;
+  const a = document.createElement('a');
+  a.href = url; a.download = filename; a.click();
+  URL.revokeObjectURL(url);
+}
+
+/** Parse bundle JSON and return diff preview without writing anything */
+export async function previewImport(bundle: unknown): Promise<ImportPreviewResult> {
+  const res = await fetch(`${BASE}/app/import/preview`, {
+    method: 'POST',
+    headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+    body: JSON.stringify(bundle),
+  });
+  return parseJsonOrThrow<ImportPreviewResult>(res);
+}
+
+/** Apply the bundle to the database */
+export async function applyImport(
+  bundle: unknown,
+  options?: { disable_webhooks?: boolean; webhook_overrides?: Record<string, string> },
+): Promise<ImportApplyResult> {
+  const res = await fetch(`${BASE}/app/import/apply`, {
+    method: 'POST',
+    headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+    body: JSON.stringify({ bundle, options }),
+  });
+  return parseJsonOrThrow<ImportApplyResult>(res);
+}
