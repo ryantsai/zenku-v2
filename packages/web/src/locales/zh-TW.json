@@ -124,6 +124,7 @@
       "rules_mgmt": "業務規則",
       "view_mgmt": "介面管理",
       "api_keys": "API 金鑰",
+      "bundle": "應用管理",
       "appearance": "條件外觀"
     },
     "panel": {

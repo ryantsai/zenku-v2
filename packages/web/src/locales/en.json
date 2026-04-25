@@ -118,6 +118,7 @@
       "rules_mgmt": "Business Rules",
       "view_mgmt": "Interface Management",
       "api_keys": "API Keys",
+      "bundle": "App Management",
       "appearance": "Conditional Appearance"
     },
     "panel": {
