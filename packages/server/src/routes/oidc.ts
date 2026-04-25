@@ -86,7 +86,7 @@ router.get('/auth/oidc/:providerId/login', async (req, res) => {
     });
 
     res.redirect(authUrl);
-  } catch (err) {
+  } catch {
     res.status(500).json({ error: 'Failed to initiate OIDC login' });
   }
 });

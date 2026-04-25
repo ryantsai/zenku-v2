@@ -100,7 +100,7 @@ export async function updateRefreshToken(userId: string, providerId: string, ref
   );
 }
 
-export async function findUserByEmail(email: string): Promise<{ id: string; password_hash: string } | null> {
+async function findUserByEmail(email: string): Promise<{ id: string; password_hash: string } | null> {
   const { rows } = await getDb().query<{ id: string; password_hash: string }>(
     'SELECT id, password_hash FROM _zenku_users WHERE email = ?',
     [email]

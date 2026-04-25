@@ -59,7 +59,7 @@ export function AppShell() {
           onToggleChat={() => {}}
           showPanelToggles={false}
         />
-        <div className="flex flex-1 items-center justify-center p-6">
+        <div className="relative flex flex-1 items-center justify-center p-6">
           <Card className="h-[640px] w-full max-w-2xl overflow-hidden">
             <ChatPanel onViewsChanged={fetchViews} />
           </Card>

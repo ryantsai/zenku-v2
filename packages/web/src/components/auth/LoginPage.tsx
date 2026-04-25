@@ -19,7 +19,7 @@ interface AuthResponse {
   token: string;
   user: AuthUser;
   error?: string;
-  params?: any;
+  params?: Record<string, unknown>;
 }
 
 export function LoginPage({ hasUsers, oidcProviders, authMode, onAuth }: Props) {
