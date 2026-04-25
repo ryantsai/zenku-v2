@@ -16,6 +16,7 @@ import extRouter from './routes/ext';
 import filesRouter from './routes/files';
 import mcpRouter from './routes/mcp';
 import bundleRouter from './routes/bundle';
+import oidcRouter from './routes/oidc';
 import { requireAuth } from './middleware/auth';
 import crypto from 'crypto';
 
@@ -34,6 +35,7 @@ app.use('/api/ext', extRouter);
 app.use('/api/files', filesRouter);
 app.use('/api/mcp', mcpRouter);
 app.use('/api', bundleRouter);
+app.use('/api', oidcRouter);
 
 // ── Legacy webhook callback ───────────────────────────────────────────────────
 function authenticateWebhook(req: express.Request, res: express.Response, next: express.NextFunction): void {

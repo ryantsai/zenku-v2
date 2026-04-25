@@ -4,6 +4,8 @@ import bcrypt from 'bcryptjs';
 import { getDb, dbNow } from '../db';
 import { getUserTables } from '../db/schema';
 import { createApiKey, listApiKeys, revokeApiKey, deleteApiKey } from '../db/auth';
+import { listOidcProviders, createOidcProvider, updateOidcProvider, deleteOidcProvider, listRoleMappings, createRoleMapping, deleteRoleMapping } from '../db/oidc';
+import { getSetting, setSetting } from '../db/settings';
 import { requireAdmin, requireAuth } from '../middleware/auth';
 import { getAvailableProviders, fetchOllamaModels } from '../ai';
 import { p } from '../utils';
@@ -431,6 +433,93 @@ router.get('/admin/api-keys/logs', requireAdmin, async (_req, res) => {
      FROM _zenku_journal WHERE agent = 'ext_api' ORDER BY id DESC LIMIT 100`
   );
   res.json(rows);
+});
+
+// ── System Settings ───────────────────────────────────────────────────────────
+
+router.get('/admin/settings', requireAdmin, async (_req, res) => {
+  const auth_mode = await getSetting('auth_mode', 'local');
+  res.json({ auth_mode });
+});
+
+router.put('/admin/settings', requireAdmin, async (req, res) => {
+  const { auth_mode } = req.body as { auth_mode?: string };
+  if (auth_mode !== undefined) {
+    if (!['local', 'sso_only'].includes(auth_mode)) {
+      res.status(400).json({ error: 'ERROR_MISSING_FIELDS' });
+      return;
+    }
+    await setSetting('auth_mode', auth_mode);
+  }
+  res.json({ success: true });
+});
+
+// ── OIDC Provider Management ──────────────────────────────────────────────────
+
+router.get('/admin/oidc-providers', requireAdmin, async (_req, res) => {
+  const providers = await listOidcProviders();
+  // Hide client_secret from response
+  res.json(providers.map(p => ({ ...p, client_secret: '***' })));
+});
+
+router.post('/admin/oidc-providers', requireAdmin, async (req, res) => {
+  const { name, issuer, client_id, client_secret } = req.body as Record<string, string>;
+  if (!name?.trim() || !issuer?.trim() || !client_id?.trim() || !client_secret?.trim()) {
+    res.status(400).json({ error: 'ERROR_MISSING_FIELDS' });
+    return;
+  }
+  try {
+    const provider = await createOidcProvider(name.trim(), issuer.trim(), client_id.trim(), client_secret.trim());
+    res.json({ ...provider, client_secret: '***' });
+  } catch {
+    res.status(500).json({ error: 'ERROR_INTERNAL_SERVER' });
+  }
+});
+
+router.put('/admin/oidc-providers/:id', requireAdmin, async (req, res) => {
+  const { name, issuer, client_id, client_secret, enabled } = req.body as Record<string, unknown>;
+  const patch: Record<string, unknown> = {};
+  if (typeof name === 'string') patch.name = name.trim();
+  if (typeof issuer === 'string') patch.issuer = issuer.trim();
+  if (typeof client_id === 'string') patch.client_id = client_id.trim();
+  if (typeof client_secret === 'string' && client_secret !== '***') patch.client_secret = client_secret.trim();
+  if (typeof enabled === 'number') patch.enabled = enabled;
+  const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+  const ok = await updateOidcProvider(id, patch as Parameters<typeof updateOidcProvider>[1]);
+  if (!ok) { res.status(404).json({ error: 'ERROR_NOT_FOUND' }); return; }
+  res.json({ success: true });
+});
+
+router.delete('/admin/oidc-providers/:id', requireAdmin, async (req, res) => {
+  const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+  const ok = await deleteOidcProvider(id);
+  if (!ok) { res.status(404).json({ error: 'ERROR_NOT_FOUND' }); return; }
+  res.json({ success: true });
+});
+
+// ── Role Mappings ─────────────────────────────────────────────────────────────
+
+router.get('/admin/oidc-providers/:id/role-mappings', requireAdmin, async (req, res) => {
+  const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+  res.json(await listRoleMappings(id));
+});
+
+router.post('/admin/oidc-providers/:id/role-mappings', requireAdmin, async (req, res) => {
+  const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+  const { claim_path, claim_value, zenku_role } = req.body as Record<string, string>;
+  if (!claim_path?.trim() || !claim_value?.trim() || !['admin', 'builder', 'user'].includes(zenku_role)) {
+    res.status(400).json({ error: 'ERROR_MISSING_FIELDS' });
+    return;
+  }
+  const mapping = await createRoleMapping(id, claim_path.trim(), claim_value.trim(), zenku_role);
+  res.json(mapping);
+});
+
+router.delete('/admin/oidc-role-mappings/:id', requireAdmin, async (req, res) => {
+  const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+  const ok = await deleteRoleMapping(id);
+  if (!ok) { res.status(404).json({ error: 'ERROR_NOT_FOUND' }); return; }
+  res.json({ success: true });
 });
 
 export default router;

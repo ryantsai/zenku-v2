@@ -24,6 +24,7 @@ export function AppShell() {
 
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [chatCollapsed, setChatCollapsed] = useState(hasViews);
+  const [enterSystem, setEnterSystem] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [mobileChatOpen, setMobileChatOpen] = useState(false);
 
@@ -47,7 +48,7 @@ export function AppShell() {
     panel.isCollapsed() ? panel.expand() : panel.collapse();
   };
 
-  if (!hasViews) {
+  if (!hasViews && !enterSystem) {
     return (
       <div className="flex h-screen flex-col bg-background">
         <AppBar
@@ -62,6 +63,7 @@ export function AppShell() {
           <Card className="h-[640px] w-full max-w-2xl overflow-hidden">
             <ChatPanel onViewsChanged={fetchViews} />
           </Card>
+          <EnterSystemButton onClick={() => setEnterSystem(true)} />
         </div>
       </div>
     );
@@ -97,10 +99,12 @@ export function AppShell() {
     );
   }
 
+  const showingFullLayout = hasViews || enterSystem;
+
   return (
     <div className="flex h-screen flex-col bg-background text-foreground">
       <AppBar
-        viewName={currentView?.name}
+        viewName={showingFullLayout ? currentView?.name : undefined}
         isMobile={false}
         sidebarCollapsed={sidebarCollapsed}
         chatCollapsed={chatCollapsed}
@@ -145,6 +149,19 @@ export function AppShell() {
         </Panel>
       </Group>
     </div>
+  );
+}
+
+function EnterSystemButton({ onClick }: { onClick: () => void }) {
+  const { t } = useTranslation();
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="absolute bottom-8 right-8 rounded-lg border bg-card px-4 py-2 text-sm font-medium shadow-sm transition hover:bg-muted"
+    >
+      {t('common.enter_system')}
+    </button>
   );
 }
 

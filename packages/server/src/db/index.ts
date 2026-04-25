@@ -35,3 +35,10 @@ export function setDb(adapter: DbAdapter): void {
 export function dbNow(): string {
   return new Date().toISOString().replace('T', ' ').slice(0, 19);
 }
+
+/** Session expiry timestamp (30 days from now) */
+export function dbSessionExpiry(): string {
+  const d = new Date();
+  d.setDate(d.getDate() + 30);
+  return d.toISOString().replace('T', ' ').slice(0, 19);
+}

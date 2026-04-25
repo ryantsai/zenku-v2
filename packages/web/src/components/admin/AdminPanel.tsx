@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   Users, MessageSquare, BarChart2, ShieldCheck,
-  LayoutTemplate, Key, Package, X,
+  LayoutTemplate, Key, Package, X, LogIn,
 } from 'lucide-react';
 import { cn } from '../../lib/cn';
 import { UserManagement } from './UserManagement';
@@ -12,6 +12,7 @@ import { RulesManagement } from './RulesManagement';
 import { ViewManagement } from './ViewManagement';
 import { ApiKeyManagement } from './ApiKeyManagement';
 import { BundleManagement } from './BundleManagement';
+import { OidcManagement } from './OidcManagement';
 
 // ─── Tab definitions ──────────────────────────────────────────────────────────
 
@@ -22,7 +23,8 @@ export type AdminTab =
   | 'rules'
   | 'views'
   | 'api-keys'
-  | 'bundle';
+  | 'bundle'
+  | 'oidc';
 
 interface NavItem {
   id: AdminTab;
@@ -38,6 +40,7 @@ const NAV_ITEMS: NavItem[] = [
   { id: 'views',      icon: LayoutTemplate,labelKey: 'admin.menu.view_mgmt'     },
   { id: 'api-keys',   icon: Key,           labelKey: 'admin.menu.api_keys'      },
   { id: 'bundle',     icon: Package,       labelKey: 'admin.menu.bundle'        },
+  { id: 'oidc',       icon: LogIn,         labelKey: 'admin.menu.oidc'          },
 ];
 
 // ─── Props ────────────────────────────────────────────────────────────────────
@@ -104,6 +107,7 @@ export function AdminPanel({ initialTab = 'users', onClose }: Props) {
         {activeTab === 'views'      && <ViewManagement />}
         {activeTab === 'api-keys'   && <ApiKeyManagement />}
         {activeTab === 'bundle'     && <BundleManagement />}
+        {activeTab === 'oidc'       && <OidcManagement />}
       </main>
     </div>
   );

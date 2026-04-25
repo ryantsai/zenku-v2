@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import i18n from '../../i18n';
-import type { AuthUser } from '../../contexts/AuthContext';
+import type { AuthUser, OidcProvider } from '../../contexts/AuthContext';
 
 const LANGUAGES = [
   { code: 'zh-TW', label: '中文' },
@@ -10,6 +10,8 @@ const LANGUAGES = [
 
 interface Props {
   hasUsers: boolean;
+  oidcProviders: OidcProvider[];
+  authMode: 'local' | 'sso_only';
   onAuth: (user: AuthUser, token: string) => void;
 }
 
@@ -20,7 +22,7 @@ interface AuthResponse {
   params?: any;
 }
 
-export function LoginPage({ hasUsers, onAuth }: Props) {
+export function LoginPage({ hasUsers, oidcProviders, authMode, onAuth }: Props) {
   const { t } = useTranslation();
   const [mode, setMode] = useState<'login' | 'register'>(hasUsers ? 'login' : 'register');
   const [email, setEmail] = useState('');
@@ -28,6 +30,19 @@ export function LoginPage({ hasUsers, onAuth }: Props) {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const oidcError = params.get('oidc_error');
+    if (oidcError) {
+      window.history.replaceState({}, '', window.location.pathname);
+      if (oidcError === 'email_taken_local') {
+        setError(t('auth.oidc_email_taken'));
+      } else {
+        setError(t('auth.oidc_failed'));
+      }
+    }
+  }, [t]);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -85,79 +100,115 @@ export function LoginPage({ hasUsers, onAuth }: Props) {
           </div>
           <h1 className="text-2xl font-bold">Zenku</h1>
           <p className="text-sm text-muted-foreground">
-            {mode === 'login' 
-              ? t('auth.login_title') 
-              : !hasUsers ? t('auth.register_admin_title') : t('auth.register_title')}
+            {authMode === 'sso_only'
+              ? t('auth.sso_only_title')
+              : mode === 'login'
+                ? t('auth.login_title')
+                : !hasUsers ? t('auth.register_admin_title') : t('auth.register_title')}
           </p>
         </div>
 
-        {/* Form */}
-        <form onSubmit={(e) => { void submit(e); }} className="space-y-4">
-          {mode === 'register' && (
-            <div className="space-y-1.5">
-              <label className="text-sm font-medium">{t('auth.name')}</label>
-              <input
-                type="text"
-                value={name}
-                onChange={e => setName(e.target.value)}
-                placeholder={t('auth.name')}
-                required
-                className="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary"
-              />
-            </div>
-          )}
-
-          <div className="space-y-1.5">
-            <label className="text-sm font-medium">{t('auth.email')}</label>
-            <input
-              type="email"
-              value={email}
-              onChange={e => setEmail(e.target.value)}
-              placeholder="your@email.com"
-              required
-              autoComplete="email"
-              className="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary"
-            />
+        {authMode === 'sso_only' ? (
+          /* SSO-only: show only SSO buttons */
+          <div className="space-y-3">
+            {error && <p className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">{error}</p>}
+            {oidcProviders.map(p => (
+              <a
+                key={p.id}
+                href={`/api/auth/oidc/${p.id}/login`}
+                className="flex w-full items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition hover:bg-primary/90"
+              >
+                {t('auth.sso_login', { name: p.name })}
+              </a>
+            ))}
           </div>
+        ) : (
+          /* Normal mode: form + optional SSO buttons */
+          <>
+            <form onSubmit={(e) => { void submit(e); }} className="space-y-4">
+              {mode === 'register' && (
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium">{t('auth.name')}</label>
+                  <input
+                    type="text"
+                    value={name}
+                    onChange={e => setName(e.target.value)}
+                    placeholder={t('auth.name')}
+                    required
+                    className="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary"
+                  />
+                </div>
+              )}
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium">{t('auth.email')}</label>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={e => setEmail(e.target.value)}
+                  placeholder="your@email.com"
+                  required
+                  autoComplete="email"
+                  className="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium">{t('auth.password')}</label>
+                <input
+                  type="password"
+                  value={password}
+                  onChange={e => setPassword(e.target.value)}
+                  placeholder={t('auth.password_hint')}
+                  required
+                  autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
+                  className="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary"
+                />
+              </div>
+              {error && (
+                <p className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">{error}</p>
+              )}
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition hover:bg-primary/90 disabled:opacity-50"
+              >
+                {loading ? t('auth.processing') : mode === 'login' ? t('auth.login_button') : t('auth.register_button')}
+              </button>
+            </form>
 
-          <div className="space-y-1.5">
-            <label className="text-sm font-medium">{t('auth.password')}</label>
-            <input
-              type="password"
-              value={password}
-              onChange={e => setPassword(e.target.value)}
-              placeholder={t('auth.password_hint')}
-              required
-              autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
-              className="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary"
-            />
-          </div>
+            {hasUsers && (
+              <p className="mt-4 text-center text-sm text-muted-foreground">
+                {mode === 'login' ? t('auth.no_account') : t('auth.has_account')}
+                <button
+                  type="button"
+                  onClick={() => { setMode(m => m === 'login' ? 'register' : 'login'); setError(''); }}
+                  className="ml-1 font-medium text-primary hover:underline"
+                >
+                  {mode === 'login' ? t('auth.switch_register') : t('auth.switch_login')}
+                </button>
+              </p>
+            )}
 
-          {error && (
-            <p className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">{error}</p>
-          )}
-
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition hover:bg-primary/90 disabled:opacity-50"
-          >
-            {loading ? t('auth.processing') : mode === 'login' ? t('auth.login_button') : t('auth.register_button')}
-          </button>
-        </form>
-
-        {/* Toggle */}
-        {hasUsers && (
-          <p className="mt-4 text-center text-sm text-muted-foreground">
-            {mode === 'login' ? t('auth.no_account') : t('auth.has_account')}
-            <button
-              type="button"
-              onClick={() => { setMode(m => m === 'login' ? 'register' : 'login'); setError(''); }}
-              className="ml-1 font-medium text-primary hover:underline"
-            >
-              {mode === 'login' ? t('auth.switch_register') : t('auth.switch_login')}
-            </button>
-          </p>
+            {oidcProviders.length > 0 && (
+              <div className="mt-5">
+                <div className="relative flex items-center gap-3">
+                  <div className="flex-1 border-t" />
+                  <span className="text-xs text-muted-foreground">{t('auth.or_sso')}</span>
+                  <div className="flex-1 border-t" />
+                </div>
+                <div className="mt-3 flex flex-col gap-2">
+                  {oidcProviders.map(p => (
+                    <a
+                      key={p.id}
+                      href={`/api/auth/oidc/${p.id}/login`}
+                      className="flex w-full items-center justify-center gap-2 rounded-md border px-4 py-2 text-sm font-medium transition hover:bg-muted"
+                    >
+                      {t('auth.sso_login', { name: p.name })}
+                    </a>
+                  ))}
+                </div>
+              </div>
+            )}
+          </>
         )}
       </div>
     </div>

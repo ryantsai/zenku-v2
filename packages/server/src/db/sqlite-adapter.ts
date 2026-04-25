@@ -321,12 +321,48 @@ export class SqliteAdapter implements DbAdapter {
 
       CREATE INDEX IF NOT EXISTS idx_webhook_logs_rule_id ON _zenku_webhook_logs(rule_id);
       CREATE INDEX IF NOT EXISTS idx_webhook_logs_triggered_at ON _zenku_webhook_logs(triggered_at);
+
+      CREATE TABLE IF NOT EXISTS _zenku_oidc_providers (
+        id            TEXT PRIMARY KEY,
+        name          TEXT NOT NULL,
+        issuer        TEXT NOT NULL,
+        client_id     TEXT NOT NULL,
+        client_secret TEXT NOT NULL,
+        enabled       INTEGER NOT NULL DEFAULT 1,
+        created_at    TEXT DEFAULT (datetime('now'))
+      );
+
+      CREATE TABLE IF NOT EXISTS _zenku_user_identities (
+        id            TEXT PRIMARY KEY,
+        user_id       TEXT NOT NULL REFERENCES _zenku_users(id),
+        provider_id   TEXT NOT NULL REFERENCES _zenku_oidc_providers(id),
+        external_id   TEXT NOT NULL,
+        refresh_token TEXT,
+        created_at    TEXT DEFAULT (datetime('now')),
+        UNIQUE(provider_id, external_id)
+      );
+
+      CREATE TABLE IF NOT EXISTS _zenku_settings (
+        key        TEXT PRIMARY KEY,
+        value      TEXT NOT NULL,
+        updated_at TEXT DEFAULT (datetime('now'))
+      );
+
+      CREATE TABLE IF NOT EXISTS _zenku_oidc_role_mappings (
+        id          TEXT PRIMARY KEY,
+        provider_id TEXT NOT NULL REFERENCES _zenku_oidc_providers(id) ON DELETE CASCADE,
+        claim_path  TEXT NOT NULL,
+        claim_value TEXT NOT NULL,
+        zenku_role  TEXT NOT NULL,
+        created_at  TEXT DEFAULT (datetime('now'))
+      );
     `);
 
     // Migrations for existing databases
     try { this.db.exec(`ALTER TABLE _zenku_users ADD COLUMN disabled INTEGER NOT NULL DEFAULT 0`); } catch { /* exists */ }
     try { this.db.exec(`ALTER TABLE _zenku_users ADD COLUMN language TEXT NOT NULL DEFAULT 'en'`); } catch { /* exists */ }
     try { this.db.exec(`ALTER TABLE _zenku_chat_sessions ADD COLUMN archived INTEGER NOT NULL DEFAULT 0`); } catch { /* exists */ }
+    try { this.db.exec(`ALTER TABLE _zenku_user_identities ADD COLUMN refresh_token TEXT`); } catch { /* exists */ }
   }
 
   async close(): Promise<void> {

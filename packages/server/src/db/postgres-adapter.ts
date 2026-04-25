@@ -412,12 +412,48 @@ export class PostgresAdapter implements DbAdapter {
 
       CREATE INDEX IF NOT EXISTS idx_webhook_logs_rule_id      ON _zenku_webhook_logs(rule_id);
       CREATE INDEX IF NOT EXISTS idx_webhook_logs_triggered_at ON _zenku_webhook_logs(triggered_at);
+
+      CREATE TABLE IF NOT EXISTS _zenku_oidc_providers (
+        id            TEXT PRIMARY KEY,
+        name          TEXT NOT NULL,
+        issuer        TEXT NOT NULL,
+        client_id     TEXT NOT NULL,
+        client_secret TEXT NOT NULL,
+        enabled       INTEGER NOT NULL DEFAULT 1,
+        created_at    TEXT DEFAULT NOW()::TEXT
+      );
+
+      CREATE TABLE IF NOT EXISTS _zenku_user_identities (
+        id            TEXT PRIMARY KEY,
+        user_id       TEXT NOT NULL REFERENCES _zenku_users(id),
+        provider_id   TEXT NOT NULL REFERENCES _zenku_oidc_providers(id),
+        external_id   TEXT NOT NULL,
+        refresh_token TEXT,
+        created_at    TEXT DEFAULT NOW()::TEXT,
+        UNIQUE(provider_id, external_id)
+      );
+
+      CREATE TABLE IF NOT EXISTS _zenku_settings (
+        key        TEXT PRIMARY KEY,
+        value      TEXT NOT NULL,
+        updated_at TEXT DEFAULT NOW()::TEXT
+      );
+
+      CREATE TABLE IF NOT EXISTS _zenku_oidc_role_mappings (
+        id          TEXT PRIMARY KEY,
+        provider_id TEXT NOT NULL REFERENCES _zenku_oidc_providers(id) ON DELETE CASCADE,
+        claim_path  TEXT NOT NULL,
+        claim_value TEXT NOT NULL,
+        zenku_role  TEXT NOT NULL,
+        created_at  TEXT DEFAULT NOW()::TEXT
+      );
     `);
 
     // Migrations — PostgreSQL supports ADD COLUMN IF NOT EXISTS (v9.6+)
     await this.sql!.unsafe(`ALTER TABLE _zenku_users ADD COLUMN IF NOT EXISTS disabled INTEGER NOT NULL DEFAULT 0`);
     await this.sql!.unsafe(`ALTER TABLE _zenku_users ADD COLUMN IF NOT EXISTS language TEXT NOT NULL DEFAULT 'en'`);
     await this.sql!.unsafe(`ALTER TABLE _zenku_chat_sessions ADD COLUMN IF NOT EXISTS archived INTEGER NOT NULL DEFAULT 0`);
+    await this.sql!.unsafe(`ALTER TABLE _zenku_user_identities ADD COLUMN IF NOT EXISTS refresh_token TEXT`);
   }
 
   async close(): Promise<void> {

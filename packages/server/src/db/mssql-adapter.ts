@@ -634,10 +634,48 @@ export class MssqlAdapter implements DbAdapter {
     await indexIfAbsent('idx_webhook_logs_triggered_at',
       `CREATE INDEX idx_webhook_logs_triggered_at ON _zenku_webhook_logs(triggered_at)`);
 
+    await createIfAbsent('_zenku_oidc_providers', `
+      id            NVARCHAR(255) PRIMARY KEY,
+      name          NVARCHAR(MAX) NOT NULL,
+      issuer        NVARCHAR(MAX) NOT NULL,
+      client_id     NVARCHAR(MAX) NOT NULL,
+      client_secret NVARCHAR(MAX) NOT NULL,
+      enabled       INT NOT NULL DEFAULT 1,
+      created_at    NVARCHAR(MAX) DEFAULT CONVERT(NVARCHAR(MAX), GETDATE(), 126)
+    `);
+
+    await createIfAbsent('_zenku_user_identities', `
+      id            NVARCHAR(255) PRIMARY KEY,
+      user_id       NVARCHAR(255) NOT NULL REFERENCES _zenku_users(id),
+      provider_id   NVARCHAR(255) NOT NULL REFERENCES _zenku_oidc_providers(id),
+      external_id   NVARCHAR(MAX) NOT NULL,
+      refresh_token NVARCHAR(MAX),
+      created_at    NVARCHAR(MAX) DEFAULT CONVERT(NVARCHAR(MAX), GETDATE(), 126)
+    `);
+
+    await createIfAbsent('_zenku_settings', `
+      key        NVARCHAR(255) PRIMARY KEY,
+      value      NVARCHAR(MAX) NOT NULL,
+      updated_at NVARCHAR(MAX) DEFAULT CONVERT(NVARCHAR(MAX), GETDATE(), 126)
+    `);
+
+    await createIfAbsent('_zenku_oidc_role_mappings', `
+      id          NVARCHAR(255) PRIMARY KEY,
+      provider_id NVARCHAR(255) NOT NULL REFERENCES _zenku_oidc_providers(id),
+      claim_path  NVARCHAR(MAX) NOT NULL,
+      claim_value NVARCHAR(MAX) NOT NULL,
+      zenku_role  NVARCHAR(MAX) NOT NULL,
+      created_at  NVARCHAR(MAX) DEFAULT CONVERT(NVARCHAR(MAX), GETDATE(), 126)
+    `);
+
+    await indexIfAbsent('idx_user_identities_unique',
+      `CREATE UNIQUE INDEX idx_user_identities_unique ON _zenku_user_identities(provider_id, external_id)`);
+
     // Migrations
     await addColIfAbsent('_zenku_users', 'disabled', 'INT NOT NULL DEFAULT 0');
     await addColIfAbsent('_zenku_users', 'language', "NVARCHAR(MAX) NOT NULL DEFAULT 'en'");
     await addColIfAbsent('_zenku_chat_sessions', 'archived', 'INT NOT NULL DEFAULT 0');
+    await addColIfAbsent('_zenku_user_identities', 'refresh_token', 'NVARCHAR(MAX)');
   }
 
   async close(): Promise<void> {

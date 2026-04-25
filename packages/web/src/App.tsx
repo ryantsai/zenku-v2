@@ -13,9 +13,9 @@ export default function App() {
   return (
     <ThemeProvider>
       <AuthProvider
-        fallback={(hasUsers, onAuth) =>
+        fallback={(hasUsers, oidcProviders, authMode, onAuth) =>
           hasUsers
-            ? <LoginPage hasUsers={hasUsers} onAuth={onAuth} />
+            ? <LoginPage hasUsers={hasUsers} oidcProviders={oidcProviders} authMode={authMode} onAuth={onAuth} />
             : <SetupWizard onAuth={onAuth} />
         }
       >

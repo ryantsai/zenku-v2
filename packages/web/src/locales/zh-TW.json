@@ -19,6 +19,7 @@
     "success": "成功",
     "actions": "操作",
     "logout": "登出",
+    "enter_system": "直接進入系統",
     "close": "關閉",
     "refresh": "重新整理",
     "no_data": "無資料",
@@ -84,7 +85,12 @@
     "no_account": "還沒有帳號？",
     "has_account": "已有帳號？",
     "switch_register": "註冊",
-    "switch_login": "登入"
+    "switch_login": "登入",
+    "or_sso": "或",
+    "sso_login": "使用 {{name}} 登入",
+    "sso_only_title": "使用 SSO 登入",
+    "oidc_email_taken": "此 Email 已使用本地帳號註冊，請直接輸入密碼登入。",
+    "oidc_failed": "SSO 登入失敗，請再試一次。"
   },
   "errors": {
     "network_error": "網路錯誤，請重試",
@@ -116,6 +122,33 @@
     "ERROR_INVALID_TABLE": "無效的資料表名稱",
     "ERROR_FORBIDDEN_SYSTEM_TABLE": "禁止操作系統資料表"
   },
+  "oidc": {
+    "title": "SSO / OIDC 身份提供者",
+    "desc": "設定外部身份提供者（IDP）以啟用單一登入功能。",
+    "add_provider": "新增提供者",
+    "no_providers": "尚未設定任何 OIDC 提供者。",
+    "field_name": "顯示名稱",
+    "field_issuer": "Issuer URL",
+    "field_client_id": "Client ID",
+    "field_client_secret": "Client Secret",
+    "callback_url_label": "Redirect URI（請將此網址加入 IDP 允許清單）",
+    "callback_url_hint": "請複製此 URL 並填入您的 IDP 設定中。",
+    "disabled": "已停用",
+    "enable": "啟用",
+    "disable": "停用",
+    "confirm_delete": "確定刪除此提供者？透過此提供者登入的使用者將無法再登入。",
+    "sso_only_label": "僅限 SSO 登入",
+    "sso_only_desc": "停用本地帳密登入，所有使用者必須透過 SSO 提供者登入。",
+    "sso_only_requires_provider": "請先啟用至少一個提供者，再開啟僅限 SSO 模式。",
+    "sso_only_warning": "本地登入已停用，僅能透過 SSO 提供者登入。",
+    "role_mappings": "角色對映",
+    "add_mapping": "新增對映",
+    "no_mappings": "尚無角色對映規則。",
+    "mapping_claim_path": "Claim 路徑",
+    "mapping_claim_value": "Claim 值",
+    "mapping_zenku_role": "Zenku 角色",
+    "mapping_hint": "每次登入都會重新套用對映規則。若無匹配，維持使用者現有角色。"
+  },
   "admin": {
     "menu": {
       "user_mgmt": "使用者管理",
@@ -125,7 +158,8 @@
       "view_mgmt": "介面管理",
       "api_keys": "API 金鑰",
       "bundle": "應用管理",
-      "appearance": "條件外觀"
+      "appearance": "條件外觀",
+      "oidc": "SSO / OIDC"
     },
     "panel": {
       "title": "設定"

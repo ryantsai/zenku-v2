@@ -19,6 +19,7 @@
     "success": "Success",
     "actions": "Actions",
     "logout": "Logout",
+    "enter_system": "Enter System",
     "close": "Close",
     "refresh": "Refresh",
     "no_data": "No data",
@@ -83,7 +84,12 @@
     "no_account": "Don't have an account?",
     "has_account": "Already have an account?",
     "switch_register": "Sign up",
-    "switch_login": "Login"
+    "switch_login": "Login",
+    "or_sso": "or",
+    "sso_login": "Login with {{name}}",
+    "sso_only_title": "Sign in with SSO",
+    "oidc_email_taken": "This email is already registered with a local account. Please log in with your password.",
+    "oidc_failed": "SSO login failed. Please try again."
   },
   "errors": {
     "network_error": "Network error, please try again",
@@ -110,6 +116,33 @@
     "ERROR_INVALID_TABLE": "Invalid table name",
     "ERROR_FORBIDDEN_SYSTEM_TABLE": "System tables cannot be modified"
   },
+  "oidc": {
+    "title": "SSO / OIDC Providers",
+    "desc": "Connect external identity providers for single sign-on login.",
+    "add_provider": "Add Provider",
+    "no_providers": "No OIDC providers configured yet.",
+    "field_name": "Display Name",
+    "field_issuer": "Issuer URL",
+    "field_client_id": "Client ID",
+    "field_client_secret": "Client Secret",
+    "callback_url_label": "Redirect URI (register this with your IDP)",
+    "callback_url_hint": "Copy this URL into your IDP's allowed redirect URIs.",
+    "disabled": "Disabled",
+    "enable": "Enable",
+    "disable": "Disable",
+    "confirm_delete": "Delete this provider? Users who signed in via this provider will no longer be able to log in.",
+    "sso_only_label": "SSO-only Mode",
+    "sso_only_desc": "Disable local email/password login. Users must sign in via an SSO provider.",
+    "sso_only_requires_provider": "Enable at least one provider before activating SSO-only mode.",
+    "sso_only_warning": "Local login is disabled. Only SSO providers can be used to sign in.",
+    "role_mappings": "Role Mappings",
+    "add_mapping": "Add Mapping",
+    "no_mappings": "No role mappings configured.",
+    "mapping_claim_path": "Claim Path",
+    "mapping_claim_value": "Claim Value",
+    "mapping_zenku_role": "Zenku Role",
+    "mapping_hint": "Roles are re-evaluated on every login. If no mapping matches, the user's current role is kept."
+  },
   "admin": {
     "menu": {
       "user_mgmt": "User Management",
@@ -119,7 +152,8 @@
       "view_mgmt": "Interface Management",
       "api_keys": "API Keys",
       "bundle": "App Management",
-      "appearance": "Conditional Appearance"
+      "appearance": "Conditional Appearance",
+      "oidc": "SSO / OIDC"
     },
     "panel": {
       "title": "Settings"

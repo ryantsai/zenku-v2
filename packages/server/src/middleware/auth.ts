@@ -1,6 +1,9 @@
 import bcrypt from 'bcryptjs';
 import { getDb, dbNow } from '../db';
 import { getUserCount } from '../db/auth';
+import { listOidcProviders } from '../db/oidc';
+import { getAuthMode } from '../db/settings';
+import { dbSessionExpiry } from '../db';
 import type { Request, Response, NextFunction } from 'express';
 
 export interface AuthUser {
@@ -23,11 +26,6 @@ function generateToken(): string {
   return crypto.randomUUID().replace(/-/g, '') + crypto.randomUUID().replace(/-/g, '');
 }
 
-function expiresAt(): string {
-  const d = new Date();
-  d.setDate(d.getDate() + 30);
-  return d.toISOString().replace('T', ' ').slice(0, 19);
-}
 
 // ===== Middleware =====
 
@@ -94,6 +92,10 @@ export async function registerHandler(req: Request, res: Response): Promise<void
   }
 
   const isFirst = (await getUserCount()) === 0;
+  if (!isFirst && await getAuthMode() === 'sso_only') {
+    res.status(403).json({ error: 'ERROR_SSO_ONLY' });
+    return;
+  }
   const role = isFirst ? 'admin' : 'user';
   const language = 'en';
   const id = crypto.randomUUID();
@@ -108,7 +110,7 @@ export async function registerHandler(req: Request, res: Response): Promise<void
   const sessionId = crypto.randomUUID();
   await db.execute(
     'INSERT INTO _zenku_sessions (id, user_id, token, expires_at) VALUES (?, ?, ?, ?)',
-    [sessionId, id, token, expiresAt()]
+    [sessionId, id, token, dbSessionExpiry()]
   );
 
   res.json({ token, user: { id, email, name, role, language } });
@@ -118,6 +120,10 @@ export async function loginHandler(req: Request, res: Response): Promise<void> {
   const { email, password } = req.body as { email?: string; password?: string };
   if (!email || !password) {
     res.status(400).json({ error: 'ERROR_MISSING_FIELDS' });
+    return;
+  }
+  if (await getAuthMode() === 'sso_only') {
+    res.status(403).json({ error: 'ERROR_SSO_ONLY' });
     return;
   }
 
@@ -144,7 +150,7 @@ export async function loginHandler(req: Request, res: Response): Promise<void> {
   const sessionId = crypto.randomUUID();
   await db.execute(
     'INSERT INTO _zenku_sessions (id, user_id, token, expires_at) VALUES (?, ?, ?, ?)',
-    [sessionId, user.id, token, expiresAt()]
+    [sessionId, user.id, token, dbSessionExpiry()]
   );
 
   res.json({ token, user: { id: user.id, email: user.email, name: user.name, role: user.role, language: user.language } });
@@ -164,6 +170,14 @@ export function logoutHandler(req: Request, res: Response): void {
 }
 
 export async function statusHandler(_req: Request, res: Response): Promise<void> {
-  const count = await getUserCount();
-  res.json({ has_users: count > 0 });
+  const [count, providers, authMode] = await Promise.all([
+    getUserCount(),
+    listOidcProviders(true).catch(() => []),
+    getAuthMode().catch(() => 'local' as const),
+  ]);
+  res.json({
+    has_users: count > 0,
+    oidc_providers: providers.map(p => ({ id: p.id, name: p.name })),
+    auth_mode: authMode,
+  });
 }
