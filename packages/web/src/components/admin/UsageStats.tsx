@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { RefreshCw, TrendingUp, MessageSquare, Database, DollarSign } from 'lucide-react';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { useAuth } from '../../contexts/AuthContext';
 
 interface Totals {
@@ -243,28 +244,45 @@ export function UsageStats() {
                 {data!.daily.length === 0 ? (
                   <p className="text-xs text-muted-foreground">{t('common.no_data')}</p>
                 ) : (
-                  <table className="w-full text-xs">
-                    <thead>
-                      <tr className="border-b text-muted-foreground">
-                        <th className="pb-2 text-left">{t('admin.usage.col_date')}</th>
-                        <th className="pb-2 text-right">{t('admin.usage.col_sessions')}</th>
-                        <th className="pb-2 text-right">{t('admin.usage.col_in_tokens')}</th>
-                        <th className="pb-2 text-right">{t('admin.usage.col_out_tokens')}</th>
-                        <th className="pb-2 text-right">{t('admin.usage.col_cost')}</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y">
-                      {data!.daily.map(d => (
-                        <tr key={d.date}>
-                          <td className="py-1.5 font-mono">{d.date}</td>
-                          <td className="py-1.5 text-right tabular-nums">{d.sessions}</td>
-                          <td className="py-1.5 text-right tabular-nums">{(d.input_tokens ?? 0).toLocaleString()}</td>
-                          <td className="py-1.5 text-right tabular-nums">{(d.output_tokens ?? 0).toLocaleString()}</td>
-                          <td className="py-1.5 text-right tabular-nums">${(d.cost_usd ?? 0).toFixed(4)}</td>
+                  <>
+                    <ResponsiveContainer width="100%" height={200}>
+                      <LineChart data={data!.daily} margin={{ top: 4, right: 8, left: -10, bottom: 0 }}>
+                        <CartesianGrid vertical={false} strokeDasharray="3 3" />
+                        <XAxis dataKey="date" tickLine={false} axisLine={false} tick={{ fontSize: 10 }} />
+                        <YAxis tickLine={false} axisLine={false} tick={{ fontSize: 10 }} />
+                        <Tooltip
+                          contentStyle={{ fontSize: 11 }}
+                          formatter={(value: number) => value.toLocaleString()}
+                        />
+                        <Legend wrapperStyle={{ fontSize: 11 }} />
+                        <Line type="monotone" dataKey="input_tokens" name={t('admin.usage.col_in_tokens')} stroke="hsl(var(--primary))" strokeWidth={2} dot={false} />
+                        <Line type="monotone" dataKey="output_tokens" name={t('admin.usage.col_out_tokens')} stroke="hsl(var(--chart-2, 160 60% 45%))" strokeWidth={2} dot={false} />
+                        <Line type="monotone" dataKey="sessions" name={t('admin.usage.col_sessions')} stroke="hsl(var(--chart-3, 30 80% 55%))" strokeWidth={2} dot={false} yAxisId={0} />
+                      </LineChart>
+                    </ResponsiveContainer>
+                    <table className="mt-4 w-full text-xs">
+                      <thead>
+                        <tr className="border-b text-muted-foreground">
+                          <th className="pb-2 text-left">{t('admin.usage.col_date')}</th>
+                          <th className="pb-2 text-right">{t('admin.usage.col_sessions')}</th>
+                          <th className="pb-2 text-right">{t('admin.usage.col_in_tokens')}</th>
+                          <th className="pb-2 text-right">{t('admin.usage.col_out_tokens')}</th>
+                          <th className="pb-2 text-right">{t('admin.usage.col_cost')}</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                      </thead>
+                      <tbody className="divide-y">
+                        {data!.daily.map(d => (
+                          <tr key={d.date}>
+                            <td className="py-1.5 font-mono">{d.date}</td>
+                            <td className="py-1.5 text-right tabular-nums">{d.sessions}</td>
+                            <td className="py-1.5 text-right tabular-nums">{(d.input_tokens ?? 0).toLocaleString()}</td>
+                            <td className="py-1.5 text-right tabular-nums">{(d.output_tokens ?? 0).toLocaleString()}</td>
+                            <td className="py-1.5 text-right tabular-nums">${(d.cost_usd ?? 0).toFixed(4)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </>
                 )}
               </div>
             </>

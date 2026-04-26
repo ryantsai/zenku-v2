@@ -95,6 +95,21 @@ export function TableView({ view, filters, onCreateData, masterRecord }: Props) 
         advFilters: advFilters.length ? advFilters : undefined,
       });
 
+      // Client-side semantic re-sort for select columns (options order != alphabetical)
+      if (sort) {
+        const field = view.form.fields.find(f => f.key === sort.id);
+        if (field?.type === 'select' && field.options && field.options.length > 0) {
+          const opts = field.options;
+          result.rows.sort((a, b) => {
+            const ai = opts.indexOf(String(a[sort.id] ?? ''));
+            const bi = opts.indexOf(String(b[sort.id] ?? ''));
+            const ai2 = ai === -1 ? opts.length : ai;
+            const bi2 = bi === -1 ? opts.length : bi;
+            return sort.desc ? bi2 - ai2 : ai2 - bi2;
+          });
+        }
+      }
+
       setRows(result.rows);
       setTotal(result.total);
     } catch (error) {
@@ -102,7 +117,7 @@ export function TableView({ view, filters, onCreateData, masterRecord }: Props) 
     } finally {
       setLoading(false);
     }
-  }, [pagination.pageIndex, pagination.pageSize, search, sorting, view.table_name, filters, advFilters]);
+  }, [pagination.pageIndex, pagination.pageSize, search, sorting, view.table_name, view.form.fields, filters, advFilters]);
 
   useEffect(() => {
     void fetchRows();

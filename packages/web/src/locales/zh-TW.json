@@ -347,6 +347,7 @@
       "no_condition": "無（始終執行）",
       "no_action": "尚未設定動作",
       "no_rule": "目前沒有定義業務規則",
+      "no_rule_hint": "請透過左側 AI 對話助理建立業務規則，例如：「當訂單狀態改為已完成時，自動發送通知」",
       "label_condition": "觸發條件",
       "label_actions": "執行動作 ({{count}})",
       "label_covered_tables": "受監控的資料表：",

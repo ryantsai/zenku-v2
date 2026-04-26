@@ -214,12 +214,13 @@ export function UserManagement() {
                           {/* Reset password */}
                           <Button
                             variant="ghost"
-                            size="icon"
-                            title={t('admin.users.btn_reset')}
+                            size="sm"
+                            className="gap-1.5 text-xs h-7 px-2"
                             onClick={() => { setResetUserId(u.id); setResetPwd(''); }}
                             disabled={saving === u.id}
                           >
-                            <KeyRound className="h-4 w-4" />
+                            <KeyRound className="h-3.5 w-3.5" />
+                            {t('admin.users.btn_reset')}
                           </Button>
                           {/* Disable / Enable */}
                           {u.id !== me.id && (

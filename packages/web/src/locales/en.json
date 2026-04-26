@@ -341,6 +341,7 @@
       "no_condition": "None (Always run)",
       "no_action": "No actions configured",
       "no_rule": "No business rules defined yet",
+      "no_rule_hint": "Use the AI chat assistant on the left to create business rules. For example: \"When order status changes to completed, send a notification.\"",
       "label_condition": "Trigger Condition",
       "label_actions": "Actions ({{count}})",
       "label_covered_tables": "Monitored Tables:",

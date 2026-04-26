@@ -1,4 +1,6 @@
 import { format } from 'date-fns';
+import { zhTW } from 'date-fns/locale';
+import { useTranslation } from 'react-i18next';
 import { Calendar as CalendarIcon } from 'lucide-react';
 import { cn } from '../../lib/cn';
 import { Button } from '../ui/button';
@@ -14,6 +16,8 @@ interface Props {
 }
 
 export function DatePickerField({ value, onChange, placeholder, disabled, includeTime = false }: Props) {
+  const { i18n } = useTranslation();
+  const calLocale = i18n.language === 'zh-TW' ? zhTW : undefined;
   const dateValue = value ? new Date(String(value)) : undefined;
   const isValidDate = dateValue && !isNaN(dateValue.getTime());
 
@@ -64,6 +68,7 @@ export function DatePickerField({ value, onChange, placeholder, disabled, includ
             mode="single"
             selected={isValidDate ? dateValue : undefined}
             onSelect={handleDateSelect}
+            locale={calLocale}
             autoFocus
           />
           {includeTime && (

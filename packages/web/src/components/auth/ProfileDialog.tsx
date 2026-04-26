@@ -56,7 +56,7 @@ export function ProfileDialog({ open, onClose }: Props) {
 
   const handleChangePassword = async () => {
     if (!oldPwd || !newPwd || !confirmPwd) { toast.error(t('common.error')); return; }
-    if (newPwd.length < 6) { toast.error(t('profile.new_password')); return; }
+    if (newPwd.length < 6) { toast.error(t('errors.ERROR_PASSWORD_TOO_SHORT', { min: 6 })); return; }
     if (newPwd !== confirmPwd) { toast.error(t('profile.confirm_password')); return; }
     setPwdLoading(true);
     try {

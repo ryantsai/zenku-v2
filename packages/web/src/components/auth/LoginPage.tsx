@@ -47,6 +47,10 @@ export function LoginPage({ hasUsers, oidcProviders, authMode, onAuth }: Props) 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    if (mode === 'register' && password.length < 6) {
+      setError(t('errors.ERROR_PASSWORD_TOO_SHORT', { min: 6 }));
+      return;
+    }
     setLoading(true);
 
     try {

@@ -257,7 +257,11 @@ function BarChartWidget({ title, data, config, labelMap }: {
               <XAxis dataKey={xKey} tickLine={false} axisLine={false} tick={{ fontSize: 11 }} />
               <YAxis tickLine={false} axisLine={false} tick={{ fontSize: 11 }} />
               <ChartTooltip content={<ChartTooltipContent />} />
-              <Bar dataKey={yKey} fill={`var(--color-${yKey})`} radius={[4, 4, 0, 0]} />
+              <Bar dataKey={yKey} radius={[4, 4, 0, 0]}>
+                {data.map((_, i) => (
+                  <Cell key={i} fill={SLOT_COLORS[i % SLOT_COLORS.length]} />
+                ))}
+              </Bar>
             </BarChart>
           </ResponsiveContainer>
         </ChartContainer>
@@ -362,7 +366,7 @@ function PieChartWidget({ title, data, config, labelMap }: {
       <CardHeader className="pb-2"><CardTitle className="text-sm">{title}</CardTitle></CardHeader>
       <CardContent>
         <ChartContainer config={chartConfig} className="w-full">
-          <ResponsiveContainer width="100%" height={220}>
+          <ResponsiveContainer width="100%" height={180}>
             <PieChart>
               <Pie
                 data={data}
@@ -378,16 +382,22 @@ function PieChartWidget({ title, data, config, labelMap }: {
                 })}
               </Pie>
               <ChartTooltip content={<ChartTooltipContent nameKey={labelKey} />} />
-              <ChartLegend content={(props) => (
-                <ChartLegendContent
-                  payload={(props.payload as Parameters<typeof ChartLegendContent>[0]['payload'])}
-                  verticalAlign={props.verticalAlign as 'top' | 'bottom' | 'middle' | undefined}
-                  nameKey={labelKey}
-                />
-              )} />
             </PieChart>
           </ResponsiveContainer>
         </ChartContainer>
+        {/* Legend outside chart container so long labels don't get clipped */}
+        <div className="mt-2 flex flex-wrap justify-center gap-x-4 gap-y-1">
+          {data.map((row, i) => {
+            const k = String(row[labelKey] ?? i);
+            const color = chartConfig[k]?.color ?? SLOT_COLORS[i % SLOT_COLORS.length];
+            return (
+              <div key={k} className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                <span className="h-2.5 w-2.5 rounded-sm shrink-0" style={{ backgroundColor: color }} />
+                {labelMap[k] ?? k}
+              </div>
+            );
+          })}
+        </div>
       </CardContent>
     </Card>
   );

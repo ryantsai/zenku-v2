@@ -377,6 +377,7 @@ export function RulesManagement() {
               <div className="flex flex-col items-center justify-center gap-3 py-20 text-muted-foreground">
                 <Info className="h-8 w-8 opacity-40" />
                 <p className="text-sm">{t('admin.rules.no_rule')}</p>
+                <p className="text-xs text-center max-w-xs">{t('admin.rules.no_rule_hint')}</p>
               </div>
             ) : (
               <Table>
