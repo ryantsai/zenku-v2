@@ -58,5 +58,6 @@ FROM orders WHERE order_date >= date('now','start of month')
 □ Row 2: area_chart at size "lg" (col 1) AND pie_chart at size "sm" (col 10) share row: 2. Total = 12 cols.
 □ Every chart/table widget has column_labels for all displayed columns.
 □ No widget title contains the widget type, in parentheses or otherwise.
-□ No raw SQL column names appear as display labels.`;
+□ No raw SQL column names appear as display labels.
+□ **CRITICAL — select field filter values**: any WHERE clause that filters on a select-type column (status, priority, category, etc.) MUST use the exact stored DB value obtained via get_table_schema. Never use translated or localised values. Example: WHERE status = 'In Progress' (correct) NOT WHERE status = '進行中' (wrong — zero results).`;
 }
