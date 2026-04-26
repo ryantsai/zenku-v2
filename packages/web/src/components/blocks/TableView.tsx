@@ -16,6 +16,7 @@ import { Button } from '../ui/button';
 import { Checkbox } from '../ui/checkbox';
 import { DynamicIcon } from '../ui/dynamic-icon';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '../ui/dialog';
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '../ui/sheet';
 import { Input } from '../ui/input';
 import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
@@ -55,6 +56,7 @@ export function TableView({ view, filters, onCreateData, masterRecord }: Props) 
   const [search, setSearch] = useState('');
   const [showCreate, setShowCreate] = useState(false);
   const [editingRow, setEditingRow] = useState<RowData | null>(null);
+  const [viewingRow, setViewingRow] = useState<RowData | null>(null);
   const [deletingRow, setDeletingRow] = useState<RowData | null>(null);
   const [rowSelection, setRowSelection] = useState<Record<string, boolean>>({});
   const [advFilters, setAdvFilters] = useState<FilterCondition[]>([]);
@@ -157,7 +159,8 @@ export function TableView({ view, filters, onCreateData, masterRecord }: Props) 
       size: 44, minSize: 44, maxSize: 44, enableSorting: false,
     };
 
-    const dataColumns = view.columns.filter(col => !col.hidden_in_table).map(col => ({
+    const visibleCols = view.columns.filter(col => !col.hidden_in_table);
+    const dataColumns = visibleCols.map((col, colIndex) => ({
       id: col.key,
       accessorFn: (row: RowData) => row[col.key],
       header: col.label,
@@ -166,7 +169,7 @@ export function TableView({ view, filters, onCreateData, masterRecord }: Props) 
         const appearance = col.appearance?.length
           ? resolveAppearance(col.appearance, rowData)
           : undefined;
-        return (
+        const cell = (
           <InlineCell
             value={getValue()}
             colKey={col.key}
@@ -184,6 +187,18 @@ export function TableView({ view, filters, onCreateData, masterRecord }: Props) 
             }}
           />
         );
+        if (isMasterDetail && colIndex === 0) {
+          return (
+            <button
+              type="button"
+              className="text-left text-primary underline-offset-2 hover:underline focus:outline-none"
+              onClick={e => { e.stopPropagation(); navigate(`/view/${view.id}/${rowData.id}`); }}
+            >
+              {cell}
+            </button>
+          );
+        }
+        return cell;
       },
       enableSorting: col.sortable !== false,
       enableHiding: true,
@@ -506,11 +521,13 @@ export function TableView({ view, filters, onCreateData, masterRecord }: Props) 
               table.getRowModel().rows.map(row => (
                 <TableRow
                   key={row.id}
-                  onClick={canEdit ? () => {
+                  onClick={() => {
                     const data = row.original as RowData;
-                    isMasterDetail ? navigate(`/view/${view.id}/${data.id}`) : setEditingRow(data);
-                  } : undefined}
-                  className={canEdit ? 'cursor-pointer' : undefined}
+                    if (isMasterDetail) { navigate(`/view/${view.id}/${data.id}`); return; }
+                    if (canEdit) { setEditingRow(data); return; }
+                    setViewingRow(data);
+                  }}
+                  className="cursor-pointer"
                 >
                   {row.getVisibleCells().map(cell => (
                     <TableCell key={cell.id} style={{ width: cell.column.getSize() }}>{flexRender(cell.column.columnDef.cell, cell.getContext())}</TableCell>
@@ -574,6 +591,29 @@ export function TableView({ view, filters, onCreateData, masterRecord }: Props) 
           ) : null}
         </DialogContent>
       </Dialog>
+
+      {/* Read-only detail Sheet (shown when canEdit is false) */}
+      <Sheet open={Boolean(viewingRow)} onOpenChange={open => { if (!open) setViewingRow(null); }}>
+        <SheetContent side="right" className="w-[420px] sm:max-w-[420px] overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle>{recordLabel}</SheetTitle>
+          </SheetHeader>
+          {viewingRow && (
+            <div className="mt-4 space-y-3">
+              {view.form.fields.filter(f => !f.hidden).map(field => {
+                const val = viewingRow[field.key];
+                const display = val === null || val === undefined || val === '' ? '—' : String(val);
+                return (
+                  <div key={field.key} className="flex flex-col gap-0.5">
+                    <span className="text-xs font-medium text-muted-foreground">{field.label}</span>
+                    <span className="text-sm break-words">{display}</span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </SheetContent>
+      </Sheet>
 
       <AlertDialog open={Boolean(deletingRow)} onOpenChange={open => (!open ? setDeletingRow(null) : null)}>
         <AlertDialogContent>

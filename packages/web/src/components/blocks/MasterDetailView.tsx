@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, ChevronLeft, ChevronRight } from 'lucide-react';
 import { toast } from 'sonner';
-import { executeViewAction, getRecord, updateRow } from '../../api';
+import { executeViewAction, getRecord, getTableData, updateRow } from '../../api';
 import type { CustomViewAction, DetailViewDef, ViewDefinition } from '../../types';
 import { evaluateAppearanceCondition } from '@zenku/shared';
 import { Button } from '../ui/button';
@@ -28,6 +28,7 @@ export function MasterDetailView({ view, recordId }: Props) {
   const [record, setRecord] = useState<RowData | null>(null);
   const [loading, setLoading] = useState(true);
   const [confirmAction, setConfirmAction] = useState<CustomViewAction | null>(null);
+  const [adjacentIds, setAdjacentIds] = useState<(string | number)[]>([]);
 
   const fetchRecord = useCallback(async () => {
     setLoading(true);
@@ -44,6 +45,12 @@ export function MasterDetailView({ view, recordId }: Props) {
   useEffect(() => {
     void fetchRecord();
   }, [fetchRecord]);
+
+  useEffect(() => {
+    getTableData(view.table_name, { page: 1, limit: 500 })
+      .then(res => setAdjacentIds(res.rows.map(r => r['id'] as string | number)))
+      .catch(() => {});
+  }, [view.table_name]);
 
   const handleUpdate = async (data: Record<string, unknown>) => {
     try {
@@ -104,6 +111,36 @@ export function MasterDetailView({ view, recordId }: Props) {
         <span className="text-muted-foreground">/</span>
         <span className="text-sm font-medium">{view.name}</span>
         <span className="text-sm text-muted-foreground">#{recordId}</span>
+
+        {/* Prev / Next navigation */}
+        {adjacentIds.length > 0 && (() => {
+          const idx = adjacentIds.indexOf(recordId as string | number) !== -1
+            ? adjacentIds.indexOf(recordId as string | number)
+            : adjacentIds.findIndex(id => String(id) === String(recordId));
+          const prevId = idx > 0 ? adjacentIds[idx - 1] : null;
+          const nextId = idx !== -1 && idx < adjacentIds.length - 1 ? adjacentIds[idx + 1] : null;
+          return (
+            <div className="flex items-center gap-1">
+              <Button
+                variant="ghost" size="icon"
+                disabled={!prevId}
+                onClick={() => prevId && navigate(`/view/${view.id}/${prevId}`)}
+                title={t('common.prev_page')}
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <span className="text-xs text-muted-foreground">{idx + 1} / {adjacentIds.length}</span>
+              <Button
+                variant="ghost" size="icon"
+                disabled={!nextId}
+                onClick={() => nextId && navigate(`/view/${view.id}/${nextId}`)}
+                title={t('common.next_page')}
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+          );
+        })()}
 
         {/* Custom action buttons */}
         {record && recordCustomActions.length > 0 && (

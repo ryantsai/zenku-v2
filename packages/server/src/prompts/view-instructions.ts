@@ -12,6 +12,15 @@ export function buildViewInstructions(): string {
 - actions MUST be set (use [] for read-only, ["create","edit","delete"] for CRUD, ["create","edit","delete","export"] to include export).
 - Do NOT include optional properties unless you are setting a value (e.g., do not add "kanban" unless creating a kanban view).
 
+## When to use master-detail view (type: "master-detail")
+Suggest or generate a master-detail view when:
+- The user asks to view a record's details, related items, or sub-items on a dedicated page (e.g. "order details with line items", "project with tasks", "customer with orders").
+- There is a parent-child relationship between two tables (one-to-many via foreign key).
+- The user asks for a "detail page", "record page", or "profile view".
+- The record has many fields that do not fit comfortably in a table row.
+
+In master-detail type, the main table view shows a list; clicking a row navigates to a dedicated detail page with the full form and any related child tables (detail_views).`;
+
 ## Computed Fields (e.g., "Subtotal = Quantity × Price")
 1. manage_schema: field type REAL.
 2. manage_ui form.fields: add computed: { formula: 'quantity * unit_price', dependencies: ['quantity', 'unit_price'], format: 'currency' }.
