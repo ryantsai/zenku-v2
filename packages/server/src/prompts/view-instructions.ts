@@ -19,7 +19,7 @@ Suggest or generate a master-detail view when:
 - The user asks for a "detail page", "record page", or "profile view".
 - The record has many fields that do not fit comfortably in a table row.
 
-In master-detail type, the main table view shows a list; clicking a row navigates to a dedicated detail page with the full form and any related child tables (detail_views).`;
+In master-detail type, the main table view shows a list; clicking a row navigates to a dedicated detail page with the full form and any related child tables (detail_views).
 
 ## Computed Fields (e.g., "Subtotal = Quantity × Price")
 1. manage_schema: field type REAL.

@@ -623,7 +623,7 @@ export function TableView({ view, filters, onCreateData, masterRecord }: Props) 
           </SheetHeader>
           {viewingRow && (
             <div className="mt-4 space-y-3">
-              {view.form.fields.filter(f => !f.hidden).map(field => {
+              {view.form.fields.filter(f => !f.hidden_in_form).map(field => {
                 const val = viewingRow[field.key];
                 const display = val === null || val === undefined || val === '' ? '—' : String(val);
                 return (

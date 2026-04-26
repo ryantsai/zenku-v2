@@ -252,7 +252,7 @@ export function UsageStats() {
                         <YAxis tickLine={false} axisLine={false} tick={{ fontSize: 10 }} />
                         <Tooltip
                           contentStyle={{ fontSize: 11 }}
-                          formatter={(value: number) => value.toLocaleString()}
+                          formatter={(value) => typeof value === 'number' ? value.toLocaleString() : String(value)}
                         />
                         <Legend wrapperStyle={{ fontSize: 11 }} />
                         <Line type="monotone" dataKey="input_tokens" name={t('admin.usage.col_in_tokens')} stroke="hsl(var(--primary))" strokeWidth={2} dot={false} />

@@ -15,7 +15,6 @@ import { Skeleton } from '../ui/skeleton';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '../ui/table';
 import {
   ChartContainer, ChartTooltip, ChartTooltipContent,
-  ChartLegend, ChartLegendContent,
   type ChartConfig,
 } from '../ui/chart';
 import { cn } from '../../lib/cn';
