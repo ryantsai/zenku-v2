@@ -5,7 +5,7 @@
 [繁體中文](README_TW.md) | [Documentation](docs/en/README.md)
 
 <div align="center">
-  <img src=".assets/light_theme.png" alt="Zenku Light Theme Screenshot" width="100%" style="max-width: 800px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);" />
+  <img src=".assets/en_screenshot.png" alt="Zenku English UI Screenshot" width="100%" style="max-width: 800px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);" />
 </div>
 
 **Zenku** is an AI-first, open-source **No-Code Engine** designed for building enterprise-grade data applications. Instead of generating static code, Zenku uses a sophisticated **Multi-Agent Architecture** to dynamically evolve your database schema, UI views, and business logic in real-time through natural language.
