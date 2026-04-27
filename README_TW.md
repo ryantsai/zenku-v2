@@ -1,27 +1,36 @@
-# Zenku 
+# Zenku
 
-[English](README.md)
+### **透過對話，建立具備生產力的資料應用。**
+
+[English](README.md) | [官方文件](docs/zh-TW/README.md)
 
 <div align="center">
   <img src=".assets/light_theme.png" alt="Zenku Light Theme Screenshot" width="100%" style="max-width: 800px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);" />
 </div>
 
-> **Zenku** 是一個由 AI 驅動的**無代碼 (No-Code) 動態應用程式建構平台**與企業管理引擎。
+**Zenku** 是一個 AI 原生、開源的 **無程式碼 (No-Code) 引擎**，專為建構企業級資料應用而生。不同於單純生成靜態程式碼的工具，Zenku 採用先進的 **多智能體架構 (Multi-Agent Architecture)**，能透過自然語言即時演化您的資料庫綱要、UI 視圖與商業邏輯。
 
-透過自然語言對話，系統背後的多智能體 (Multi-Agent) 架構會自動產生對應的資料庫綱要 (Schema)、動態使用者介面 (UI View) 以及商業邏輯規則 (Business Rules)，並實時渲染出功能完全、響應式的現代化 Web 應用程式。
+* **對話即開發 (Chat-to-App)**：將「我要一個 CRM」轉化為運作中的系統（Schema -> CRUD 介面 -> 儀表板）。
+* **專職代理人系統 (Specialist Agents)**：由 Orchestrator 調度 Schema, UI, Logic, Query 與測試代理。
+* **企業級多資料庫支援**：原生支援 **SQLite**, **PostgreSQL** 與 **Microsoft SQL Server (MSSQL)**。
+* **全能視圖引擎**：動態渲染 **看板**, **甘特圖**, **行事曆**, **時間軸**, **數據儀表板**等。
+* **即時商業邏輯**：強大的規則引擎，支援自動化、資料驗證與第三方 Webhook (如 n8n)。
+* **高可靠性與 Undo**：內建**設計日誌**充當時光機，支援一鍵還原任何 AI 變更。
+* **支援 MCP 協議**：完整支援 **Model Context Protocol**，讓外部 AI 工具能直接操控 Zenku 實例。
 
-## 🌟 核心亮點 (Key Features)
+## 🧠 架構：多智能體調度中心
 
-* **對話即開發 (Chat-to-App)**：只要透過聊天下達指令，即可完成「建立資料表 → 產生 CRUD 介面 → 資料查詢與圖表」的完整系統開發迴圈。
-* **企業級多資料庫支援**：內建抽象資料適配層，完美支援 **SQLite**、**PostgreSQL** 與 **Microsoft SQL Server (MSSQL)**。
-* **全能視圖系統 (Multi-View)**：除了標準表格，更支援 **看板 (Kanban)**、**行事曆 (Calendar)**、**甘特圖 (Gantt)**、**時間軸 (Timeline)**、**樹狀結構 (Tree)** 與 **畫廊 (Gallery)**。
-* **進階控制項 (Advanced Controls)**：支援 **Markdown** 編輯器、**JSON** 編輯器、**自動編號 (Auto-Number)**、星級評分、顏色選擇器及貨幣格式化。
-* **條件式即時渲染 (Conditional Appearance)**：支援客戶端即時判斷條件。在輸入瞬間即可觸發其他欄位的隱藏、顏色改變、防呆唯讀等動態效果。
-* **事件驅動規則引擎 (Logic Engine)**：支援生命週期鉤子 (`before_insert`, `after_update`)，可自動撰寫扣抵庫存、驗證資料或觸發外部 Webhook (如 n8n) 的業務邏輯。
-* **MCP 生態整合 (Model Context Protocol)**：支援 MCP 標準，讓外部 AI 工具（如 Claude Desktop）能直接與 Zenku 通訊，達成跨平台的數據操控與分析。
-* **AI 安全護欄與還原**：
-  * **Test Agent**：破壞性操作前會自動進行影響評估並預警。
-  * **Undo 時光機**：完整記錄所有架構變更，支援一鍵還原至任意歷史狀態。
+不同於簡單的「代碼生成」包裝，Zenku 透過專職角色實現思考與執行的分離：
+
+```mermaid
+graph TD
+    User[使用者] <--> Orch[Orchestrator Agent]
+    Orch <--> Schema[Schema Agent]
+    Orch <--> UI[UI Agent]
+    Orch <--> Query[Query Agent]
+    Orch <--> Logic[Logic Agent]
+    Orch <--> Test[Test Agent]
+```
 
 ## 🏗️ 系統架構 (Architecture)
 
@@ -88,7 +97,14 @@ docker-compose up -d
 
 ---
 
-希望 Zenku 能幫助您釋放創意，將複雜的開發過程轉化為簡單有趣的對話。**祝您開發愉快！** 🚀
+Zenku 旨在釋放您的創意，將複雜的開發過程轉化為簡單有趣的對話。**祝您開發愉快！** 🚀
+
+## 📚 深入了解 (Documentation)
+
+欲了解更多技術細節與實作指引，請參考我們的官方文件：
+
+*   **[繁體中文文檔](docs/zh-TW/README.md)**：包含核心概念、架構設計、功能規格與 n8n 整合指南。
+*   **[English Documentation](docs/en/README.md)**: Conceptual overview, system architecture, and API references.
 
 ## 📄 授權 (License)
 

@@ -1,27 +1,36 @@
-# Zenku 
+# Zenku
 
-[繁體中文](README_TW.md)
+### **Build Production-Ready Data Apps via Conversation.**
+
+[繁體中文](README_TW.md) | [Documentation](docs/en/README.md)
 
 <div align="center">
   <img src=".assets/light_theme.png" alt="Zenku Light Theme Screenshot" width="100%" style="max-width: 800px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);" />
 </div>
 
-> **Zenku** is an AI-powered **No-Code Dynamic Application Builder** and Enterprise Management Engine.
+**Zenku** is an AI-first, open-source **No-Code Engine** designed for building enterprise-grade data applications. Instead of generating static code, Zenku uses a sophisticated **Multi-Agent Architecture** to dynamically evolve your database schema, UI views, and business logic in real-time through natural language.
 
-Through natural language conversations, the underlying Multi-Agent architecture automatically generates database schemas, dynamic UI views, and business logic rules, rendering a fully functional, responsive, and modern Web application in real-time.
+* **Chat-to-App Workflow**: Transform "I need a CRM" into a live system (Schema -> CRUD UI -> Dashboard) in seconds.
+* **Specialist Agent System**: Dedicated agents for Schema, UI, Logic, Query, and Testing, coordinated by a central Orchestrator.
+* **Enterprise DB Support**: Native support for **SQLite**, **PostgreSQL**, and **Microsoft SQL Server (MSSQL)**.
+* **Versatile View Engine**: Dynamic rendering for **Kanban**, **Gantt**, **Calendar**, **Timeline**, **Dashboard**, and more.
+* **Real-time Logic**: A powerful Business Rules Engine for automation, validation, and third-party webhooks (e.g., n8n).
+* **Reliability & Undo**: A built-in **Design Journal** acting as a "Time Machine," allowing you to undo any AI change instantly.
+* **MCP Ready**: Full **Model Context Protocol** support, enabling external AI tools to control your Zenku instance.
 
-## 🌟 Key Features
+## 🧠 Architecture: The Multi-Agent Orchestrator
 
-* **Chat-to-App Development**: Build a complete system loop (Schema -> CRUD UI -> Query & Charts) simply by chatting with AI.
-* **Enterprise Multi-DB Support**: Built-in abstraction layer with native support for **SQLite**, **PostgreSQL**, and **Microsoft SQL Server (MSSQL)**.
-* **Versatile View System**: Beyond standard tables, it supports **Kanban**, **Calendar**, **Gantt Chart**, **Timeline**, **Tree Structure**, and **Gallery** views.
-* **Advanced Controls**: Integrated support for **Markdown** editor, **JSON** editor, **Auto-Numbering**, Star Rating, Color Picker, and Currency formatting.
-* **Conditional Real-time Appearance**: A client-side evaluation engine that triggers field visibility, color changes, or read-only states instantly as the user types.
-* **Event-Driven Logic Engine**: Lifecycle hooks (`before_insert`, `after_update`) for automating inventory deduction, data validation, or triggering external webhooks (e.g., n8n).
-* **MCP Integration (Model Context Protocol)**: Full support for the MCP standard, allowing external AI tools (like Claude Desktop) to communicate directly with Zenku for cross-platform data manipulation.
-* **AI Guardrails & Recovery**:
-  * **Test Agent**: Automatically assesses the impact of destructive operations and provides warnings.
-  * **Undo Time Machine**: Journals all structural changes, allowing one-click rollbacks to any historical state.
+Unlike simple "Code Gen" wrappers, Zenku separates reasoning from execution through specialized roles:
+
+```mermaid
+graph TD
+    User[User] <--> Orch[Orchestrator Agent]
+    Orch <--> Schema[Schema Agent]
+    Orch <--> UI[UI Agent]
+    Orch <--> Query[Query Agent]
+    Orch <--> Logic[Logic Agent]
+    Orch <--> Test[Test Agent]
+```
 
 ## 🏗️ Architecture
 
@@ -89,6 +98,13 @@ docker-compose up -d
 ---
 
 Zenku aims to unleash your creativity by turning complex development into a simple, fun conversation. **Happy Building!** 🚀
+
+## 📚 Documentation
+
+For more technical details and implementation guides, please refer to our official documentation:
+
+*   **[English Documentation](docs/en/README.md)**: Includes core concepts, architecture design, functional specs, and n8n integration guides.
+*   **[繁體中文文檔](docs/zh-TW/README.md)**: Conceptual overview, system architecture, and API references in Traditional Chinese.
 
 ## 📄 License
 
